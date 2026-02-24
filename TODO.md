@@ -10,7 +10,7 @@
   - `uploads/` (temporary directory for uploaded CSVs, added to `.gitignore`)
 
 ## Phase 2: Refactoring Core Logic
-- [ ] **Step 2.1:** Extract the core simulation logic from `monte_carlo_trade_sizing.py` into a new module (e.g., `simulator.py`). It should accept parameters (balance, simulations, commission, etc.) via function arguments rather than CLI args.
+- [x] **Step 2.1:** Extract the core simulation logic from `monte_carlo_trade_sizing.py` into a new module (e.g., `simulator.py`). It should accept parameters (balance, simulations, commission, etc.) via function arguments rather than CLI args.
 - [ ] **Step 2.2:** Extract the CSV parsing logic into a reusable function that can accept a file stream or path.
 - [ ] **Step 2.3:** Update existing tests in `test_monte_carlo_trade_sizing.py` to use the refactored `simulator.py` module. Run `pytest` to ensure 100% coverage is maintained.
 

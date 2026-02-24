@@ -1,0 +1,5 @@
+Date,Description,Size,Symbol,Expiration,Strike,Type,Trade Price,Profit/Loss,Stock Price,Adjusted Stock Price
+2023-01-01,Open Long,1,SPY,2023-01-31,100,Call,$5.00,, $100,$100
+2023-01-01,Open Short,-1,SPY,2023-01-31,105,Call,$2.00,, $100,$100
+2023-01-31,Close Long,-1,SPY,2023-01-31,100,Call,$8.00,$300,$105,$105
+2023-01-31,Close Short,1,SPY,2023-01-31,105,Call,$1.00,$100,$105,$105

@@ -4,6 +4,8 @@ The goal of this file is to prevent recurring mistakes. **If you are corrected b
 
 ## 🚨 Critical (Do Not Violate)
 -   **Mandatory TDD:** Write the failing test first for any behavior change.
+-   **Test Organization:** Create separate test files for each module in a dedicated `tests/` directory. Do not append tests for new modules to existing test files.
+-   **Data File Organization:** Do not place data files (e.g., CSV test files) in inappropriately named folders like 'scripts'. Use descriptive names like 'test_data' or 'data'.
 -   **No Mocks for Core Math:** Do not mock internal simulation/analysis logic; only mock external I/O when needed.
 -   **Deterministic Tests:** Seed randomness in tests when asserting numeric behavior.
 -   **Project-local Execution:** Use the project environment tools (for example, `tm_trade_analyzer_venv/bin/pytest`) instead of relying on global interpreters.

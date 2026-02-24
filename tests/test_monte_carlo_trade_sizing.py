@@ -1,5 +1,6 @@
 import sys
 import os
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
 
 import monte_carlo_trade_sizing as mcts
@@ -14,7 +15,7 @@ class TestAnalyzeTradeFile:
 
     def test_analyze_call_spread_file(self):
         """Test analysis of the actual call spread trade file."""
-        file_path = 'scripts/CML TM Trades Long 60 Delta, Short 30 Delta Call 20260223.csv'
+        file_path = 'tests/test_data/CML TM Trades Long 60 Delta, Short 30 Delta Call 20260223.csv'
         stats = mcts.analyze_trade_file(file_path)
         
         assert stats['num_trades'] == 57
@@ -27,7 +28,7 @@ class TestAnalyzeTradeFile:
 
     def test_analyze_put_spread_file(self):
         """Test analysis of the actual put spread trade file."""
-        file_path = 'scripts/CML TM Trades Short 50 Delta, Long 40 Delta Put 20260223.csv'
+        file_path = 'tests/test_data/CML TM Trades Short 50 Delta, Long 40 Delta Put 20260223.csv'
         stats = mcts.analyze_trade_file(file_path)
         
         assert stats['num_trades'] == 60

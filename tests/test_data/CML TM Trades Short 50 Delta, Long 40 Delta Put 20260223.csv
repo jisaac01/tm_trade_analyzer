@@ -1,0 +1,241 @@
+Date,Description,Size,Symbol,Expiration,Strike,Type,Trade Price,Profit/Loss,Stock Price,Adjusted Stock Price
+14-Mar-2023,Open TechnicalOpen:Short Puts,-1,SPY,21-Mar-23,390,Put, $4.27, , $391.73, $376.53
+14-Mar-2023,Open TechnicalOpen:Long Puts,1,SPY,21-Mar-23,388,Put, $3.48, , $391.73, $376.53
+20-Mar-2023,Close CloseAfterDays:Short Puts,1,SPY,21-Mar-23,390,Put, $0.62, $364, $393.74, $379.93
+20-Mar-2023,Close CloseAfterDays:Long Puts,-1,SPY,21-Mar-23,388,Put, $0.34,-$315, $393.74, $379.93
+28-Mar-2023,Open TechnicalOpen:Short Puts,-1,SPY,4-Apr-23,396,Put, $3.8, , $395.6, $381.72
+28-Mar-2023,Open TechnicalOpen:Long Puts,1,SPY,4-Apr-23,394,Put, $2.96, , $395.6, $381.72
+30-Mar-2023,Close 70%CloseAfterGains:Short Puts,1,SPY,4-Apr-23,396,Put, $0.64, $315, $403.7, $389.54
+30-Mar-2023,Close 70%CloseAfterGains:Long Puts,-1,SPY,4-Apr-23,394,Put, $0.44,-$253, $403.7, $389.54
+25-Apr-2023,Open TechnicalOpen:Short Puts,-1,SPY,2-May-23,406,Put, $3.33, , $406.08, $391.83
+25-Apr-2023,Open TechnicalOpen:Long Puts,1,SPY,2-May-23,404,Put, $2.58, , $406.08, $391.83
+28-Apr-2023,Close 70%CloseAfterGains:Short Puts,1,SPY,2-May-23,406,Put, $0.12, $320, $415.93, $401.34
+28-Apr-2023,Close 70%CloseAfterGains:Long Puts,-1,SPY,2-May-23,404,Put, $0.08,-$251, $415.93, $401.34
+3-May-2023,Open TechnicalOpen:Short Puts,-1,SPY,10-May-23,408,Put, $3.62, , $408.02, $393.71
+3-May-2023,Open TechnicalOpen:Long Puts,1,SPY,10-May-23,406,Put, $2.88, , $408.02, $393.71
+9-May-2023,Close CloseAfterDays:Short Puts,1,SPY,10-May-23,408,Put, $0.72, $289, $410.93, $396.51
+9-May-2023,Close CloseAfterDays:Long Puts,-1,SPY,10-May-23,406,Put, $0.34,-$255, $410.93, $396.51
+24-May-2023,Open TechnicalOpen:Short Puts,-1,SPY,31-May-23,411,Put, $3.21, , $411.09, $396.67
+24-May-2023,Open TechnicalOpen:Long Puts,1,SPY,31-May-23,409,Put, $2.47, , $411.09, $396.67
+26-May-2023,Close 70%CloseAfterGains:Short Puts,1,SPY,31-May-23,411,Put, $0.52, $268, $420.02, $405.28
+26-May-2023,Close 70%CloseAfterGains:Long Puts,-1,SPY,31-May-23,409,Put, $0.4,-$208, $420.02, $405.28
+7-Jun-2023,Open TechnicalOpen:Short Puts,-1,SPY,14-Jun-23,427,Put, $2.71, , $426.55, $411.59
+7-Jun-2023,Open TechnicalOpen:Long Puts,1,SPY,14-Jun-23,425,Put, $1.9, , $426.55, $411.59
+12-Jun-2023,Close 70%CloseAfterGains:Short Puts,1,SPY,14-Jun-23,427,Put, $0.55, $215, $433.8, $418.58
+12-Jun-2023,Close 70%CloseAfterGains:Long Puts,-1,SPY,14-Jun-23,425,Put, $0.34,-$157, $433.8, $418.58
+27-Jun-2023,Open TechnicalOpen:Short Puts,-1,SPY,5-Jul-23,437,Put, $2.65, , $436.17, $422.44
+27-Jun-2023,Open TechnicalOpen:Long Puts,1,SPY,5-Jul-23,435,Put, $1.78, , $436.17, $422.44
+30-Jun-2023,Close 70%CloseAfterGains:Short Puts,1,SPY,5-Jul-23,437,Put, $0.12, $252, $443.28, $429.32
+30-Jun-2023,Close 70%CloseAfterGains:Long Puts,-1,SPY,5-Jul-23,435,Put, $0.08,-$171, $443.28, $429.32
+10-Jul-2023,Open TechnicalOpen:Short Puts,-1,SPY,17-Jul-23,440,Put, $2.92, , $439.66, $425.82
+10-Jul-2023,Open TechnicalOpen:Long Puts,1,SPY,17-Jul-23,438,Put, $2.04, , $439.66, $425.82
+12-Jul-2023,Close 70%CloseAfterGains:Short Puts,1,SPY,17-Jul-23,440,Put, $0.34, $257, $446.02, $431.98
+12-Jul-2023,Close 70%CloseAfterGains:Long Puts,-1,SPY,17-Jul-23,438,Put, $0.2,-$185, $446.02, $431.98
+13-Jul-2023,Open TechnicalOpen:Short Puts,-1,SPY,20-Jul-23,450,Put, $2.42, , $449.56, $435.4
+13-Jul-2023,Open TechnicalOpen:Long Puts,1,SPY,20-Jul-23,448,Put, $1.59, , $449.56, $435.4
+18-Jul-2023,Close 70%CloseAfterGains:Short Puts,1,SPY,20-Jul-23,450,Put, $0.28, $213, $454.19, $439.89
+18-Jul-2023,Close 70%CloseAfterGains:Long Puts,-1,SPY,20-Jul-23,448,Put, $0.15,-$145, $454.19, $439.89
+21-Jul-2023,Open TechnicalOpen:Short Puts,-1,SPY,28-Jul-23,453,Put, $3, , $452.18, $437.94
+21-Jul-2023,Open TechnicalOpen:Long Puts,1,SPY,28-Jul-23,451,Put, $2.12, , $452.18, $437.94
+27-Jul-2023,Close CloseAfterDays:Short Puts,1,SPY,28-Jul-23,453,Put, $1.69, $130, $452.49, $438.24
+27-Jul-2023,Close CloseAfterDays:Long Puts,-1,SPY,28-Jul-23,451,Put, $0.94,-$119, $452.49, $438.24
+23-Aug-2023,Open TechnicalOpen:Short Puts,-1,SPY,30-Aug-23,443,Put, $3.37, , $443.03, $429.08
+23-Aug-2023,Open TechnicalOpen:Long Puts,1,SPY,30-Aug-23,441,Put, $2.54, , $443.03, $429.08
+29-Aug-2023,Close 70%CloseAfterGains:Short Puts,1,SPY,30-Aug-23,443,Put, $0.11, $325, $449.16, $435.02
+29-Aug-2023,Close 70%CloseAfterGains:Long Puts,-1,SPY,30-Aug-23,441,Put, $0.06,-$249, $449.16, $435.02
+24-Oct-2023,Open TechnicalOpen:Short Puts,-1,SPY,31-Oct-23,424,Put, $3.7, , $423.63, $411.76
+24-Oct-2023,Open TechnicalOpen:Long Puts,1,SPY,31-Oct-23,422,Put, $2.9, , $423.63, $411.76
+26-Oct-2023,Close -100%CloseAfterLosses:Short Puts,1,SPY,31-Oct-23,424,Put, $11.38,-$769, $412.55, $400.99
+26-Oct-2023,Close -100%CloseAfterLosses:Long Puts,-1,SPY,31-Oct-23,422,Put, $9.59, $668, $412.55, $400.99
+2-Nov-2023,Open TechnicalOpen:Short Puts,-1,SPY,9-Nov-23,431,Put, $3.18, , $430.76, $418.69
+2-Nov-2023,Open TechnicalOpen:Long Puts,1,SPY,9-Nov-23,429,Put, $2.36, , $430.76, $418.69
+7-Nov-2023,Close 70%CloseAfterGains:Short Puts,1,SPY,9-Nov-23,431,Put, $0.2, $297, $436.93, $424.68
+7-Nov-2023,Close 70%CloseAfterGains:Long Puts,-1,SPY,9-Nov-23,429,Put, $0.12,-$225, $436.93, $424.68
+10-Nov-2023,Open TechnicalOpen:Short Puts,-1,SPY,17-Nov-23,441,Put, $2.9, , $440.61, $428.26
+10-Nov-2023,Open TechnicalOpen:Long Puts,1,SPY,17-Nov-23,439,Put, $2.06, , $440.61, $428.26
+14-Nov-2023,Close 70%CloseAfterGains:Short Puts,1,SPY,17-Nov-23,441,Put, $0.36, $253, $448.73, $436.15
+14-Nov-2023,Close 70%CloseAfterGains:Long Puts,-1,SPY,17-Nov-23,439,Put, $0.24,-$183, $448.73, $436.15
+20-Dec-2023,Open TechnicalOpen:Short Puts,-1,SPY,27-Dec-23,469,Put, $2.72, , $468.26, $456.98
+20-Dec-2023,Open TechnicalOpen:Long Puts,1,SPY,27-Dec-23,467,Put, $1.84, , $468.26, $456.98
+22-Dec-2023,Close 70%CloseAfterGains:Short Puts,1,SPY,27-Dec-23,469,Put, $0.38, $233, $473.65, $462.24
+22-Dec-2023,Close 70%CloseAfterGains:Long Puts,-1,SPY,27-Dec-23,467,Put, $0.2,-$165, $473.65, $462.24
+10-Jan-2024,Open TechnicalOpen:Short Puts,-1,SPY,17-Jan-24,477,Put, $2.49, , $476.56, $465.08
+10-Jan-2024,Open TechnicalOpen:Long Puts,1,SPY,17-Jan-24,475,Put, $1.65, , $476.56, $465.08
+17-Jan-2024,Close DaysToExpiration:Short Puts,1,SPY,17-Jan-24,477,Put, $4.68,-$220, $472.29, $460.92
+17-Jan-2024,Close DaysToExpiration:Long Puts,-1,SPY,17-Jan-24,475,Put, $2.52, $86, $472.29, $460.92
+18-Jan-2024,Open TechnicalOpen:Short Puts,-1,SPY,25-Jan-24,477,Put, $2.73, , $476.49, $465.01
+18-Jan-2024,Open TechnicalOpen:Long Puts,1,SPY,25-Jan-24,475,Put, $1.92, , $476.49, $465.01
+22-Jan-2024,Close 70%CloseAfterGains:Short Puts,1,SPY,25-Jan-24,477,Put, $0.24, $248, $483.45, $471.81
+22-Jan-2024,Close 70%CloseAfterGains:Long Puts,-1,SPY,25-Jan-24,475,Put, $0.15,-$178, $483.45, $471.81
+31-Jan-2024,Open TechnicalOpen:Short Puts,-1,SPY,7-Feb-24,483,Put, $2.93, , $482.88, $471.25
+31-Jan-2024,Open TechnicalOpen:Long Puts,1,SPY,7-Feb-24,481,Put, $2.16, , $482.88, $471.25
+2-Feb-2024,Close 70%CloseAfterGains:Short Puts,1,SPY,7-Feb-24,483,Put, $0.16, $276, $494.35, $482.44
+2-Feb-2024,Close 70%CloseAfterGains:Long Puts,-1,SPY,7-Feb-24,481,Put, $0.12,-$205, $494.35, $482.44
+20-Feb-2024,Open TechnicalOpen:Short Puts,-1,SPY,27-Feb-24,497,Put, $3.48, , $496.76, $484.8
+20-Feb-2024,Open TechnicalOpen:Long Puts,1,SPY,27-Feb-24,495,Put, $2.61, , $496.76, $484.8
+22-Feb-2024,Close 70%CloseAfterGains:Short Puts,1,SPY,27-Feb-24,497,Put, $0.24, $323, $507.5, $495.28
+22-Feb-2024,Close 70%CloseAfterGains:Long Puts,-1,SPY,27-Feb-24,495,Put, $0.18,-$244, $507.5, $495.28
+5-Mar-2024,Open TechnicalOpen:Short Puts,-1,SPY,12-Mar-24,508,Put, $3.71, , $507.18, $494.97
+5-Mar-2024,Open TechnicalOpen:Long Puts,1,SPY,12-Mar-24,505,Put, $2.46, , $507.18, $494.97
+11-Mar-2024,Close CloseAfterDays:Short Puts,1,SPY,12-Mar-24,508,Put, $1.12, $258, $511.28, $498.97
+11-Mar-2024,Close CloseAfterDays:Long Puts,-1,SPY,12-Mar-24,505,Put, $0.48,-$199, $511.28, $498.97
+20-Mar-2024,Open TechnicalOpen:Short Puts,-1,SPY,27-Mar-24,521,Put, $3.01, , $520.48, $509.54
+20-Mar-2024,Open TechnicalOpen:Long Puts,1,SPY,27-Mar-24,519,Put, $2.16, , $520.48, $509.54
+26-Mar-2024,Close CloseAfterDays:Short Puts,1,SPY,27-Mar-24,521,Put, $2.46, $54, $518.81, $507.9
+26-Mar-2024,Close CloseAfterDays:Long Puts,-1,SPY,27-Mar-24,519,Put, $1.16,-$101, $518.81, $507.9
+3-May-2024,Open TechnicalOpen:Short Puts,-1,SPY,10-May-24,512,Put, $3.14, , $511.29, $500.54
+3-May-2024,Open TechnicalOpen:Long Puts,1,SPY,10-May-24,510,Put, $2.28, , $511.29, $500.54
+7-May-2024,Close 70%CloseAfterGains:Short Puts,1,SPY,10-May-24,512,Put, $0.44, $269, $517.14, $506.27
+7-May-2024,Close 70%CloseAfterGains:Long Puts,-1,SPY,10-May-24,510,Put, $0.26,-$203, $517.14, $506.27
+9-May-2024,Open TechnicalOpen:Short Puts,-1,SPY,16-May-24,521,Put, $3.48, , $520.17, $509.23
+9-May-2024,Open TechnicalOpen:Long Puts,1,SPY,16-May-24,519,Put, $2.58, , $520.17, $509.23
+15-May-2024,Close 70%CloseAfterGains:Short Puts,1,SPY,16-May-24,521,Put, $0.04, $343, $529.78, $518.64
+15-May-2024,Close 70%CloseAfterGains:Long Puts,-1,SPY,16-May-24,519,Put, $0.02,-$257, $529.78, $518.64
+4-Jun-2024,Open TechnicalOpen:Short Puts,-1,SPY,11-Jun-24,529,Put, $3.3, , $528.39, $517.28
+4-Jun-2024,Open TechnicalOpen:Long Puts,1,SPY,11-Jun-24,527,Put, $2.46, , $528.39, $517.28
+7-Jun-2024,Close 70%CloseAfterGains:Short Puts,1,SPY,11-Jun-24,529,Put, $0.24, $305, $534.01, $522.78
+7-Jun-2024,Close 70%CloseAfterGains:Long Puts,-1,SPY,11-Jun-24,527,Put, $0.12,-$235, $534.01, $522.78
+5-Jul-2024,Open TechnicalOpen:Short Puts,-1,SPY,12-Jul-24,555,Put, $2.68, , $554.64, $544.73
+5-Jul-2024,Open TechnicalOpen:Long Puts,1,SPY,12-Jul-24,553,Put, $1.88, , $554.64, $544.73
+10-Jul-2024,Close 70%CloseAfterGains:Short Puts,1,SPY,12-Jul-24,555,Put, $0.46, $221, $561.32, $551.29
+10-Jul-2024,Close 70%CloseAfterGains:Long Puts,-1,SPY,12-Jul-24,553,Put, $0.28,-$161, $561.32, $551.29
+17-Jul-2024,Open TechnicalOpen:Short Puts,-1,SPY,24-Jul-24,557,Put, $3.06, , $556.94, $546.99
+17-Jul-2024,Open TechnicalOpen:Long Puts,1,SPY,24-Jul-24,555,Put, $2.28, , $556.94, $546.99
+19-Jul-2024,Close -100%CloseAfterLosses:Short Puts,1,SPY,24-Jul-24,557,Put, $8.82,-$577, $548.99, $539.18
+19-Jul-2024,Close -100%CloseAfterLosses:Long Puts,-1,SPY,24-Jul-24,555,Put, $7.14, $485, $548.99, $539.18
+24-Jul-2024,Open TechnicalOpen:Short Puts,-1,SPY,31-Jul-24,542,Put, $5.11, , $541.23, $531.56
+24-Jul-2024,Open TechnicalOpen:Long Puts,1,SPY,31-Jul-24,539,Put, $3.8, , $541.23, $531.56
+30-Jul-2024,Close CloseAfterDays:Short Puts,1,SPY,31-Jul-24,542,Put, $2.68, $242, $542, $532.32
+30-Jul-2024,Close CloseAfterDays:Long Puts,-1,SPY,31-Jul-24,539,Put, $1.5,-$231, $542, $532.32
+8-Aug-2024,Open TechnicalOpen:Short Puts,-1,SPY,15-Aug-24,531,Put, $6.68, , $530.65, $521.17
+8-Aug-2024,Open TechnicalOpen:Long Puts,1,SPY,15-Aug-24,527,Put, $5.08, , $530.65, $521.17
+13-Aug-2024,Close 70%CloseAfterGains:Short Puts,1,SPY,15-Aug-24,531,Put, $0.72, $595, $542.04, $532.36
+13-Aug-2024,Close 70%CloseAfterGains:Long Puts,-1,SPY,15-Aug-24,527,Put, $0.38,-$471, $542.04, $532.36
+15-Aug-2024,Open TechnicalOpen:Short Puts,-1,SPY,22-Aug-24,554,Put, $4.15, , $553.07, $543.19
+15-Aug-2024,Open TechnicalOpen:Long Puts,1,SPY,22-Aug-24,551,Put, $2.82, , $553.07, $543.19
+19-Aug-2024,Close 70%CloseAfterGains:Short Puts,1,SPY,22-Aug-24,554,Put, $0.71, $343, $559.61, $549.61
+19-Aug-2024,Close 70%CloseAfterGains:Long Puts,-1,SPY,22-Aug-24,551,Put, $0.36,-$247, $559.61, $549.61
+13-Sep-2024,Open TechnicalOpen:Short Puts,-1,SPY,20-Sep-24,561,Put, $4.43, , $562.01, $551.97
+13-Sep-2024,Open TechnicalOpen:Long Puts,1,SPY,20-Sep-24,558,Put, $3.26, , $562.01, $551.97
+19-Sep-2024,Close 70%CloseAfterGains:Short Puts,1,SPY,20-Sep-24,561,Put, $0.24, $418, $570.98, $560.78
+19-Sep-2024,Close 70%CloseAfterGains:Long Puts,-1,SPY,20-Sep-24,558,Put, $0.15,-$312, $570.98, $560.78
+2-Oct-2024,Open TechnicalOpen:Short Puts,-1,SPY,9-Oct-24,569,Put, $4.51, , $568.86, $560.41
+2-Oct-2024,Open TechnicalOpen:Long Puts,1,SPY,9-Oct-24,566,Put, $3.41, , $568.86, $560.41
+8-Oct-2024,Close 70%CloseAfterGains:Short Puts,1,SPY,9-Oct-24,569,Put, $0.4, $410, $573.17, $564.66
+8-Oct-2024,Close 70%CloseAfterGains:Long Puts,-1,SPY,9-Oct-24,566,Put, $0.16,-$326, $573.17, $564.66
+15-Oct-2024,Open TechnicalOpen:Short Puts,-1,SPY,22-Oct-24,580,Put, $3.76, , $579.78, $571.17
+15-Oct-2024,Open TechnicalOpen:Long Puts,1,SPY,22-Oct-24,578,Put, $2.94, , $579.78, $571.17
+18-Oct-2024,Close 70%CloseAfterGains:Short Puts,1,SPY,22-Oct-24,580,Put, $0.52, $323, $584.59, $575.91
+18-Oct-2024,Close 70%CloseAfterGains:Long Puts,-1,SPY,22-Oct-24,578,Put, $0.3,-$265, $584.59, $575.91
+5-Nov-2024,Open TechnicalOpen:Short Puts,-1,SPY,12-Nov-24,577,Put, $7.14, , $576.7, $568.14
+5-Nov-2024,Open TechnicalOpen:Long Puts,1,SPY,12-Nov-24,573,Put, $5.54, , $576.7, $568.14
+6-Nov-2024,Close 70%CloseAfterGains:Short Puts,1,SPY,12-Nov-24,577,Put, $0.7, $643, $591.04, $582.26
+6-Nov-2024,Close 70%CloseAfterGains:Long Puts,-1,SPY,12-Nov-24,573,Put, $0.46,-$509, $591.04, $582.26
+7-Nov-2024,Open TechnicalOpen:Short Puts,-1,SPY,14-Nov-24,596,Put, $3.6, , $595.61, $586.76
+7-Nov-2024,Open TechnicalOpen:Long Puts,1,SPY,14-Nov-24,594,Put, $2.78, , $595.61, $586.76
+13-Nov-2024,Close CloseAfterDays:Short Puts,1,SPY,14-Nov-24,596,Put, $0.86, $273, $597.19, $588.32
+13-Nov-2024,Close CloseAfterDays:Long Puts,-1,SPY,14-Nov-24,594,Put, $0.42,-$237, $597.19, $588.32
+18-Nov-2024,Open TechnicalOpen:Short Puts,-1,SPY,25-Nov-24,589,Put, $4.47, , $588.15, $579.42
+18-Nov-2024,Open TechnicalOpen:Long Puts,1,SPY,25-Nov-24,586,Put, $3.19, , $588.15, $579.42
+22-Nov-2024,Close 70%CloseAfterGains:Short Puts,1,SPY,25-Nov-24,589,Put, $0.18, $428, $595.51, $586.67
+22-Nov-2024,Close 70%CloseAfterGains:Long Puts,-1,SPY,25-Nov-24,586,Put, $0.08,-$312, $595.51, $586.67
+10-Dec-2024,Open TechnicalOpen:Short Puts,-1,SPY,17-Dec-24,603,Put, $2.98, , $602.8, $593.85
+10-Dec-2024,Open TechnicalOpen:Long Puts,1,SPY,17-Dec-24,601,Put, $2.18, , $602.8, $593.85
+16-Dec-2024,Close 70%CloseAfterGains:Short Puts,1,SPY,17-Dec-24,603,Put, $0.22, $275, $606.79, $597.78
+16-Dec-2024,Close 70%CloseAfterGains:Long Puts,-1,SPY,17-Dec-24,601,Put, $0.11,-$208, $606.79, $597.78
+27-Jan-2025,Open TechnicalOpen:Short Puts,-1,SPY,3-Feb-25,600,Put, $5.36, , $599.37, $592.43
+27-Jan-2025,Open TechnicalOpen:Long Puts,1,SPY,3-Feb-25,596,Put, $3.74, , $599.37, $592.43
+29-Jan-2025,Close TechnicalClose:Short Puts,1,SPY,3-Feb-25,600,Put, $3.06, $229, $601.81, $594.84
+29-Jan-2025,Close TechnicalClose:Long Puts,-1,SPY,3-Feb-25,596,Put, $1.82,-$193, $601.81, $594.84
+12-Mar-2025,Open TechnicalOpen:Short Puts,-1,SPY,19-Mar-25,560,Put, $7.62, , $558.87, $552.4
+12-Mar-2025,Open TechnicalOpen:Long Puts,1,SPY,19-Mar-25,555,Put, $5.54, , $558.87, $552.4
+18-Mar-2025,Close CloseAfterDays:Short Puts,1,SPY,19-Mar-25,560,Put, $2.66, $495, $561.02, $554.53
+18-Mar-2025,Close CloseAfterDays:Long Puts,-1,SPY,19-Mar-25,555,Put, $1.03,-$452, $561.02, $554.53
+25-Mar-2025,Open TechnicalOpen:Short Puts,-1,SPY,1-Apr-25,576,Put, $4.96, , $575.46, $570.51
+25-Mar-2025,Open TechnicalOpen:Long Puts,1,SPY,1-Apr-25,573,Put, $3.76, , $575.46, $570.51
+28-Mar-2025,Close -100%CloseAfterLosses:Short Puts,1,SPY,1-Apr-25,576,Put, $20.15,-$1520, $555.66, $550.88
+28-Mar-2025,Close -100%CloseAfterLosses:Long Puts,-1,SPY,1-Apr-25,573,Put, $17.22, $1345, $555.66, $550.88
+4-Apr-2025,Open TechnicalOpen:Short Puts,-1,SPY,11-Apr-25,507,Put, $14.93, , $505.28, $500.93
+4-Apr-2025,Open TechnicalOpen:Long Puts,1,SPY,11-Apr-25,497,Put, $11.16, , $505.28, $500.93
+9-Apr-2025,Close 70%CloseAfterGains:Short Puts,1,SPY,11-Apr-25,507,Put, $1.28, $1364, $548.62, $543.9
+9-Apr-2025,Close 70%CloseAfterGains:Long Puts,-1,SPY,11-Apr-25,497,Put, $0.87,-$1030, $548.62, $543.9
+17-Apr-2025,Open TechnicalOpen:Short Puts,-1,SPY,24-Apr-25,527,Put, $7.55, , $526.41, $521.88
+17-Apr-2025,Open TechnicalOpen:Long Puts,1,SPY,24-Apr-25,522,Put, $5.51, , $526.41, $521.88
+24-Apr-2025,Close DaysToExpiration:Short Puts,1,SPY,24-Apr-25,527,Put, $0.01, $753, $546.69, $541.99
+24-Apr-2025,Close DaysToExpiration:Long Puts,-1,SPY,24-Apr-25,522,Put, $0.01,-$551, $546.69, $541.99
+25-Apr-2025,Open TechnicalOpen:Short Puts,-1,SPY,2-May-25,551,Put, $7.07, , $550.64, $545.9
+25-Apr-2025,Open TechnicalOpen:Long Puts,1,SPY,2-May-25,547,Put, $5.52, , $550.64, $545.9
+1-May-2025,Close CloseAfterDays:Short Puts,1,SPY,2-May-25,551,Put, $1.35, $571, $558.47, $553.67
+1-May-2025,Close CloseAfterDays:Long Puts,-1,SPY,2-May-25,547,Put, $0.73,-$480, $558.47, $553.67
+6-May-2025,Open TechnicalOpen:Short Puts,-1,SPY,13-May-25,559,Put, $5.92, , $558.8, $553.99
+6-May-2025,Open TechnicalOpen:Long Puts,1,SPY,13-May-25,555,Put, $4.46, , $558.8, $553.99
+12-May-2025,Close 70%CloseAfterGains:Short Puts,1,SPY,13-May-25,559,Put, $0.04, $587, $582.99, $577.97
+12-May-2025,Close 70%CloseAfterGains:Long Puts,-1,SPY,13-May-25,555,Put, $0.04,-$443, $582.99, $577.97
+4-Jun-2025,Open TechnicalOpen:Short Puts,-1,SPY,11-Jun-25,596,Put, $4.55, , $595.93, $590.8
+4-Jun-2025,Open TechnicalOpen:Long Puts,1,SPY,11-Jun-25,593,Put, $3.4, , $595.93, $590.8
+10-Jun-2025,Close 70%CloseAfterGains:Short Puts,1,SPY,11-Jun-25,596,Put, $0.48, $406, $603.08, $597.89
+10-Jun-2025,Close 70%CloseAfterGains:Long Puts,-1,SPY,11-Jun-25,593,Put, $0.22,-$319, $603.08, $597.89
+14-Jul-2025,Open TechnicalOpen:Short Puts,-1,SPY,21-Jul-25,625,Put, $3.84, , $624.81, $621.27
+14-Jul-2025,Open TechnicalOpen:Long Puts,1,SPY,21-Jul-25,623,Put, $3.06, , $624.81, $621.27
+18-Jul-2025,Close CloseAfterDays:Short Puts,1,SPY,21-Jul-25,625,Put, $0.68, $315, $627.58, $624.02
+18-Jul-2025,Close CloseAfterDays:Long Puts,-1,SPY,21-Jul-25,623,Put, $0.38,-$269, $627.58, $624.02
+31-Jul-2025,Open TechnicalOpen:Short Puts,-1,SPY,7-Aug-25,633,Put, $4.91, , $632.08, $628.5
+31-Jul-2025,Open TechnicalOpen:Long Puts,1,SPY,7-Aug-25,630,Put, $3.71, , $632.08, $628.5
+6-Aug-2025,Close CloseAfterDays:Short Puts,1,SPY,7-Aug-25,633,Put, $1.73, $317, $632.78, $629.19
+6-Aug-2025,Close CloseAfterDays:Long Puts,-1,SPY,7-Aug-25,630,Put, $0.72,-$300, $632.78, $629.19
+13-Aug-2025,Open TechnicalOpen:Short Puts,-1,SPY,20-Aug-25,645,Put, $3.04, , $644.89, $641.24
+13-Aug-2025,Open TechnicalOpen:Long Puts,1,SPY,20-Aug-25,643,Put, $2.33, , $644.89, $641.24
+19-Aug-2025,Close -100%CloseAfterLosses:Short Puts,1,SPY,20-Aug-25,645,Put, $5.62,-$259, $639.81, $636.18
+19-Aug-2025,Close -100%CloseAfterLosses:Long Puts,-1,SPY,20-Aug-25,643,Put, $3.82, $148, $639.81, $636.18
+20-Aug-2025,Open TechnicalOpen:Short Puts,-1,SPY,27-Aug-25,639,Put, $4.66, , $638.11, $634.49
+20-Aug-2025,Open TechnicalOpen:Long Puts,1,SPY,27-Aug-25,636,Put, $3.5, , $638.11, $634.49
+26-Aug-2025,Close 70%CloseAfterGains:Short Puts,1,SPY,27-Aug-25,639,Put, $0.32, $433, $645.16, $641.5
+26-Aug-2025,Close 70%CloseAfterGains:Long Puts,-1,SPY,27-Aug-25,636,Put, $0.16,-$335, $645.16, $641.5
+27-Aug-2025,Open TechnicalOpen:Short Puts,-1,SPY,3-Sep-25,647,Put, $3.38, , $646.63, $642.97
+27-Aug-2025,Open TechnicalOpen:Long Puts,1,SPY,3-Sep-25,645,Put, $2.66, , $646.63, $642.97
+2-Sep-2025,Close -100%CloseAfterLosses:Short Puts,1,SPY,3-Sep-25,647,Put, $6.68,-$331, $640.27, $636.64
+2-Sep-2025,Close -100%CloseAfterLosses:Long Puts,-1,SPY,3-Sep-25,645,Put, $4.8, $213, $640.27, $636.64
+16-Sep-2025,Open TechnicalOpen:Short Puts,-1,SPY,23-Sep-25,659,Put, $4.64, , $660, $656.26
+16-Sep-2025,Open TechnicalOpen:Long Puts,1,SPY,23-Sep-25,656,Put, $3.5, , $660, $656.26
+19-Sep-2025,Close 70%CloseAfterGains:Short Puts,1,SPY,23-Sep-25,659,Put, $0.8, $383, $663.7, $661.76
+19-Sep-2025,Close 70%CloseAfterGains:Long Puts,-1,SPY,23-Sep-25,656,Put, $0.52,-$299, $663.7, $661.76
+10-Oct-2025,Open TechnicalOpen:Short Puts,-1,SPY,17-Oct-25,654,Put, $7.33, , $653.02, $651.11
+10-Oct-2025,Open TechnicalOpen:Long Puts,1,SPY,17-Oct-25,649,Put, $5.45, , $653.02, $651.11
+15-Oct-2025,Close 70%CloseAfterGains:Short Puts,1,SPY,17-Oct-25,654,Put, $1.04, $628, $665.17, $663.23
+15-Oct-2025,Close 70%CloseAfterGains:Long Puts,-1,SPY,17-Oct-25,649,Put, $0.6,-$486, $665.17, $663.23
+16-Oct-2025,Open TechnicalOpen:Short Puts,-1,SPY,23-Oct-25,661,Put, $7.22, , $660.64, $658.71
+16-Oct-2025,Open TechnicalOpen:Long Puts,1,SPY,23-Oct-25,656,Put, $5.51, , $660.64, $658.71
+20-Oct-2025,Close 70%CloseAfterGains:Short Puts,1,SPY,23-Oct-25,661,Put, $0.84, $637, $671.3, $669.34
+20-Oct-2025,Close 70%CloseAfterGains:Long Puts,-1,SPY,23-Oct-25,656,Put, $0.5,-$502, $671.3, $669.34
+20-Nov-2025,Open TechnicalOpen:Short Puts,-1,SPY,28-Nov-25,653,Put, $8.59, , $652.53, $650.63
+20-Nov-2025,Open TechnicalOpen:Long Puts,1,SPY,28-Nov-25,648,Put, $6.77, , $652.53, $650.63
+24-Nov-2025,Close 70%CloseAfterGains:Short Puts,1,SPY,28-Nov-25,653,Put, $0.8, $778, $668.73, $666.78
+24-Nov-2025,Close 70%CloseAfterGains:Long Puts,-1,SPY,28-Nov-25,648,Put, $0.52,-$626, $668.73, $666.78
+5-Dec-2025,Open TechnicalOpen:Short Puts,-1,SPY,12-Dec-25,686,Put, $4.64, , $685.69, $683.69
+5-Dec-2025,Open TechnicalOpen:Long Puts,1,SPY,12-Dec-25,683,Put, $3.47, , $685.69, $683.69
+9-Dec-2025,Close TechnicalClose:Short Puts,1,SPY,12-Dec-25,686,Put, $5.59,-$96, $683.04, $681.05
+9-Dec-2025,Close TechnicalClose:Long Puts,-1,SPY,12-Dec-25,683,Put, $4.06, $58, $683.04, $681.05
+14-Jan-2026,Open TechnicalOpen:Short Puts,-1,SPY,21-Jan-26,691,Put, $4.28, , $690.36, $690.36
+14-Jan-2026,Open TechnicalOpen:Long Puts,1,SPY,21-Jan-26,688,Put, $3.12, , $690.36, $690.36
+20-Jan-2026,Close -100%CloseAfterLosses:Short Puts,1,SPY,21-Jan-26,691,Put, $13.9,-$963, $677.58, $677.58
+20-Jan-2026,Close -100%CloseAfterLosses:Long Puts,-1,SPY,21-Jan-26,688,Put, $10.86, $773, $677.58, $677.58
+21-Jan-2026,Open TechnicalOpen:Short Puts,-1,SPY,28-Jan-26,686,Put, $5.18, , $685.4, $685.4
+21-Jan-2026,Open TechnicalOpen:Long Puts,1,SPY,28-Jan-26,683,Put, $4.03, , $685.4, $685.4
+23-Jan-2026,Close TechnicalClose:Short Puts,1,SPY,28-Jan-26,686,Put, $2.26, $291, $689.23, $689.23
+23-Jan-2026,Close TechnicalClose:Long Puts,-1,SPY,28-Jan-26,683,Put, $1.58,-$246, $689.23, $689.23
+30-Jan-2026,Open TechnicalOpen:Short Puts,-1,SPY,6-Feb-26,693,Put, $5.97, , $691.97, $691.97
+30-Jan-2026,Open TechnicalOpen:Long Puts,1,SPY,6-Feb-26,689,Put, $4.48, , $691.97, $691.97
+2-Feb-2026,Close TechnicalClose:Short Puts,1,SPY,6-Feb-26,693,Put, $2.74, $322, $695.41, $695.41
+2-Feb-2026,Close TechnicalClose:Long Puts,-1,SPY,6-Feb-26,689,Put, $1.8,-$269, $695.41, $695.41
+3-Feb-2026,Open TechnicalOpen:Short Puts,-1,SPY,10-Feb-26,690,Put, $5.48, , $689.53, $689.53
+3-Feb-2026,Open TechnicalOpen:Long Puts,1,SPY,10-Feb-26,686,Put, $4.08, , $689.53, $689.53
+5-Feb-2026,Close -100%CloseAfterLosses:Short Puts,1,SPY,10-Feb-26,690,Put, $13.23,-$776, $677.62, $677.62
+5-Feb-2026,Close -100%CloseAfterLosses:Long Puts,-1,SPY,10-Feb-26,686,Put, $10.44, $635, $677.62, $677.62
+12-Feb-2026,Open TechnicalOpen:Short Puts,-1,SPY,19-Feb-26,682,Put, $6.74, , $681.27, $681.27
+12-Feb-2026,Open TechnicalOpen:Long Puts,1,SPY,19-Feb-26,677,Put, $4.96, , $681.27, $681.27
+19-Feb-2026,Close DaysToExpiration:Short Puts,1,SPY,19-Feb-26,682,Put, $0.02, $671, $684.48, $684.48
+19-Feb-2026,Close DaysToExpiration:Long Puts,-1,SPY,19-Feb-26,677,Put, $0.02,-$495, $684.48, $684.48
+20-Feb-2026,Open TechnicalOpen:Short Puts,-1,SPY,27-Feb-26,690,Put, $6.13, , $689.43, $689.43
+20-Feb-2026,Open TechnicalOpen:Long Puts,1,SPY,27-Feb-26,686,Put, $4.76, , $689.43, $689.43
+20-Feb-2026, ClosingMark:Short Puts,1,SPY,27-Feb-26,690,Put, $6.13,-$0.5, $681.73, $681.73
+20-Feb-2026, ClosingMark:Long Puts,-1,SPY,27-Feb-26,686,Put, $4.755,-$1, $681.73, $681.73

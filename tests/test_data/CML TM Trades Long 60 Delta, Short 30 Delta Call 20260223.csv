@@ -1,0 +1,229 @@
+Date,Description,Size,Symbol,Expiration,Strike,Type,Trade Price,Profit/Loss,Stock Price,Adjusted Stock Price
+14-Mar-2023,Open TechnicalOpen:Long Calls,1,SPY,21-Mar-23,389,Call, $5.57, , $391.73, $376.53
+14-Mar-2023,Open TechnicalOpen:Short Calls,-1,SPY,21-Mar-23,396,Call, $2.04, , $391.73, $376.53
+21-Mar-2023,Close DaysToExpiration:Long Calls,-1,SPY,21-Mar-23,389,Call, $9.6, $402, $398.91, $384.92
+21-Mar-2023,Close DaysToExpiration:Short Calls,1,SPY,21-Mar-23,396,Call, $2.56,-$53, $398.91, $384.92
+28-Mar-2023,Open TechnicalOpen:Long Calls,1,SPY,4-Apr-23,394,Call, $4.8, , $395.6, $381.72
+28-Mar-2023,Open TechnicalOpen:Short Calls,-1,SPY,4-Apr-23,401,Call, $1.44, , $395.6, $381.72
+29-Mar-2023,Close 50%CloseAfterGains:Long Calls,-1,SPY,4-Apr-23,394,Call, $8.52, $371, $401.35, $387.27
+29-Mar-2023,Close 50%CloseAfterGains:Short Calls,1,SPY,4-Apr-23,401,Call, $3.43,-$200, $401.35, $387.27
+25-Apr-2023,Open TechnicalOpen:Long Calls,1,SPY,2-May-23,404,Call, $5.18, , $406.08, $391.83
+25-Apr-2023,Open TechnicalOpen:Short Calls,-1,SPY,2-May-23,411,Call, $1.58, , $406.08, $391.83
+27-Apr-2023,Close 50%CloseAfterGains:Long Calls,-1,SPY,2-May-23,404,Call, $8.84, $365, $412.41, $397.94
+27-Apr-2023,Close 50%CloseAfterGains:Short Calls,1,SPY,2-May-23,411,Call, $3.2,-$163, $412.41, $397.94
+3-May-2023,Open TechnicalOpen:Long Calls,1,SPY,10-May-23,406,Call, $5.34, , $408.02, $393.71
+3-May-2023,Open TechnicalOpen:Short Calls,-1,SPY,10-May-23,413,Call, $1.69, , $408.02, $393.71
+10-May-2023,Close DaysToExpiration:Long Calls,-1,SPY,10-May-23,406,Call, $6.62, $127, $412.85, $398.37
+10-May-2023,Close DaysToExpiration:Short Calls,1,SPY,10-May-23,413,Call, $0.08, $160, $412.85, $398.37
+24-May-2023,Open TechnicalOpen:Long Calls,1,SPY,31-May-23,409,Call, $4.88, , $411.09, $396.67
+24-May-2023,Open TechnicalOpen:Short Calls,-1,SPY,31-May-23,416,Call, $1.36, , $411.09, $396.67
+26-May-2023,Close 50%CloseAfterGains:Long Calls,-1,SPY,31-May-23,409,Call, $11.58, $669, $420.02, $405.28
+26-May-2023,Close 50%CloseAfterGains:Short Calls,1,SPY,31-May-23,416,Call, $5.4,-$405, $420.02, $405.28
+7-Jun-2023,Open TechnicalOpen:Long Calls,1,SPY,14-Jun-23,425,Call, $3.96, , $426.55, $411.59
+7-Jun-2023,Open TechnicalOpen:Short Calls,-1,SPY,14-Jun-23,431,Call, $1.13, , $426.55, $411.59
+12-Jun-2023,Close 50%CloseAfterGains:Long Calls,-1,SPY,14-Jun-23,425,Call, $8.87, $490, $433.8, $418.58
+12-Jun-2023,Close 50%CloseAfterGains:Short Calls,1,SPY,14-Jun-23,431,Call, $3.97,-$285, $433.8, $418.58
+27-Jun-2023,Open TechnicalOpen:Long Calls,1,SPY,5-Jul-23,435,Call, $3.45, , $436.17, $422.44
+27-Jun-2023,Open TechnicalOpen:Short Calls,-1,SPY,5-Jul-23,440,Call, $1.12, , $436.17, $422.44
+30-Jun-2023,Close 50%CloseAfterGains:Long Calls,-1,SPY,5-Jul-23,435,Call, $8.76, $530, $443.28, $429.32
+30-Jun-2023,Close 50%CloseAfterGains:Short Calls,1,SPY,5-Jul-23,440,Call, $4.06,-$295, $443.28, $429.32
+10-Jul-2023,Open TechnicalOpen:Long Calls,1,SPY,17-Jul-23,439,Call, $3.03, , $439.66, $425.82
+10-Jul-2023,Open TechnicalOpen:Short Calls,-1,SPY,17-Jul-23,443,Call, $1.27, , $439.66, $425.82
+12-Jul-2023,Close 50%CloseAfterGains:Long Calls,-1,SPY,17-Jul-23,439,Call, $7.28, $424, $446.02, $431.98
+12-Jul-2023,Close 50%CloseAfterGains:Short Calls,1,SPY,17-Jul-23,443,Call, $3.78,-$252, $446.02, $431.98
+13-Jul-2023,Open TechnicalOpen:Long Calls,1,SPY,20-Jul-23,448,Call, $3.7, , $449.56, $435.4
+13-Jul-2023,Open TechnicalOpen:Short Calls,-1,SPY,20-Jul-23,453,Call, $1.26, , $449.56, $435.4
+18-Jul-2023,Close 50%CloseAfterGains:Long Calls,-1,SPY,20-Jul-23,448,Call, $6.59, $288, $454.19, $439.89
+18-Jul-2023,Close 50%CloseAfterGains:Short Calls,1,SPY,20-Jul-23,453,Call, $2.34,-$109, $454.19, $439.89
+21-Jul-2023,Open TechnicalOpen:Long Calls,1,SPY,28-Jul-23,451,Call, $3.97, , $452.18, $437.94
+21-Jul-2023,Open TechnicalOpen:Short Calls,-1,SPY,28-Jul-23,456,Call, $1.54, , $452.18, $437.94
+28-Jul-2023,Close DaysToExpiration:Long Calls,-1,SPY,28-Jul-23,451,Call, $5.92, $194, $456.92, $442.53
+28-Jul-2023,Close DaysToExpiration:Short Calls,1,SPY,28-Jul-23,456,Call, $0.88, $65, $456.92, $442.53
+23-Aug-2023,Open TechnicalOpen:Long Calls,1,SPY,30-Aug-23,441,Call, $4.59, , $443.03, $429.08
+23-Aug-2023,Open TechnicalOpen:Short Calls,-1,SPY,30-Aug-23,448,Call, $1.3, , $443.03, $429.08
+29-Aug-2023,Close 50%CloseAfterGains:Long Calls,-1,SPY,30-Aug-23,441,Call, $8.14, $354, $449.16, $435.02
+29-Aug-2023,Close 50%CloseAfterGains:Short Calls,1,SPY,30-Aug-23,448,Call, $1.89,-$60, $449.16, $435.02
+24-Oct-2023,Open TechnicalOpen:Long Calls,1,SPY,31-Oct-23,422,Call, $5.22, , $423.63, $411.76
+24-Oct-2023,Open TechnicalOpen:Short Calls,-1,SPY,31-Oct-23,429,Call, $1.76, , $423.63, $411.76
+31-Oct-2023,Close DaysToExpiration:Long Calls,-1,SPY,31-Oct-23,422,Call, ,-$523, $418.2, $406.48
+31-Oct-2023,Close DaysToExpiration:Short Calls,1,SPY,31-Oct-23,429,Call, , $175, $418.2, $406.48
+2-Nov-2023,Open TechnicalOpen:Long Calls,1,SPY,9-Nov-23,429,Call, $4.3, , $430.76, $418.69
+2-Nov-2023,Open TechnicalOpen:Short Calls,-1,SPY,9-Nov-23,435,Call, $1.36, , $430.76, $418.69
+6-Nov-2023,Close 50%CloseAfterGains:Long Calls,-1,SPY,9-Nov-23,429,Call, $7.13, $282, $435.69, $423.48
+6-Nov-2023,Close 50%CloseAfterGains:Short Calls,1,SPY,9-Nov-23,435,Call, $2.43,-$108, $435.69, $423.48
+10-Nov-2023,Open TechnicalOpen:Long Calls,1,SPY,17-Nov-23,439,Call, $4, , $440.61, $428.26
+10-Nov-2023,Open TechnicalOpen:Short Calls,-1,SPY,17-Nov-23,445,Call, $1.16, , $440.61, $428.26
+14-Nov-2023,Close 50%CloseAfterGains:Long Calls,-1,SPY,17-Nov-23,439,Call, $9.96, $595, $448.73, $436.15
+14-Nov-2023,Close 50%CloseAfterGains:Short Calls,1,SPY,17-Nov-23,445,Call, $4.63,-$348, $448.73, $436.15
+20-Dec-2023,Open TechnicalOpen:Long Calls,1,SPY,27-Dec-23,467,Call, $3.52, , $468.26, $456.98
+20-Dec-2023,Open TechnicalOpen:Short Calls,-1,SPY,27-Dec-23,472,Call, $1.21, , $468.26, $456.98
+21-Dec-2023,Close 50%CloseAfterGains:Long Calls,-1,SPY,27-Dec-23,467,Call, $6.5, $297, $472.7, $461.32
+21-Dec-2023,Close 50%CloseAfterGains:Short Calls,1,SPY,27-Dec-23,472,Call, $2.79,-$159, $472.7, $461.32
+10-Jan-2024,Open TechnicalOpen:Long Calls,1,SPY,17-Jan-24,475,Call, $3.76, , $476.56, $465.08
+10-Jan-2024,Open TechnicalOpen:Short Calls,-1,SPY,17-Jan-24,480,Call, $1.31, , $476.56, $465.08
+17-Jan-2024,Close DaysToExpiration:Long Calls,-1,SPY,17-Jan-24,475,Call, ,-$377, $472.29, $460.92
+17-Jan-2024,Close DaysToExpiration:Short Calls,1,SPY,17-Jan-24,480,Call, , $130, $472.29, $460.92
+18-Jan-2024,Open TechnicalOpen:Long Calls,1,SPY,25-Jan-24,475,Call, $4.06, , $476.49, $465.01
+18-Jan-2024,Open TechnicalOpen:Short Calls,-1,SPY,25-Jan-24,481,Call, $1.16, , $476.49, $465.01
+19-Jan-2024,Close 50%CloseAfterGains:Long Calls,-1,SPY,25-Jan-24,475,Call, $7.96, $389, $482.43, $470.81
+19-Jan-2024,Close 50%CloseAfterGains:Short Calls,1,SPY,25-Jan-24,481,Call, $3.19,-$204, $482.43, $470.81
+31-Jan-2024,Open TechnicalOpen:Long Calls,1,SPY,7-Feb-24,481,Call, $5.2, , $482.88, $471.25
+31-Jan-2024,Open TechnicalOpen:Short Calls,-1,SPY,7-Feb-24,488,Call, $1.71, , $482.88, $471.25
+2-Feb-2024,Close 50%CloseAfterGains:Long Calls,-1,SPY,7-Feb-24,481,Call, $13.96, $875, $494.35, $482.44
+2-Feb-2024,Close 50%CloseAfterGains:Short Calls,1,SPY,7-Feb-24,488,Call, $7.28,-$558, $494.35, $482.44
+20-Feb-2024,Open TechnicalOpen:Long Calls,1,SPY,27-Feb-24,495,Call, $4.46, , $496.76, $484.8
+20-Feb-2024,Open TechnicalOpen:Short Calls,-1,SPY,27-Feb-24,501,Call, $1.62, , $496.76, $484.8
+22-Feb-2024,Close 50%CloseAfterGains:Long Calls,-1,SPY,27-Feb-24,495,Call, $13.06, $859, $507.5, $495.28
+22-Feb-2024,Close 50%CloseAfterGains:Short Calls,1,SPY,27-Feb-24,501,Call, $7.4,-$579, $507.5, $495.28
+5-Mar-2024,Open TechnicalOpen:Long Calls,1,SPY,12-Mar-24,505,Call, $5.28, , $507.18, $494.97
+5-Mar-2024,Open TechnicalOpen:Short Calls,-1,SPY,12-Mar-24,512,Call, $1.84, , $507.18, $494.97
+7-Mar-2024,Close 50%CloseAfterGains:Long Calls,-1,SPY,12-Mar-24,505,Call, $10.82, $553, $514.81, $502.41
+7-Mar-2024,Close 50%CloseAfterGains:Short Calls,1,SPY,12-Mar-24,512,Call, $5.18,-$335, $514.81, $502.41
+20-Mar-2024,Open TechnicalOpen:Long Calls,1,SPY,27-Mar-24,519,Call, $4.08, , $520.48, $509.54
+20-Mar-2024,Open TechnicalOpen:Short Calls,-1,SPY,27-Mar-24,525,Call, $1.24, , $520.48, $509.54
+27-Mar-2024,Close DaysToExpiration:Long Calls,-1,SPY,27-Mar-24,519,Call, $3.92,-$17, $523.17, $512.17
+27-Mar-2024,Close DaysToExpiration:Short Calls,1,SPY,27-Mar-24,525,Call, , $123, $523.17, $512.17
+3-May-2024,Open TechnicalOpen:Long Calls,1,SPY,10-May-24,510,Call, $3.96, , $511.29, $500.54
+3-May-2024,Open TechnicalOpen:Short Calls,-1,SPY,10-May-24,516,Call, $1.17, , $511.29, $500.54
+6-May-2024,Close 50%CloseAfterGains:Long Calls,-1,SPY,10-May-24,510,Call, $7.42, $345, $516.57, $505.71
+6-May-2024,Close 50%CloseAfterGains:Short Calls,1,SPY,10-May-24,516,Call, $2.92,-$176, $516.57, $505.71
+9-May-2024,Open TechnicalOpen:Long Calls,1,SPY,16-May-24,519,Call, $4.09, , $520.17, $509.23
+9-May-2024,Open TechnicalOpen:Short Calls,-1,SPY,16-May-24,525,Call, $1.33, , $520.17, $509.23
+15-May-2024,Close 50%CloseAfterGains:Long Calls,-1,SPY,16-May-24,519,Call, $11.11, $701, $529.78, $518.64
+15-May-2024,Close 50%CloseAfterGains:Short Calls,1,SPY,16-May-24,525,Call, $5.2,-$388, $529.78, $518.64
+4-Jun-2024,Open TechnicalOpen:Long Calls,1,SPY,11-Jun-24,527,Call, $4.46, , $528.39, $517.28
+4-Jun-2024,Open TechnicalOpen:Short Calls,-1,SPY,11-Jun-24,533,Call, $1.49, , $528.39, $517.28
+5-Jun-2024,Close 50%CloseAfterGains:Long Calls,-1,SPY,11-Jun-24,527,Call, $8.56, $409, $534.67, $523.43
+5-Jun-2024,Close 50%CloseAfterGains:Short Calls,1,SPY,11-Jun-24,533,Call, $3.94,-$246, $534.67, $523.43
+5-Jul-2024,Open TechnicalOpen:Long Calls,1,SPY,12-Jul-24,553,Call, $4.26, , $554.64, $544.73
+5-Jul-2024,Open TechnicalOpen:Short Calls,-1,SPY,12-Jul-24,559,Call, $1.27, , $554.64, $544.73
+10-Jul-2024,Close 50%CloseAfterGains:Long Calls,-1,SPY,12-Jul-24,553,Call, $9.06, $479, $561.32, $551.29
+10-Jul-2024,Close 50%CloseAfterGains:Short Calls,1,SPY,12-Jul-24,559,Call, $3.99,-$273, $561.32, $551.29
+17-Jul-2024,Open TechnicalOpen:Long Calls,1,SPY,24-Jul-24,555,Call, $5.25, , $556.94, $546.99
+17-Jul-2024,Open TechnicalOpen:Short Calls,-1,SPY,24-Jul-24,562,Call, $1.75, , $556.94, $546.99
+24-Jul-2024,Close DaysToExpiration:Long Calls,-1,SPY,24-Jul-24,555,Call, ,-$526, $541.23, $531.56
+24-Jul-2024,Close DaysToExpiration:Short Calls,1,SPY,24-Jul-24,562,Call, , $174, $541.23, $531.56
+8-Aug-2024,Open TechnicalOpen:Long Calls,1,SPY,15-Aug-24,527,Call, $8.46, , $530.65, $521.17
+8-Aug-2024,Open TechnicalOpen:Short Calls,-1,SPY,15-Aug-24,538,Call, $2.75, , $530.65, $521.17
+13-Aug-2024,Close 50%CloseAfterGains:Long Calls,-1,SPY,15-Aug-24,527,Call, $15.43, $696, $542.04, $532.36
+13-Aug-2024,Close 50%CloseAfterGains:Short Calls,1,SPY,15-Aug-24,538,Call, $6.09,-$335, $542.04, $532.36
+15-Aug-2024,Open TechnicalOpen:Long Calls,1,SPY,22-Aug-24,552,Call, $3.9, , $553.07, $543.19
+15-Aug-2024,Open TechnicalOpen:Short Calls,-1,SPY,22-Aug-24,558,Call, $1.3, , $553.07, $543.19
+19-Aug-2024,Close 50%CloseAfterGains:Long Calls,-1,SPY,22-Aug-24,552,Call, $7.8, $389, $559.61, $549.61
+19-Aug-2024,Close 50%CloseAfterGains:Short Calls,1,SPY,22-Aug-24,558,Call, $3.11,-$182, $559.61, $549.61
+13-Sep-2024,Open TechnicalOpen:Long Calls,1,SPY,20-Sep-24,560,Call, $5.44, , $562.01, $551.97
+13-Sep-2024,Open TechnicalOpen:Short Calls,-1,SPY,20-Sep-24,567,Call, $1.82, , $562.01, $551.97
+19-Sep-2024,Close 50%CloseAfterGains:Long Calls,-1,SPY,20-Sep-24,560,Call, $10.88, $543, $570.98, $560.78
+19-Sep-2024,Close 50%CloseAfterGains:Short Calls,1,SPY,20-Sep-24,567,Call, $3.84,-$203, $570.98, $560.78
+2-Oct-2024,Open TechnicalOpen:Long Calls,1,SPY,9-Oct-24,566,Call, $7.02, , $568.86, $560.41
+2-Oct-2024,Open TechnicalOpen:Short Calls,-1,SPY,9-Oct-24,575,Call, $2.19, , $568.86, $560.41
+9-Oct-2024,Close DaysToExpiration:Long Calls,-1,SPY,9-Oct-24,566,Call, $11.54, $451, $577.14, $568.57
+9-Oct-2024,Close DaysToExpiration:Short Calls,1,SPY,9-Oct-24,575,Call, $2.54,-$36, $577.14, $568.57
+15-Oct-2024,Open TechnicalOpen:Long Calls,1,SPY,22-Oct-24,578,Call, $4.89, , $579.78, $571.17
+15-Oct-2024,Open TechnicalOpen:Short Calls,-1,SPY,22-Oct-24,585,Call, $1.54, , $579.78, $571.17
+18-Oct-2024,Close 50%CloseAfterGains:Long Calls,-1,SPY,22-Oct-24,578,Call, $7, $210, $584.59, $575.91
+18-Oct-2024,Close 50%CloseAfterGains:Short Calls,1,SPY,22-Oct-24,585,Call, $1.63,-$10, $584.59, $575.91
+5-Nov-2024,Open TechnicalOpen:Long Calls,1,SPY,12-Nov-24,573,Call, $9.43, , $576.7, $568.14
+5-Nov-2024,Open TechnicalOpen:Short Calls,-1,SPY,12-Nov-24,586,Call, $2.8, , $576.7, $568.14
+6-Nov-2024,Close 50%CloseAfterGains:Long Calls,-1,SPY,12-Nov-24,573,Call, $18.78, $934, $591.04, $582.26
+6-Nov-2024,Close 50%CloseAfterGains:Short Calls,1,SPY,12-Nov-24,586,Call, $7.26,-$447, $591.04, $582.26
+7-Nov-2024,Open TechnicalOpen:Long Calls,1,SPY,14-Nov-24,594,Call, $4.88, , $595.61, $586.76
+7-Nov-2024,Open TechnicalOpen:Short Calls,-1,SPY,14-Nov-24,601,Call, $1.56, , $595.61, $586.76
+14-Nov-2024,Close DaysToExpiration:Long Calls,-1,SPY,14-Nov-24,594,Call, $0.04,-$485, $593.35, $584.54
+14-Nov-2024,Close DaysToExpiration:Short Calls,1,SPY,14-Nov-24,601,Call, $0.01, $154, $593.35, $584.54
+18-Nov-2024,Open TechnicalOpen:Long Calls,1,SPY,25-Nov-24,586,Call, $5.59, , $588.15, $579.42
+18-Nov-2024,Open TechnicalOpen:Short Calls,-1,SPY,25-Nov-24,594,Call, $1.68, , $588.15, $579.42
+21-Nov-2024,Close 50%CloseAfterGains:Long Calls,-1,SPY,25-Nov-24,586,Call, $8.79, $319, $593.67, $584.85
+21-Nov-2024,Close 50%CloseAfterGains:Short Calls,1,SPY,25-Nov-24,594,Call, $2.67,-$100, $593.67, $584.85
+10-Dec-2024,Open TechnicalOpen:Long Calls,1,SPY,17-Dec-24,601,Call, $4.38, , $602.8, $593.85
+10-Dec-2024,Open TechnicalOpen:Short Calls,-1,SPY,17-Dec-24,607,Call, $1.4, , $602.8, $593.85
+11-Dec-2024,Close 50%CloseAfterGains:Long Calls,-1,SPY,17-Dec-24,601,Call, $7.64, $325, $607.46, $598.44
+11-Dec-2024,Close 50%CloseAfterGains:Short Calls,1,SPY,17-Dec-24,607,Call, $2.96,-$157, $607.46, $598.44
+27-Jan-2025,Open TechnicalOpen:Long Calls,1,SPY,3-Feb-25,597,Call, $6.78, , $599.37, $592.43
+27-Jan-2025,Open TechnicalOpen:Short Calls,-1,SPY,3-Feb-25,606,Call, $2.31, , $599.37, $592.43
+29-Jan-2025,Close TechnicalClose:Long Calls,-1,SPY,3-Feb-25,597,Call, $7.5, $71, $601.81, $594.84
+29-Jan-2025,Close TechnicalClose:Short Calls,1,SPY,3-Feb-25,606,Call, $2.41,-$11, $601.81, $594.84
+12-Mar-2025,Open TechnicalOpen:Long Calls,1,SPY,19-Mar-25,555,Call, $10.26, , $558.87, $552.4
+12-Mar-2025,Open TechnicalOpen:Short Calls,-1,SPY,19-Mar-25,569,Call, $3.36, , $558.87, $552.4
+19-Mar-2025,Close DaysToExpiration:Long Calls,-1,SPY,19-Mar-25,555,Call, $11.74, $147, $567.13, $560.57
+19-Mar-2025,Close DaysToExpiration:Short Calls,1,SPY,19-Mar-25,569,Call, $0.02, $333, $567.13, $560.57
+25-Mar-2025,Open TechnicalOpen:Long Calls,1,SPY,1-Apr-25,573,Call, $6.38, , $575.46, $570.51
+25-Mar-2025,Open TechnicalOpen:Short Calls,-1,SPY,1-Apr-25,582,Call, $1.85, , $575.46, $570.51
+1-Apr-2025,Close DaysToExpiration:Long Calls,-1,SPY,1-Apr-25,573,Call, ,-$639, $560.97, $556.14
+1-Apr-2025,Close DaysToExpiration:Short Calls,1,SPY,1-Apr-25,582,Call, , $184, $560.97, $556.14
+4-Apr-2025,Open TechnicalOpen:Long Calls,1,SPY,11-Apr-25,497,Call, $20.27, , $505.28, $500.93
+4-Apr-2025,Open TechnicalOpen:Short Calls,-1,SPY,11-Apr-25,524,Call, $6.06, , $505.28, $500.93
+9-Apr-2025,Close 50%CloseAfterGains:Long Calls,-1,SPY,11-Apr-25,497,Call, $47.67, $2739, $548.62, $543.9
+9-Apr-2025,Close 50%CloseAfterGains:Short Calls,1,SPY,11-Apr-25,524,Call, $22.59,-$1654, $548.62, $543.9
+17-Apr-2025,Open TechnicalOpen:Long Calls,1,SPY,24-Apr-25,522,Call, $10.24, , $526.41, $521.88
+17-Apr-2025,Open TechnicalOpen:Short Calls,-1,SPY,24-Apr-25,536,Call, $3.23, , $526.41, $521.88
+23-Apr-2025,Close 50%CloseAfterGains:Long Calls,-1,SPY,24-Apr-25,522,Call, $15.09, $484, $535.42, $530.81
+23-Apr-2025,Close 50%CloseAfterGains:Short Calls,1,SPY,24-Apr-25,536,Call, $4.4,-$118, $535.42, $530.81
+24-Apr-2025,Open TechnicalOpen:Long Calls,1,SPY,1-May-25,542,Call, $11.06, , $546.69, $541.99
+24-Apr-2025,Open TechnicalOpen:Short Calls,-1,SPY,1-May-25,557,Call, $3.32, , $546.69, $541.99
+1-May-2025,Close DaysToExpiration:Long Calls,-1,SPY,1-May-25,542,Call, $16.56, $549, $558.47, $553.67
+1-May-2025,Close DaysToExpiration:Short Calls,1,SPY,1-May-25,557,Call, $1.98, $133, $558.47, $553.67
+6-May-2025,Open TechnicalOpen:Long Calls,1,SPY,13-May-25,555,Call, $9.8, , $558.8, $553.99
+6-May-2025,Open TechnicalOpen:Short Calls,-1,SPY,13-May-25,568,Call, $2.96, , $558.8, $553.99
+12-May-2025,Close 50%CloseAfterGains:Long Calls,-1,SPY,13-May-25,555,Call, $27.43, $1762, $582.99, $577.97
+12-May-2025,Close 50%CloseAfterGains:Short Calls,1,SPY,13-May-25,568,Call, $14.67,-$1172, $582.99, $577.97
+4-Jun-2025,Open TechnicalOpen:Long Calls,1,SPY,11-Jun-25,593,Call, $7.2, , $595.93, $590.8
+4-Jun-2025,Open TechnicalOpen:Short Calls,-1,SPY,11-Jun-25,603,Call, $2.15, , $595.93, $590.8
+10-Jun-2025,Close 50%CloseAfterGains:Long Calls,-1,SPY,11-Jun-25,593,Call, $10.18, $297, $603.08, $597.89
+10-Jun-2025,Close 50%CloseAfterGains:Short Calls,1,SPY,11-Jun-25,603,Call, $2.28,-$14, $603.08, $597.89
+14-Jul-2025,Open TechnicalOpen:Long Calls,1,SPY,21-Jul-25,623,Call, $5.5, , $624.81, $621.27
+14-Jul-2025,Open TechnicalOpen:Short Calls,-1,SPY,21-Jul-25,630,Call, $1.88, , $624.81, $621.27
+21-Jul-2025,Close DaysToExpiration:Long Calls,-1,SPY,21-Jul-25,623,Call, $5.44,-$7, $628.77, $625.21
+21-Jul-2025,Close DaysToExpiration:Short Calls,1,SPY,21-Jul-25,630,Call, $0.02, $185, $628.77, $625.21
+31-Jul-2025,Open TechnicalOpen:Long Calls,1,SPY,7-Aug-25,630,Call, $6.06, , $632.08, $628.5
+31-Jul-2025,Open TechnicalOpen:Short Calls,-1,SPY,7-Aug-25,638,Call, $1.99, , $632.08, $628.5
+7-Aug-2025,Close DaysToExpiration:Long Calls,-1,SPY,7-Aug-25,630,Call, $1.69,-$438, $632.25, $628.67
+7-Aug-2025,Close DaysToExpiration:Short Calls,1,SPY,7-Aug-25,638,Call, $0.01, $197, $632.25, $628.67
+13-Aug-2025,Open TechnicalOpen:Long Calls,1,SPY,20-Aug-25,643,Call, $4.86, , $644.89, $641.24
+13-Aug-2025,Open TechnicalOpen:Short Calls,-1,SPY,20-Aug-25,650,Call, $1.3, , $644.89, $641.24
+20-Aug-2025,Close DaysToExpiration:Long Calls,-1,SPY,20-Aug-25,643,Call, $0.01,-$486, $638.11, $634.49
+20-Aug-2025,Close DaysToExpiration:Short Calls,1,SPY,20-Aug-25,650,Call, , $129, $638.11, $634.49
+27-Aug-2025,Open TechnicalOpen:Long Calls,1,SPY,3-Sep-25,645,Call, $5.36, , $646.63, $642.97
+27-Aug-2025,Open TechnicalOpen:Short Calls,-1,SPY,3-Sep-25,652,Call, $1.64, , $646.63, $642.97
+3-Sep-2025,Close DaysToExpiration:Long Calls,-1,SPY,3-Sep-25,645,Call, $0.01,-$536, $643.74, $640.09
+3-Sep-2025,Close DaysToExpiration:Short Calls,1,SPY,3-Sep-25,652,Call, , $163, $643.74, $640.09
+16-Sep-2025,Open TechnicalOpen:Long Calls,1,SPY,23-Sep-25,657,Call, $5.84, , $660, $656.26
+16-Sep-2025,Open TechnicalOpen:Short Calls,-1,SPY,23-Sep-25,665,Call, $1.82, , $660, $656.26
+19-Sep-2025,Close 50%CloseAfterGains:Long Calls,-1,SPY,23-Sep-25,657,Call, $7.86, $201, $663.7, $661.76
+19-Sep-2025,Close 50%CloseAfterGains:Short Calls,1,SPY,23-Sep-25,665,Call, $1.66, $15, $663.7, $661.76
+10-Oct-2025,Open TechnicalOpen:Long Calls,1,SPY,17-Oct-25,649,Call, $10.21, , $653.02, $651.11
+10-Oct-2025,Open TechnicalOpen:Short Calls,-1,SPY,17-Oct-25,662,Call, $3.18, , $653.02, $651.11
+15-Oct-2025,Close 50%CloseAfterGains:Long Calls,-1,SPY,17-Oct-25,649,Call, $16.69, $647, $665.17, $663.23
+15-Oct-2025,Close 50%CloseAfterGains:Short Calls,1,SPY,17-Oct-25,662,Call, $5.62,-$245, $665.17, $663.23
+16-Oct-2025,Open TechnicalOpen:Long Calls,1,SPY,23-Oct-25,657,Call, $9.71, , $660.64, $658.71
+16-Oct-2025,Open TechnicalOpen:Short Calls,-1,SPY,23-Oct-25,669,Call, $3.01, , $660.64, $658.71
+20-Oct-2025,Close 50%CloseAfterGains:Long Calls,-1,SPY,23-Oct-25,657,Call, $15.1, $538, $671.3, $669.34
+20-Oct-2025,Close 50%CloseAfterGains:Short Calls,1,SPY,23-Oct-25,669,Call, $4.77,-$177, $671.3, $669.34
+20-Nov-2025,Open TechnicalOpen:Long Calls,1,SPY,28-Nov-25,648,Call, $12.07, , $652.53, $650.63
+20-Nov-2025,Open TechnicalOpen:Short Calls,-1,SPY,28-Nov-25,664,Call, $3.48, , $652.53, $650.63
+24-Nov-2025,Close 50%CloseAfterGains:Long Calls,-1,SPY,28-Nov-25,648,Call, $22.16, $1008, $668.73, $666.78
+24-Nov-2025,Close 50%CloseAfterGains:Short Calls,1,SPY,28-Nov-25,664,Call, $8.04,-$457, $668.73, $666.78
+5-Dec-2025,Open TechnicalOpen:Long Calls,1,SPY,12-Dec-25,683,Call, $6.52, , $685.69, $683.69
+5-Dec-2025,Open TechnicalOpen:Short Calls,-1,SPY,12-Dec-25,692,Call, $1.95, , $685.69, $683.69
+9-Dec-2025,Close TechnicalClose:Long Calls,-1,SPY,12-Dec-25,683,Call, $4.12,-$241, $683.04, $681.05
+9-Dec-2025,Close TechnicalClose:Short Calls,1,SPY,12-Dec-25,692,Call, $0.78, $116, $683.04, $681.05
+14-Jan-2026,Open TechnicalOpen:Long Calls,1,SPY,21-Jan-26,688,Call, $5.62, , $690.36, $690.36
+14-Jan-2026,Open TechnicalOpen:Short Calls,-1,SPY,21-Jan-26,696,Call, $1.5, , $690.36, $690.36
+21-Jan-2026,Close DaysToExpiration:Long Calls,-1,SPY,21-Jan-26,688,Call, $0.01,-$562, $685.4, $685.4
+21-Jan-2026,Close DaysToExpiration:Short Calls,1,SPY,21-Jan-26,696,Call, $0.01, $148, $685.4, $685.4
+30-Jan-2026,Open TechnicalOpen:Long Calls,1,SPY,6-Feb-26,689,Call, $7.56, , $691.97, $691.97
+30-Jan-2026,Open TechnicalOpen:Short Calls,-1,SPY,6-Feb-26,699,Call, $2.13, , $691.97, $691.97
+2-Feb-2026,Close TechnicalClose:Long Calls,-1,SPY,6-Feb-26,689,Call, $8.86, $129, $695.41, $695.41
+2-Feb-2026,Close TechnicalClose:Short Calls,1,SPY,6-Feb-26,699,Call, $2.2,-$8, $695.41, $695.41
+3-Feb-2026,Open TechnicalOpen:Long Calls,1,SPY,10-Feb-26,686,Call, $8.28, , $689.53, $689.53
+3-Feb-2026,Open TechnicalOpen:Short Calls,-1,SPY,10-Feb-26,697,Call, $2.17, , $689.53, $689.53
+10-Feb-2026,Close DaysToExpiration:Long Calls,-1,SPY,10-Feb-26,686,Call, $6.12,-$217, $692.12, $692.12
+10-Feb-2026,Close DaysToExpiration:Short Calls,1,SPY,10-Feb-26,697,Call, $0.01, $215, $692.12, $692.12
+12-Feb-2026,Open TechnicalOpen:Long Calls,1,SPY,19-Feb-26,678,Call, $9.09, , $681.27, $681.27
+12-Feb-2026,Open TechnicalOpen:Short Calls,-1,SPY,19-Feb-26,690,Call, $2.51, , $681.27, $681.27
+19-Feb-2026,Close DaysToExpiration:Long Calls,-1,SPY,19-Feb-26,678,Call, $6.16,-$294, $684.48, $684.48
+19-Feb-2026,Close DaysToExpiration:Short Calls,1,SPY,19-Feb-26,690,Call, $0.01, $249, $684.48, $684.48
+20-Feb-2026,Open TechnicalOpen:Long Calls,1,SPY,27-Feb-26,686,Call, $8.22, , $689.43, $689.43
+20-Feb-2026,Open TechnicalOpen:Short Calls,-1,SPY,27-Feb-26,696,Call, $2.39, , $689.43, $689.43
+20-Feb-2026, ClosingMark:Long Calls,-1,SPY,27-Feb-26,686,Call, $8.215,-$1, $682.29, $682.29
+20-Feb-2026, ClosingMark:Short Calls,1,SPY,27-Feb-26,696,Call, $2.39,-$0.5, $682.29, $682.29
