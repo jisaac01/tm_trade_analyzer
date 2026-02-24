@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}Trade Analyzer{% endblock %}
+
+{% block content %}
+<section class="hero">
+    <h1>Monte Carlo Trade Analyzer</h1>
+    <p>Click to run the simulation.</p>
+</section>
+
+<section class="trade-card">
+    <form method="POST">
+        <button type="submit">Run Simulation</button>
+    </form>
+</section>
+{% endblock %}
