@@ -15,7 +15,8 @@ if not os.path.exists(UPLOAD_FOLDER):
 
 def format_currency_whole(value):
     value_int = int(value)
-    return f"-${abs(value_int)}" if value_int < 0 else f"${value_int}"
+    formatted = f"{abs(value_int):,}"
+    return f"-${formatted}" if value_int < 0 else f"${formatted}"
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -34,9 +35,9 @@ def index():
         session['original_filename'] = csv_file.filename
 
         # Get parameters
-        initial_balance = float(request.form.get('initial_balance', 100000))
+        initial_balance = float(request.form.get('initial_balance', 10000))
         num_simulations = int(request.form.get('num_simulations', 1000))
-        option_commission = float(request.form.get('option_commission', 1.0))
+        option_commission = float(request.form.get('option_commission', 0.50))
         position_sizing = request.form.get('position_sizing_mode', 'percent')
         dynamic_risk_sizing = 'dynamic_risk_sizing' in request.form
         simulation_mode = request.form.get('simulation_mode', 'iid')
@@ -64,12 +65,21 @@ def results():
         return redirect(url_for('index'))
 
     if request.method == 'POST':
+        # Handle new CSV upload
+        csv_file = request.files.get('csv_file')
+        if csv_file and csv_file.filename:
+            filename = str(uuid.uuid4()) + '.csv'
+            filepath = os.path.join(UPLOAD_FOLDER, filename)
+            csv_file.save(filepath)
+            session['csv_filepath'] = filepath
+            session['original_filename'] = csv_file.filename
+
         # Update params from form
         params = session.get('params', {})
         params.update({
-            'initial_balance': float(request.form.get('initial_balance', params.get('initial_balance', 100000))),
+            'initial_balance': float(request.form.get('initial_balance', params.get('initial_balance', 10000))),
             'num_simulations': int(request.form.get('num_simulations', params.get('num_simulations', 1000))),
-            'option_commission': float(request.form.get('option_commission', params.get('option_commission', 1.0))),
+            'option_commission': float(request.form.get('option_commission', params.get('option_commission', 0.50))),
             'position_sizing': request.form.get('position_sizing_mode', params.get('position_sizing', 'percent')),
             'dynamic_risk_sizing': 'dynamic_risk_sizing' in request.form,
             'simulation_mode': request.form.get('simulation_mode', params.get('simulation_mode', 'iid')),
@@ -80,9 +90,9 @@ def results():
 
     # GET: run simulation with current params
     params = session.get('params', {
-        'initial_balance': 100000,
+        'initial_balance': 10000,
         'num_simulations': 1000,
-        'option_commission': 1.0,
+        'option_commission': 0.50,
         'position_sizing': 'percent',
         'dynamic_risk_sizing': True,
         'simulation_mode': 'iid',
@@ -95,15 +105,19 @@ def results():
     trade_stats = trade_parser.parse_trade_csv(csv_filepath)
     trade_stats['name'] = os.path.splitext(session['original_filename'])[0]
 
-    # Run simulation
-    trade_reports = simulator.run_monte_carlo_simulation(
-        trade_stats, params['initial_balance'], params['num_simulations'],
-        position_sizing=params['position_sizing'],
-        dynamic_risk_sizing=params['dynamic_risk_sizing'],
-        simulation_mode=params['simulation_mode'],
-        block_size=params['block_size'],
-        commission_per_contract=params['option_commission']
-    )
+    try:
+        # Run simulation
+        trade_reports = simulator.run_monte_carlo_simulation(
+            trade_stats, params['initial_balance'], params['num_simulations'],
+            position_sizing=params['position_sizing'],
+            dynamic_risk_sizing=params['dynamic_risk_sizing'],
+            simulation_mode=params['simulation_mode'],
+            block_size=params['block_size'],
+            commission_per_contract=params['option_commission']
+        )
+    except Exception as e:
+        flash(f'Error running simulation: {str(e)}. Please check your trade data.')
+        return redirect(url_for('index'))
 
     # Prepare data for template
     for report in trade_reports:
@@ -118,4 +132,5 @@ def results():
 
     return render_template('results.html',
                            trade_reports=trade_reports,
+                           original_filename=session['original_filename'],
                            **params)

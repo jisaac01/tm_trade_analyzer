@@ -185,6 +185,6 @@ def test_results_post_update_params(client):
 def test_format_currency_whole():
     """Test the format_currency_whole function."""
     from app import format_currency_whole
-    assert format_currency_whole(1000) == '$1000'
+    assert format_currency_whole(1000) == '$1,000'
     assert format_currency_whole(-500) == '-$500'
     assert format_currency_whole(0) == '$0'

@@ -315,10 +315,10 @@ def run_monte_carlo_simulation(
             'Contracts': ps,
             'Target Risk %': f"{row['target_risk_pct']:.2f}%",
             'Actual Risk %': f"{row['actual_risk_pct']:.2f}%",
-            'Avg Final $': f"${avg_final_balance:.2f}",
+            'Avg Final $': f"${avg_final_balance:,.0f}",
             'Bankruptcy Prob': f"{bankrupt_prob:.0%}",
-            'Avg Max Drawdown': f"${avg_max_drawdown:.2f}",
-            'Max Drawdown': f"${max_drawdown:.2f}",
+            'Avg Max Drawdown': f"${avg_max_drawdown:,.0f}",
+            'Max Drawdown': f"${max_drawdown:,.0f}",
             'Avg Max Losing Streak': f"{avg_max_losing_streak:.1f}",
             'Max Losing Streak': f"{max_losing_streak:.0f}"
         })
@@ -336,7 +336,7 @@ def run_monte_carlo_simulation(
         'trade_name': trade['name'],
         'summary': trade,
         'table_rows': data,
-        'pnl_preview': [round(x) for x in trade['pnl_distribution'][:10]],
+        'pnl_preview': [f"{round(x):,}" for x in trade['pnl_distribution'][:10]],
         'historical_max_losing_streak': historical_max_losing_streak
     }
     
