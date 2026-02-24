@@ -3,7 +3,7 @@
     "configurations": [
         {
             "name": "Python: Flask",
-            "type": "python",
+            "type": "debugpy",
             "request": "launch",
             "module": "flask",
             "env": {
@@ -14,7 +14,8 @@
             "args": [
                 "run"
             ],
-            "jinja": true
+            "jinja": true,
+            "subProcess": true
         }
     ]
 }

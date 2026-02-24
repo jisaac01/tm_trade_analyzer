@@ -5,11 +5,65 @@
 {% block content %}
 <section class="hero">
     <h1>Monte Carlo Trade Analyzer</h1>
-    <p>Click to run the simulation.</p>
+    <p>Upload your trade data and configure simulation parameters.</p>
 </section>
 
 <section class="trade-card">
-    <form method="POST">
+    <h2>Simulation Configuration</h2>
+    <form method="POST" enctype="multipart/form-data">
+        <div class="form-group">
+            <label for="csv_file">Trade Data CSV:</label>
+            <input type="file" id="csv_file" name="csv_file" accept=".csv" required>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="initial_balance">Initial Balance ($):</label>
+                <input type="number" id="initial_balance" name="initial_balance" value="100000" min="1" step="0.01" style="width: 120px;">
+            </div>
+            <div class="form-group">
+                <label for="num_simulations">Number of Simulations:</label>
+                <input type="number" id="num_simulations" name="num_simulations" value="1000" min="1" style="width: 100px;">
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="option_commission">Option Commission ($):</label>
+                <input type="number" id="option_commission" name="option_commission" value="1.0" min="0" step="0.01" style="width: 100px;">
+            </div>
+            <div class="form-group">
+                <label for="position_sizing_mode">Position Sizing Mode:</label>
+                <select id="position_sizing_mode" name="position_sizing_mode" style="width: 120px;">
+                    <option value="percent">Percent</option>
+                    <option value="contracts">Contracts</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label for="dynamic_risk_sizing">
+                <input type="checkbox" id="dynamic_risk_sizing" name="dynamic_risk_sizing" checked> Dynamic Risk Sizing
+            </label>
+        </div>
+
+        <details>
+            <summary style="cursor: pointer; color: var(--accent); margin-bottom: 10px;">Advanced Options</summary>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="simulation_mode">Simulation Mode:</label>
+                    <select id="simulation_mode" name="simulation_mode" style="width: 120px;">
+                        <option value="iid">IID</option>
+                        <option value="moving-block-bootstrap">Bootstrap</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="block_size">Block Size:</label>
+                    <input type="number" id="block_size" name="block_size" value="1" min="1" style="width: 80px;">
+                </div>
+            </div>
+        </details>
+
         <button type="submit">Run Simulation</button>
     </form>
 </section>
