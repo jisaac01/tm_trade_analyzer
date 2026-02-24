@@ -8,6 +8,7 @@
     -   `TODO.md` is the single source of truth for the current project plan.
     -   Update it as tasks are completed or requirements change.
     -   When implementing from the TODO, **do not go past the current Phase** (or the current item, if it's complex or requires a lot of code). Stop and wait for review/confirmation before proceeding to the next chunk.
+    -   **Question Assumptions:** Before implementing each step, question assumptions, validate the approach, and ensure it is bulletproofed (e.g., consider alternatives, check for edge cases, and confirm alignment with project goals).
 4.  **No "Plan" Confirmation:**
     -   If requirements are clear, just execute. Do not ask "Shall I proceed?" unless the plan is high-risk.
 

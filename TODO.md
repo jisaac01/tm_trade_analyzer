@@ -1,8 +1,8 @@
 # Web App Conversion Plan
 
 ## Phase 1: Environment & Setup
-- [ ] **Step 1.1:** Create `requirements.txt` including `Flask`, `pandas`, `numpy`, `pytest`, and `Werkzeug` (for secure file uploads).
-- [ ] **Step 1.2:** Set up the Python virtual environment (`tm_trade_analyzer_venv`) and install dependencies.
+- [x] **Step 1.1:** Create `requirements.txt` including `Flask`, `pandas`, `numpy`, `pytest`, and `Werkzeug` (for secure file uploads).
+- [x] **Step 1.2:** Set up the Python virtual environment (`tm_trade_analyzer_venv`) and install dependencies.
 - [ ] **Step 1.3:** Create the basic Flask application structure:
   - `app.py` (main application entry point)
   - `templates/` (for HTML files)
