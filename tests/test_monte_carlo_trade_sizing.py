@@ -4,6 +4,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'scripts'))
 
 import monte_carlo_trade_sizing as mcts
+import trade_parser
 import numpy as np
 import pytest
 import pandas as pd
@@ -16,7 +17,7 @@ class TestAnalyzeTradeFile:
     def test_analyze_call_spread_file(self):
         """Test analysis of the actual call spread trade file."""
         file_path = 'tests/test_data/CML TM Trades Long 60 Delta, Short 30 Delta Call 20260223.csv'
-        stats = mcts.analyze_trade_file(file_path)
+        stats = trade_parser.parse_trade_csv(file_path)
         
         assert stats['num_trades'] == 57
         assert 0.75 < stats['win_rate'] < 0.80  # Approximately 77%
@@ -29,7 +30,7 @@ class TestAnalyzeTradeFile:
     def test_analyze_put_spread_file(self):
         """Test analysis of the actual put spread trade file."""
         file_path = 'tests/test_data/CML TM Trades Short 50 Delta, Long 40 Delta Put 20260223.csv'
-        stats = mcts.analyze_trade_file(file_path)
+        stats = trade_parser.parse_trade_csv(file_path)
         
         assert stats['num_trades'] == 60
         assert 0.80 < stats['win_rate'] < 0.85  # Approximately 82%
@@ -42,7 +43,7 @@ class TestAnalyzeTradeFile:
     def test_file_not_found(self):
         """Test handling of non-existent file."""
         with pytest.raises(FileNotFoundError):
-            mcts.analyze_trade_file('nonexistent_file.csv')
+            trade_parser.parse_trade_csv('nonexistent_file.csv')
 
     def test_empty_file(self):
         """Test analysis of a file with no valid trades."""
@@ -64,7 +65,7 @@ class TestAnalyzeTradeFile:
         
         with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
             df.to_csv(f.name, index=False)
-            stats = mcts.analyze_trade_file(f.name)
+            stats = trade_parser.parse_trade_csv(f.name)
         
         os.unlink(f.name)
         
@@ -98,7 +99,7 @@ class TestAnalyzeTradeFile:
         
         with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
             df.to_csv(f.name, index=False)
-            stats = mcts.analyze_trade_file(f.name)
+            stats = trade_parser.parse_trade_csv(f.name)
         
         os.unlink(f.name)
         
@@ -111,8 +112,8 @@ class TestAnalyzeTradeFile:
 
     def test_pnl_distribution_contains_actual_values(self):
         """Test that pnl_distribution contains the actual trade P/L values."""
-        file_path = 'scripts/CML TM Trades Long 60 Delta, Short 30 Delta Call 20260223.csv'
-        stats = mcts.analyze_trade_file(file_path)
+        file_path = 'tests/test_data/CML TM Trades Long 60 Delta, Short 30 Delta Call 20260223.csv'
+        stats = trade_parser.parse_trade_csv(file_path)
         
         # Check that distribution contains expected range of values
         pnl_dist = stats['pnl_distribution']
@@ -170,7 +171,7 @@ class TestAnalyzeTradeFile:
 
         with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
             df.to_csv(f.name, index=False)
-            stats = mcts.analyze_trade_file(f.name)
+            stats = trade_parser.parse_trade_csv(f.name)
 
         os.unlink(f.name)
 
@@ -222,7 +223,7 @@ class TestAnalyzeTradeFile:
 
         with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
             df.to_csv(f.name, index=False)
-            stats = mcts.analyze_trade_file(f.name)
+            stats = trade_parser.parse_trade_csv(f.name)
 
         os.unlink(f.name)
 
@@ -298,7 +299,7 @@ class TestAnalyzeTradeFile:
 
         with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
             df.to_csv(f.name, index=False)
-            stats = mcts.analyze_trade_file(f.name)
+            stats = trade_parser.parse_trade_csv(f.name)
 
         os.unlink(f.name)
 
@@ -346,7 +347,7 @@ class TestAnalyzeTradeFile:
 
         with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
             df.to_csv(f.name, index=False)
-            stats = mcts.analyze_trade_file(f.name)
+            stats = trade_parser.parse_trade_csv(f.name)
 
         os.unlink(f.name)
 
@@ -355,8 +356,8 @@ class TestAnalyzeTradeFile:
 
     def test_official_style_summary_metrics_present_for_call_spread_csv(self):
         """Call spread CSV should expose detailed summary metrics used in backtest cards."""
-        file_path = 'scripts/CML TM Trades Long 60 Delta, Short 30 Delta Call 20260223.csv'
-        stats = mcts.analyze_trade_file(file_path)
+        file_path = 'tests/test_data/CML TM Trades Long 60 Delta, Short 30 Delta Call 20260223.csv'
+        stats = trade_parser.parse_trade_csv(file_path)
 
         assert stats['wins'] == 44
         assert stats['losses'] == 13

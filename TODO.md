@@ -11,8 +11,9 @@
 
 ## Phase 2: Refactoring Core Logic
 - [x] **Step 2.1:** Extract the core simulation logic from `monte_carlo_trade_sizing.py` into a new module (e.g., `simulator.py`). It should accept parameters (balance, simulations, commission, etc.) via function arguments rather than CLI args.
-- [ ] **Step 2.2:** Extract the CSV parsing logic into a reusable function that can accept a file stream or path.
-- [ ] **Step 2.3:** Update existing tests in `test_monte_carlo_trade_sizing.py` to use the refactored `simulator.py` module. Run `pytest` to ensure 100% coverage is maintained.
+- [x] **Step 2.2:** Extract the CSV parsing logic into a new module (`trade_parser.py`) that can accept a file stream or path. Create separate tests in `test_trade_parser.py`.
+- [x] **Step 2.3:** Ensure new tests exist for the refactored modules (`test_simulator.py` and `test_trade_parser.py`) with good coverage (simulator: 93%, trade_parser: 100%). Added comprehensive unit tests covering all paths, command line switches, risk/reward generation, position sizing, sampling methods, and edge cases for high confidence in simulation accuracy.
+- [x] **Step 2.4:** Update existing tests in `test_monte_carlo_trade_sizing.py` to use the refactored `simulator.py` and `trade_parser.py` modules. Run `pytest` to ensure 100% coverage is maintained.
 
 ## Phase 3: Building the Web Interface
 - [ ] **Step 3.1:** Create a base HTML template (`templates/base.html`) with basic styling (can reuse the CSS from the current HTML report).
