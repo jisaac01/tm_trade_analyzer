@@ -4,7 +4,11 @@
 2.  **Update `.github/instructions/lessons.md`:**
     -   If the user corrects your logic or behavior, you MUST update `tasks/lessons.md` with the lesson learned.
     -   Review this file before starting complex tasks.
-3.  **No "Plan" Confirmation:**
+3.  **Follow `TODO.md`:**
+    -   `TODO.md` is the single source of truth for the current project plan.
+    -   Update it as tasks are completed or requirements change.
+    -   When implementing from the TODO, **do not go past the current Phase** (or the current item, if it's complex or requires a lot of code). Stop and wait for review/confirmation before proceeding to the next chunk.
+4.  **No "Plan" Confirmation:**
     -   If requirements are clear, just execute. Do not ask "Shall I proceed?" unless the plan is high-risk.
 
 ## Scope
