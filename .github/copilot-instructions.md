@@ -37,6 +37,7 @@
 ## Validation
 - Run the relevant test file(s) after changes when available.
 - If no tests exist for a changed behavior, add a focused test in this repo.
+- Do not attempt to run the Flask app directly - the user runs it separately. Use integration tests to verify functionality.
 
 ## General Development Instructions
 
@@ -52,6 +53,7 @@
 - Prefer small, pure functions where possible.
 - Keep I/O separated from simulation and analysis logic.
 - Preserve deterministic behavior in tests by seeding RNG where needed.
+- **DRY Principle:** Don't Repeat Yourself - extract duplicated logic into reusable functions or shared templates. Maintain single sources of truth for common code patterns.
 
 ### Data & Paths
 - Use project-relative paths for local data files and generated reports.
@@ -63,6 +65,7 @@
 
 ### Documentation
 - Keep `README.md` aligned with CLI flags, expected inputs, and outputs.
+- Add detailed tooltips to all user-facing fields, labels, and outputs in web interfaces. Explain how each field is used in the simulator, what simulation modes are, and how outputs are calculated. Include this for any future UI elements.
 
 ## Lessons & Mistakes to Avoid
 

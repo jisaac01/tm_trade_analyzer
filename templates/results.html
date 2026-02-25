@@ -6,63 +6,15 @@
 <section class="hero">
     <h1>Monte Carlo Trade Sizing Report</h1>
     <p class="meta">Initial Balance: <strong>${{ "{:,.0f}".format(initial_balance) }}</strong></p>
-    <p class="meta">Position Sizing: <strong>{{ position_sizing|escape }}</strong> • {% if dynamic_risk_sizing %}Dynamic per-trade % risk sizing ON{% else %}Dynamic per-trade % risk sizing OFF{% endif %} • Simulation Mode: <strong>{{ simulation_mode|escape }}</strong> {% if simulation_mode == 'moving-block-bootstrap' %}• Block Size: {{ block_size }}{% endif %}</p>
+    <p class="meta">Position Sizing: <strong>{{ position_sizing_display_text }}</strong> • Simulation Mode: <strong>{{ simulation_mode|escape }}</strong> {% if simulation_mode == 'moving-block-bootstrap' %}• Block Size: {{ block_size }}{% endif %}</p>
 </section>
 
 <section class="trade-card">
     <h2>Adjust Parameters & Re-run Simulation</h2>
     <form method="POST" enctype="multipart/form-data">
-        <div class="form-group">
-            <label for="csv_file">Trade Data CSV (current: {{ original_filename }}):</label>
-            <input type="file" id="csv_file" name="csv_file" accept=".csv">
-        </div>
-        <div class="form-row">
-            <div class="form-group">
-                <label for="initial_balance">Initial Balance ($):</label>
-                <input type="number" id="initial_balance" name="initial_balance" value="{{ initial_balance }}" min="1" step="1" style="width: 120px;">
-            </div>
-            <div class="form-group">
-                <label for="num_simulations">Number of Simulations:</label>
-                <input type="number" id="num_simulations" name="num_simulations" value="{{ num_simulations }}" min="1" style="width: 100px;">
-            </div>
-        </div>
-
-        <div class="form-row">
-            <div class="form-group">
-                <label for="option_commission">Option Commission ($):</label>
-                <input type="number" id="option_commission" name="option_commission" value="{{ option_commission }}" min="0" step="0.01" style="width: 100px;">
-            </div>
-            <div class="form-group">
-                <label for="position_sizing_mode">Position Sizing Mode:</label>
-                <select id="position_sizing_mode" name="position_sizing_mode" style="width: 120px;">
-                    <option value="percent" {% if position_sizing == 'percent' %}selected{% endif %}>Percent</option>
-                    <option value="contracts" {% if position_sizing == 'contracts' %}selected{% endif %}>Contracts</option>
-                </select>
-            </div>
-            <div class="form-group">
-                <label for="dynamic_risk_sizing">Dynamic Risk Sizing</label>
-                <input type="checkbox" id="dynamic_risk_sizing" name="dynamic_risk_sizing" {% if dynamic_risk_sizing %}checked{% endif %}>
-            </div>
-        </div>
-
-        <details>
-            <summary style="cursor: pointer; color: var(--accent); margin-bottom: 10px;">Advanced Options</summary>
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="simulation_mode">Simulation Mode:</label>
-                    <select id="simulation_mode" name="simulation_mode" style="width: 120px;">
-                        <option value="iid" {% if simulation_mode == 'iid' %}selected{% endif %}>IID</option>
-                        <option value="moving-block-bootstrap" {% if simulation_mode == 'moving-block-bootstrap' %}selected{% endif %}>Bootstrap</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="block_size">Block Size:</label>
-                    <input type="number" id="block_size" name="block_size" value="{{ block_size }}" min="1" style="width: 80px;">
-                </div>
-            </div>
-        </details>
-
-        <button type="submit">Re-run Simulation</button>
+        {% set csv_file_title = "Upload a new CSV file to replace the current trade data. To get the CSV, click into the backtest results box and click the Download link. The file should contain historical trade outcomes from TradeMachine for simulation analysis." %}
+        {% set submit_button_text = "Re-run Simulation" %}
+        {% include '_simulation_form.html' %}
     </form>
 </section>
 
@@ -70,22 +22,30 @@
 <section class="trade-card">
     <h2>{{ report.trade_name|escape }}</h2>
     <h3 class="section-label">TradeMachine Backtest Results (from CSV file)</h3>
+    {% if report.summary.min_date and report.summary.max_date %}
+    <p class="meta">Backtest Period: <strong>{{ report.summary.min_date }} to {{ report.summary.max_date }}</strong></p>
+    {% endif %}
+    <p class="meta">Note: These results should match the numbers shown in TradeMachine for the same backtest period (sanity check).</p>
     <div class="summary-grid">
-        <div class="summary-item"><span>Risked</span><strong>${{ "{:,.0f}".format(report.summary.risked) }}</strong></div>
-        <div class="summary-item"><span>Total Return</span><strong>{{ report.total_return_formatted }}</strong></div>
-        <div class="summary-item"><span>% Return</span><strong>{{ "{:.1f}".format(report.summary.pct_return) }}%</strong></div>
-        <div class="summary-item"><span>Avg % Return</span><strong>{{ "{:.1f}".format(report.summary.avg_pct_return) }}%</strong></div>
-        <div class="summary-item"><span>Commissions</span><strong>${{ "{:,.0f}".format(report.summary.commissions) }}</strong></div>
-        <div class="summary-item"><span>Win Rate</span><strong>{{ "{:.1f}".format(report.summary.win_rate * 100) }}%</strong></div>
-        <div class="summary-item"><span>Wins / Losses</span><strong>{{ report.summary.wins }} / {{ report.summary.losses }}</strong></div>
-        <div class="summary-item"><span>Avg Win / Avg Loss</span><strong>{{ report.avg_win_formatted }} / {{ report.avg_loss_formatted }}</strong></div>
-        <div class="summary-item"><span>Gross Gain / Gross Loss</span><strong>{{ report.gross_gain_formatted }} / {{ report.gross_loss_formatted }}</strong></div>
-        <div class="summary-item"><span>Conservative Max Risk</span><strong>${{ "{:,.0f}".format(report.summary.conservative_theoretical_max_loss) }}</strong></div>
-        <div class="summary-item"><span>Max Risk</span><strong>${{ "{:,.0f}".format(report.summary.max_theoretical_loss) }}</strong></div>
-        <div class="summary-item"><span>Max Loss Streak in History</span><strong>{{ report.historical_max_losing_streak }}</strong></div>
+        <div class="summary-item"><span title="The risk amount of the first trade in the backtest plus its entry commission. This is used to calculate percentage returns, not the total risk across all trades.">Risked</span><strong>${{ "{:,.0f}".format(report.summary.risked) }}</strong></div>
+        <div class="summary-item"><span title="Net profit or loss from all trades, after commissions. Positive indicates overall gain, negative indicates loss.">Total Return</span><strong>{{ report.total_return_formatted }}</strong></div>
+        <div class="summary-item"><span title="Percentage return on the initial balance. Calculated as (Total Return / Initial Balance) * 100.">% Return</span><strong>{{ "{:.1f}".format(report.summary.pct_return) }}%</strong></div>
+        <div class="summary-item"><span title="Average percentage return per trade. Calculated as % Return divided by number of trades.">Avg % Return</span><strong>{{ "{:.1f}".format(report.summary.avg_pct_return) }}%</strong></div>
+        <div class="summary-item"><span title="Total commissions paid, calculated as commission per contract times number of contracts traded times number of trades.">Commissions</span><strong>${{ "{:,.0f}".format(report.summary.commissions) }}</strong></div>
+        <div class="summary-item"><span title="Percentage of trades that resulted in a profit. Calculated as (Number of Wins / Total Trades) * 100.">Win Rate</span><strong>{{ "{:.1f}".format(report.summary.win_rate * 100) }}%</strong></div>
+        <div class="summary-item"><span title="Count of profitable trades versus losing trades in the backtest data.">Wins / Losses</span><strong>{{ report.summary.wins }} / {{ report.summary.losses }}</strong></div>
+        <div class="summary-item"><span title="Average profit per winning trade versus average loss per losing trade, based on historical data.">Avg Win / Avg Loss</span><strong>{{ report.avg_win_formatted }} / {{ report.avg_loss_formatted }}</strong></div>
+        <div class="summary-item"><span title="Total profits from all winning trades versus total losses from all losing trades in the backtest.">Gross Gain / Gross Loss</span><strong>{{ report.gross_gain_formatted }} / {{ report.gross_loss_formatted }}</strong></div>
+        <div class="summary-item"><span title="The most conservative estimate of maximum risk per spread, derived from the option structure (width, credit/debit). Used for position sizing calculations.">Conservative Max Risk</span><strong>${{ "{:,.0f}".format(report.summary.conservative_theoretical_max_loss) }}</strong></div>
+        <div class="summary-item"><span title="Maximum theoretical risk per spread, based on the worst-case scenario from the option positions. May be higher than conservative estimate.">Max Risk</span><strong>${{ "{:,.0f}".format(report.summary.max_theoretical_loss) }}</strong></div>
+        <div class="summary-item"><span title="The longest consecutive sequence of losing trades in the historical data. Indicates drawdown potential.">Max Loss Streak in History</span><strong>{{ report.historical_max_losing_streak }}</strong></div>
     </div>
-    <p class="distribution">P/L Distribution (first 10): {{ report.pnl_preview|join(', ') }}</p>
+    <p class="distribution" title="Sample of the first 10 profit/loss outcomes from the historical trade data. Shows the distribution used for Monte Carlo sampling."><strong>P/L Distribution (first 10):</strong> {{ report.pnl_preview|join(', ') }}</p>
+</section>
+
+<section class="trade-card">
     <h3 class="section-label">Monte Carlo Simulation Results (generated)</h3>
+    <p class="meta">Each simulation runs {{ num_trades_per_simulation }} trades.</p>
     {{ report.table_html|safe }}
 </section>
 {% endfor %}

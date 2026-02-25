@@ -8,6 +8,11 @@ def parse_trade_csv(file_or_path):
     """Analyze a CSV file or file-like object of trade data to extract statistics for Monte Carlo simulation."""
     df = pd.read_csv(file_or_path)
     
+    # Parse dates
+    df['Date'] = pd.to_datetime(df['Date'], format='%d-%b-%Y')
+    min_date = df['Date'].min().strftime('%Y-%m-%d') if not df.empty else None
+    max_date = df['Date'].max().strftime('%Y-%m-%d') if not df.empty else None
+    
     # Clean money-like columns - remove $ and convert to float
     def clean_money(value):
         if isinstance(value, str):
@@ -152,7 +157,9 @@ def parse_trade_csv(file_or_path):
         'avg_pct_loss': avg_pct_loss,
         'gross_gain': float(np.sum(wins)) if len(wins) > 0 else 0,
         'gross_loss': float(np.sum(losses)) if len(losses) > 0 else 0,
-        'pnl_distribution': pnl_values.tolist()
+        'pnl_distribution': pnl_values.tolist(),
+        'min_date': min_date,
+        'max_date': max_date
     }
     
     return stats

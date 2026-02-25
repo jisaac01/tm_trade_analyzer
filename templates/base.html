@@ -75,6 +75,80 @@
         .form-row { display: flex; gap: 20px; }
         .form-row .form-group { flex: 1; margin-bottom: 0; }
     </style>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const elements = document.querySelectorAll('[title]');
+            elements.forEach(el => {
+                const title = el.getAttribute('title');
+                el.removeAttribute('title');
+                el.addEventListener('mouseenter', function(e) {
+                    const tooltip = document.createElement('div');
+                    tooltip.innerHTML = title.replace(/\n/g, '<br>');
+                    tooltip.style.position = 'absolute';
+                    tooltip.style.background = 'rgba(255, 255, 255, 0.95)';
+                    tooltip.style.color = '#333';
+                    tooltip.style.padding = '10px 14px';
+                    tooltip.style.borderRadius = '8px';
+                    tooltip.style.zIndex = '1000';
+                    tooltip.style.fontSize = '14px';
+                    tooltip.style.maxWidth = '350px';
+                    tooltip.style.wordWrap = 'break-word';
+                    tooltip.style.pointerEvents = 'none';
+                    tooltip.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+                    tooltip.style.border = '1px solid #ddd';
+                    tooltip.id = 'custom-tooltip-' + Math.random().toString(36).substr(2, 9);
+                    document.body.appendChild(tooltip);
+                    const rect = el.getBoundingClientRect();
+                    const tooltipRect = tooltip.getBoundingClientRect();
+                    const viewportWidth = window.innerWidth;
+                    const viewportHeight = window.innerHeight;
+                    
+                    // Try to position above first (preferred for proximity)
+                    let left = rect.left + window.scrollX + (rect.width / 2) - (tooltipRect.width / 2);
+                    let top = rect.top + window.scrollY - tooltipRect.height - 10;
+                    
+                    // If not enough space above, try below
+                    if (top < window.scrollY) {
+                        top = rect.bottom + window.scrollY + 10;
+                        
+                        // If not enough space below either, try right
+                        if (top + tooltipRect.height > viewportHeight + window.scrollY) {
+                            left = rect.right + window.scrollX + 10;
+                            top = rect.top + window.scrollY + (rect.height / 2) - (tooltipRect.height / 2);
+                            
+                            // If not enough space to the right, try left
+                            if (left + tooltipRect.width > viewportWidth + window.scrollX) {
+                                left = rect.left + window.scrollX - tooltipRect.width - 10;
+                                top = rect.top + window.scrollY + (rect.height / 2) - (tooltipRect.height / 2);
+                            }
+                        }
+                    }
+                    
+                    // Final safety check - ensure tooltip stays on screen with margins
+                    const margin = 10;
+                    if (left < window.scrollX + margin) {
+                        left = window.scrollX + margin;
+                    }
+                    if (left + tooltipRect.width > viewportWidth + window.scrollX - margin) {
+                        left = viewportWidth + window.scrollX - tooltipRect.width - margin;
+                    }
+                    if (top < window.scrollY + margin) {
+                        top = window.scrollY + margin;
+                    }
+                    if (top + tooltipRect.height > viewportHeight + window.scrollY - margin) {
+                        top = viewportHeight + window.scrollY - tooltipRect.height - margin;
+                    }
+                    
+                    tooltip.style.left = left + 'px';
+                    tooltip.style.top = top + 'px';
+                });
+                el.addEventListener('mouseleave', function() {
+                    const tooltips = document.querySelectorAll('[id^="custom-tooltip-"]');
+                    tooltips.forEach(t => t.remove());
+                });
+            });
+        });
+    </script>
 </head>
 <body>
     <main class="container">

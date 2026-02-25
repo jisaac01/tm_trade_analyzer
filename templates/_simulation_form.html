@@ -1,0 +1,48 @@
+        <div class="form-group">
+            <label for="csv_file" title="{{ csv_file_title }}">Trade Data CSV{% if original_filename %} (current: {{ original_filename }}){% endif %}:</label>
+            <input type="file" id="csv_file" name="csv_file" accept=".csv"{% if not original_filename %} required{% endif %}>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="initial_balance" title="The starting account balance in dollars. This is used as the baseline for calculating position sizes and risk percentages in the simulation. Higher balances allow for larger positions at the same risk percentage.">Initial Balance ($):</label>
+                <input type="number" id="initial_balance" name="initial_balance" value="{{ initial_balance|default(10000)|int }}" min="1" step="1" style="width: 120px;">
+            </div>
+            <div class="form-group">
+                <label for="num_simulations" title="The number of Monte Carlo simulations to run. More simulations provide more accurate statistical estimates but take longer to compute. Recommended: 1000+ for reliable results, 10000+ for high precision.">Number of Simulations:</label>
+                <input type="number" id="num_simulations" name="num_simulations" value="{{ num_simulations|default(1000) }}" min="1" style="width: 100px;">
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="option_commission" title="The commission cost per options contract. This is deducted from each trade's P/L in the simulation to account for trading fees. Commissions are calculated as: commission per contract × number of contracts × number of trades.">Option Commission ($):</label>
+                <input type="number" id="option_commission" name="option_commission" value="{{ option_commission|default(0.50) }}" min="0" step="0.01" style="width: 100px;">
+            </div>
+            <div class="form-group">
+                <label for="position_sizing_mode" title="How positions are sized:<br><b>Fixed Percent</b>: Sizes based on fixed percentage of initial account balance<br><b>Dynamic Percent</b>: Sizes based on percentage of current account balance (adjusts as balance changes)<br><b>Contracts</b>: Uses fixed contract counts (not recommended for risk management)">Position Sizing Mode:</label>
+                <select id="position_sizing_mode" name="position_sizing_mode" style="width: 160px;">
+                    <option value="fixed-percent" {% if position_sizing_display == 'fixed-percent' %}selected{% endif %}>Fixed Percent</option>
+                    <option value="dynamic-percent" {% if not position_sizing_display or position_sizing_display == 'dynamic-percent' %}selected{% endif %}>Dynamic Percent</option>
+                    <option value="contracts" {% if position_sizing_display == 'contracts' %}selected{% endif %}>Contracts</option>
+                </select>
+            </div>
+        </div>
+
+        <details>
+            <summary style="cursor: pointer; color: var(--accent); margin-bottom: 10px;">Advanced Options</summary>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="simulation_mode" title="Simulation method for generating trade sequences:<br><b>IID</b>: Independent and Identically Distributed - each trade is drawn randomly from the historical distribution, assuming no dependencies between trades<br><b>Bootstrap</b>: Moving Block Bootstrap - resamples consecutive blocks of historical trades to preserve temporal dependencies and patterns. Example: if historical trades were [win, loss, win, loss] and block size=2, possible sequences include [win, loss] or [loss, win], maintaining the pattern of alternating outcomes">Simulation Mode:</label>
+                    <select id="simulation_mode" name="simulation_mode" style="width: 120px;">
+                        <option value="iid" {% if simulation_mode|default('iid') == 'iid' %}selected{% endif %}>IID</option>
+                        <option value="moving-block-bootstrap" {% if simulation_mode|default('iid') == 'moving-block-bootstrap' %}selected{% endif %}>Bootstrap</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="block_size" title="For Bootstrap mode: Size of consecutive trade blocks to resample. Larger blocks preserve more dependency structure but may overfit to specific sequences. Default 1 (no dependencies preserved).">Block Size:</label>
+                    <input type="number" id="block_size" name="block_size" value="{{ block_size|default(1) }}" min="1" style="width: 80px;">
+                </div>
+            </div>
+        </details>
+
+        <button type="submit">{{ submit_button_text|default('Run Simulation') }}</button>
