@@ -44,8 +44,8 @@ def parse_trade_csv(file_or_path):
     """
     df = pd.read_csv(file_or_path)
     
-    # Parse dates
-    df['Date'] = pd.to_datetime(df['Date'], format='%d-%b-%Y')
+    # Parse dates - support multiple formats
+    df['Date'] = pd.to_datetime(df['Date'], format='mixed')
     min_date = df['Date'].min().strftime('%Y-%m-%d') if not df.empty else None
     max_date = df['Date'].max().strftime('%Y-%m-%d') if not df.empty else None
     

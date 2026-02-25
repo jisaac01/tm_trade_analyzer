@@ -110,6 +110,8 @@ def test_results_get_with_session(mock_parse, mock_simulate, client):
             'losses': 4,
             'avg_win': 200,
             'avg_loss': -100,
+            'avg_pct_win': 200,
+            'avg_pct_loss': -100,
             'gross_gain': 1200,
             'gross_loss': -400,
             'conservative_theoretical_max_loss': 500,

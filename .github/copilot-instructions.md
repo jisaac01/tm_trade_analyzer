@@ -73,6 +73,7 @@ The goal of this section is to prevent recurring mistakes. **If you are correcte
 
 ### 🚨 Critical (Do Not Violate)
 -   **Mandatory TDD:** Write the failing test first for any behavior change.
+-   **Always Run Tests After Changes:** Execute the full test suite (using `tm_trade_analyzer_venv/bin/python -m pytest`) after any code modifications to detect regressions early and ensure code quality.
 -   **No Mocks for Core Math:** Do not mock internal simulation/analysis logic; only mock external I/O when needed.
 -   **Deterministic Tests:** Seed randomness in tests when asserting numeric behavior.
 -   **Project-local Execution:** Use the project environment tools (for example, `tm_trade_analyzer_venv/bin/pytest`) instead of relying on global interpreters.
