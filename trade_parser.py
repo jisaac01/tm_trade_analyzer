@@ -5,7 +5,43 @@ OPTION_COMMISSION_PER_CONTRACT = 0.495
 
 
 def parse_trade_csv(file_or_path):
-    """Analyze a CSV file or file-like object of trade data to extract statistics for Monte Carlo simulation."""
+    """
+    Parse a CSV file of trade data and extract comprehensive statistics for Monte Carlo simulation.
+    
+    Analyzes option trade data to compute win rates, average gains/losses, theoretical risk/reward
+    metrics, and P/L distributions. Handles both opening leg data (for theoretical calculations)
+    and closing P/L data (for realized performance).
+    
+    Parameters:
+    - file_or_path (str or file-like object): Path to CSV file or file object containing trade data.
+    
+    Returns:
+    - dict: Comprehensive trade statistics dictionary containing:
+        - Basic counts: num_trades, wins, losses
+        - Performance metrics: win_rate, avg_win, avg_loss, max_win, max_loss
+        - Risk metrics: max_theoretical_loss, conservative_theoretical_max_loss, median_risk_per_spread
+        - Reward metrics: max_theoretical_gain, conservative_realized_max_reward
+        - Financial metrics: total_return, pct_return, avg_pct_return, commissions
+        - Distribution data: pnl_distribution (list of P/L values)
+        - Date range: min_date, max_date
+        - Percentage-based metrics: avg_pct_win, avg_pct_loss
+    
+    CSV Format Expected:
+    - Date: Trade date in DD-MMM-YYYY format
+    - Description: Trade description (contains 'Open' for opening legs)
+    - Profit/Loss: Realized P/L for closing transactions
+    - Trade Price: Price per contract for opening legs
+    - Size: Number of contracts
+    - Strike: Strike price for theoretical calculations
+    - Expiration: Expiration date for grouping trades
+    
+    Notes:
+    - Theoretical risk/reward calculated from opening leg structure (width between strikes)
+    - P/L aggregated by expiration date to get per-trade results
+    - Commissions calculated at $0.495 per contract
+    - Conservative metrics use 95th percentile for robustness
+    - Returns empty statistics dict if no valid trade data found
+    """
     df = pd.read_csv(file_or_path)
     
     # Parse dates

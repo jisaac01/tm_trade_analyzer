@@ -11,6 +11,23 @@ DEFAULT_RISK_PCTS = [1, 2, 3, 5, 10, 15, 25, 50, 75, 100]
 
 
 def get_max_risk_per_spread(trade):
+    """
+    Determine the maximum risk per spread for position sizing calculations.
+    
+    This function prioritizes conservative theoretical loss estimates over realized losses
+    to provide a more robust risk assessment for Monte Carlo simulations.
+    
+    Parameters:
+    - trade (dict): Trade statistics dictionary containing risk metrics.
+    
+    Returns:
+    - float: The maximum risk amount per spread in dollars.
+    
+    Priority order for risk determination:
+    1. conservative_theoretical_max_loss (95th percentile of theoretical losses)
+    2. max_theoretical_loss (maximum theoretical loss)
+    3. abs(max_loss) (absolute value of maximum realized loss)
+    """
     conservative_theoretical_loss = trade.get('conservative_theoretical_max_loss', 0)
     if conservative_theoretical_loss and conservative_theoretical_loss > 0:
         return float(conservative_theoretical_loss)
@@ -22,7 +39,28 @@ def get_max_risk_per_spread(trade):
 
 
 def choose_contract_count_for_risk_pct(max_risk_per_spread, account_balance, target_risk_pct):
-    """Select contract count whose conservative max risk is nearest target account risk %."""
+    """
+    Select the optimal contract count that achieves the target account risk percentage.
+    
+    This function calculates the number of contracts needed to expose the account to a
+    specific percentage of its balance as risk, based on the maximum risk per spread.
+    It chooses the contract count whose actual risk percentage is closest to the target.
+    
+    Parameters:
+    - max_risk_per_spread (float): Maximum potential loss per spread in dollars.
+    - account_balance (float): Current account balance in dollars.
+    - target_risk_pct (float): Target risk as a percentage of account balance (0-100).
+    
+    Returns:
+    - int: Number of contracts to trade. Minimum of 1.
+    
+    Raises:
+    - ValueError: If max_risk_per_spread or account_balance are not positive.
+    
+    Note:
+    - Rounds to the nearest contract count that minimizes the difference between
+      actual and target risk percentages.
+    """
     if max_risk_per_spread <= 0:
         raise ValueError('max_risk_per_spread must be positive.')
     if account_balance <= 0:
@@ -41,7 +79,27 @@ def choose_contract_count_for_risk_pct(max_risk_per_spread, account_balance, tar
 
 
 def build_position_size_plan(trade, initial_balance, position_sizing):
-    """Build simulation sizing rows as contract counts with target/actual risk percentages."""
+    """
+    Generate a plan of position sizes for Monte Carlo simulation testing.
+    
+    Creates a list of position sizes (contract counts) with their corresponding
+    target and actual risk percentages. Supports both fixed contract sizing
+    and percentage-based risk sizing.
+    
+    Parameters:
+    - trade (dict): Trade statistics dictionary containing risk metrics.
+    - initial_balance (float): Starting account balance in dollars.
+    - position_sizing (str): Sizing method - 'contracts' for fixed sizes or 'percent' for risk-based.
+    
+    Returns:
+    - list[dict]: List of position size configurations, each containing:
+        - 'contracts' (int): Number of contracts to trade
+        - 'target_risk_pct' (float): Target risk percentage (for percent sizing)
+        - 'actual_risk_pct' (float): Actual risk percentage based on max risk per spread
+    
+    For 'contracts' sizing, uses predefined contract counts: [1, 2, 5, 10, 15, 20]
+    For 'percent' sizing, uses predefined risk percentages: [1, 2, 3, 5, 10, 15, 25, 50, 75, 100]%
+    """
     max_risk_per_spread = get_max_risk_per_spread(trade)
 
     if position_sizing == 'contracts':
@@ -75,7 +133,29 @@ def build_position_size_plan(trade, initial_balance, position_sizing):
 
 
 def sample_pnl_moving_blocks(pnl_distribution, num_trades, block_size):
-    """Sample realized trade P/L values using moving blocks to preserve streak structure."""
+    """
+    Sample realized trade P/L values using moving blocks bootstrap to preserve streak structure.
+    
+    This method maintains the temporal dependencies and streak patterns from historical
+    trade data by sampling contiguous blocks of trades rather than individual trades.
+    This is more realistic for strategies where trade outcomes are not independent.
+    
+    Parameters:
+    - pnl_distribution (list[float]): Historical P/L values for each trade.
+    - num_trades (int): Number of trades to sample for the simulation.
+    - block_size (int): Size of contiguous blocks to sample from historical data.
+    
+    Returns:
+    - list[float]: Sampled P/L values maintaining historical streak patterns.
+    
+    Raises:
+    - ValueError: If block_size is not positive or pnl_distribution is empty.
+    
+    Notes:
+    - If pnl_distribution has only one value, returns that value repeated num_trades times.
+    - Block size is automatically capped at the length of pnl_distribution.
+    - Uses random block starting positions to create diverse but realistic sequences.
+    """
     if num_trades <= 0:
         return []
 
@@ -102,9 +182,27 @@ def sample_pnl_moving_blocks(pnl_distribution, num_trades, block_size):
 
 
 def generate_risk(avg_risk, max_risk):
-    """Generate a risk amount that averages to avg_risk but can go up to max_risk.
+    """
+    Generate a variable risk amount for a losing trade using a truncated normal distribution.
     
-    Uses a truncated normal distribution to simulate variable risk amounts.
+    This function simulates realistic variability in loss amounts rather than using
+    fixed average losses. It uses a normal distribution centered on the average risk
+    but capped at the maximum risk to prevent unrealistic losses.
+    
+    Parameters:
+    - avg_risk (float): Average risk amount per spread in dollars.
+    - max_risk (float): Maximum possible risk amount per spread in dollars.
+    
+    Returns:
+    - float: Simulated risk amount for this specific trade, between 0 and max_risk.
+    
+    Raises:
+    - ValueError: If avg_risk or max_risk are not positive.
+    
+    Distribution Details:
+    - Uses normal distribution with mean = avg_risk, std_dev = avg_risk/2
+    - Truncated to [0, max_risk] range to ensure realistic bounds
+    - Allows for natural variability while maintaining the target average risk
     """
     if max_risk <= 0 or avg_risk <= 0:
         raise ValueError(
@@ -127,9 +225,28 @@ def generate_risk(avg_risk, max_risk):
 
 
 def generate_reward(avg_reward, max_reward):
-    """Generate a reward amount that can go up to max_reward.
+    """
+    Generate a variable reward amount for a winning trade using a beta distribution.
     
-    Uses a distribution that favors smaller wins but allows occasional larger wins.
+    This function simulates realistic variability in win amounts, favoring smaller
+    wins but allowing occasional larger wins. It uses a beta distribution skewed
+    toward smaller values to reflect typical market behavior.
+    
+    Parameters:
+    - avg_reward (float): Average reward amount per spread in dollars.
+    - max_reward (float): Maximum possible reward amount per spread in dollars.
+    
+    Returns:
+    - float: Simulated reward amount for this specific trade, between 0 and max_reward.
+    
+    Raises:
+    - ValueError: If avg_reward or max_reward are not positive.
+    
+    Distribution Details:
+    - Uses beta distribution (alpha=1.5, beta=3) skewed toward smaller wins
+    - Scales the beta sample and blends with avg_reward to maintain target mean
+    - Weighted average: 70% scaled beta sample + 30% avg_reward
+    - Ensures the result doesn't exceed max_reward
     """
     if max_reward <= 0 or avg_reward <= 0:
         raise ValueError(
@@ -164,6 +281,36 @@ def simulate_trades(
     simulation_mode='iid',
     block_size=5
 ):
+    """
+    Run a single Monte Carlo simulation path for a given position size.
+    
+    Simulates a series of trades using either independent identically distributed (IID)
+    outcomes or moving-block bootstrap sampling to preserve historical streak patterns.
+    Tracks account balance, drawdown, and losing streaks across the simulation.
+    
+    Parameters:
+    - trade (dict): Trade statistics dictionary containing win rates, avg losses, etc.
+    - position_size (int): Number of contracts per trade.
+    - initial_balance (float): Starting account balance in dollars.
+    - num_trades (int): Number of trades to simulate in this path.
+    - num_simulations (int): Total number of simulation paths (for context, not used here).
+    - target_risk_pct (float, optional): Target risk percentage for dynamic sizing.
+    - dynamic_risk_sizing (bool): Whether to adjust position size based on current balance.
+    - simulation_mode (str): 'iid' for independent trades or 'moving-block-bootstrap' for streak preservation.
+    - block_size (int): Block size for bootstrap sampling (only used in bootstrap mode).
+    
+    Returns:
+    - list[dict]: Simulation results for each path, each containing:
+        - 'final_balance' (float): Account balance after all trades
+        - 'max_drawdown' (float): Maximum drawdown experienced
+        - 'max_losing_streak' (int): Longest losing streak in the path
+    
+    Notes:
+    - In bootstrap mode, uses historical P/L distribution to sample realistic sequences
+    - In IID mode, generates variable risk/reward amounts using statistical distributions
+    - Dynamic sizing recalculates contract count each trade based on current balance
+    - Simulation stops if balance reaches zero (bankruptcy)
+    """
     avg_risk_per_spread = abs(trade['avg_loss'])
     max_risk_per_spread = get_max_risk_per_spread(trade)
     avg_reward_per_spread = trade['avg_win']
@@ -244,20 +391,36 @@ def run_monte_carlo_simulation(
     commission_per_contract=OPTION_COMMISSION_PER_CONTRACT
 ):
     """
-    Run Monte Carlo simulation for trade sizing analysis.
+    Execute a complete Monte Carlo simulation for trade position sizing analysis.
+    
+    Runs multiple simulation paths for various position sizes to determine optimal
+    contract counts that balance risk and reward. Supports both fixed contract
+    sizing and percentage-based risk sizing with dynamic position adjustment.
     
     Parameters:
-    - trade_stats: dict of trade statistics from parse_trade_csv
-    - initial_balance: float, starting account balance
-    - num_simulations: int, number of Monte Carlo simulations
-    - position_sizing: 'percent' or 'contracts'
-    - dynamic_risk_sizing: bool, whether to recompute contract count per trade
-    - simulation_mode: 'iid' or 'moving-block-bootstrap'
-    - block_size: int, block size for bootstrap
-    - commission_per_contract: float, commission cost
+    - trade_stats (dict): Trade statistics from parse_trade_csv containing win rates, P/L distribution, etc.
+    - initial_balance (float): Starting account balance in dollars.
+    - num_simulations (int): Number of Monte Carlo simulation paths to run.
+    - position_sizing (str): 'percent' for risk-based sizing or 'contracts' for fixed sizing.
+    - dynamic_risk_sizing (bool): Whether to adjust position size based on current balance during simulation.
+    - simulation_mode (str): 'iid' for independent trades or 'moving-block-bootstrap' for streak preservation.
+    - block_size (int): Block size for bootstrap sampling (only used in bootstrap mode).
+    - commission_per_contract (float): Commission cost per contract (currently unused in calculations).
     
     Returns:
-    List of trade reports, each with 'trade_name', 'summary', 'table_rows', etc.
+    - list[dict]: List containing one trade report dictionary with:
+        - 'trade_name' (str): Name of the trade strategy
+        - 'summary' (dict): Original trade statistics
+        - 'table_rows' (list[dict]): Position sizing results with metrics like:
+            - Contracts, Target Risk %, Actual Risk %, Avg Final $, Bankruptcy Prob, etc.
+        - 'pnl_preview' (list[str]): Formatted preview of first 10 P/L values
+        - 'historical_max_losing_streak' (int): Longest losing streak in historical data
+    
+    Notes:
+    - For 'percent' sizing, tests risk levels: 1%, 2%, 3%, 5%, 10%, 15%, 25%, 50%, 75%, 100%
+    - For 'contracts' sizing, tests fixed counts: 1, 2, 5, 10, 15, 20
+    - Each position size is simulated num_simulations times with num_trades per simulation
+    - Minimum num_trades is 55 or actual historical trade count, whichever is larger
     """
     num_trades = max(55, trade_stats['num_trades'])
     
