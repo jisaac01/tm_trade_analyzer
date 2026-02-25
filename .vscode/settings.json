@@ -1,3 +1,8 @@
 {
-    "python.defaultInterpreterPath": "tm_trade_analyzer_venv/bin/python"
+    "python.defaultInterpreterPath": "tm_trade_analyzer_venv/bin/python",
+    "python.testing.pytestArgs": [
+        "tests"
+    ],
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true
 }
