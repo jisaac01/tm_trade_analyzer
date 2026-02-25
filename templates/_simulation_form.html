@@ -11,6 +11,10 @@
                 <label for="num_simulations" title="The number of Monte Carlo simulations to run. More simulations provide more accurate statistical estimates but take longer to compute. Recommended: 1000+ for reliable results, 10000+ for high precision.">Number of Simulations:</label>
                 <input type="number" id="num_simulations" name="num_simulations" value="{{ num_simulations|default(1000) }}" min="1" style="width: 100px;">
             </div>
+            <div class="form-group">
+                <label for="num_trades" title="The number of trades to simulate per simulation run. This determines the length of each Monte Carlo path. More trades provide more robust statistics but increase computation time. Default is 60, but will use the number of historical trades if larger.">Number of Trades:</label>
+                <input type="number" id="num_trades" name="num_trades" value="{{ num_trades|default(60) }}" min="1" style="width: 100px;">
+            </div>
         </div>
 
         <div class="form-row">

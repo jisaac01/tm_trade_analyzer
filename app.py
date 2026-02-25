@@ -92,6 +92,7 @@ def results():
         params.update({
             'initial_balance': float(request.form.get('initial_balance', params.get('initial_balance', 10000))),
             'num_simulations': int(request.form.get('num_simulations', params.get('num_simulations', 1000))),
+            'num_trades': int(request.form.get('num_trades', params.get('num_trades', 60))),
             'option_commission': float(request.form.get('option_commission', params.get('option_commission', 0.50))),
             'position_sizing': position_sizing,
             'dynamic_risk_sizing': dynamic_risk_sizing,
@@ -103,16 +104,19 @@ def results():
         return redirect(url_for('results'))
 
     # GET: run simulation with current params
-    params = session.get('params', {
+    default_params = {
         'initial_balance': 10000,
         'num_simulations': 1000,
+        'num_trades': 60,
         'option_commission': 0.50,
         'position_sizing': 'percent',
         'dynamic_risk_sizing': True,
         'simulation_mode': 'iid',
         'block_size': 1,
         'position_sizing_display': 'dynamic-percent'
-    })
+    }
+    params = session.get('params', default_params)
+    params = {**default_params, **params}  # Ensure all defaults are present
 
     csv_filepath = session['csv_filepath']
 
@@ -120,7 +124,7 @@ def results():
     trade_stats = trade_parser.parse_trade_csv(csv_filepath)
     trade_stats['name'] = os.path.splitext(session['original_filename'])[0]
 
-    num_trades_per_simulation = max(55, trade_stats['num_trades'])
+    num_trades_per_simulation = max(params['num_trades'], trade_stats['num_trades'])
 
     try:
         # Run simulation
@@ -130,7 +134,8 @@ def results():
             dynamic_risk_sizing=params['dynamic_risk_sizing'],
             simulation_mode=params['simulation_mode'],
             block_size=params['block_size'],
-            commission_per_contract=params['option_commission']
+            commission_per_contract=params['option_commission'],
+            num_trades=params['num_trades']
         )
     except Exception as e:
         flash(f'Error running simulation: {str(e)}. Please check your trade data.')

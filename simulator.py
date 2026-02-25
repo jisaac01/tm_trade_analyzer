@@ -388,7 +388,8 @@ def run_monte_carlo_simulation(
     dynamic_risk_sizing=True,
     simulation_mode='iid',
     block_size=5,
-    commission_per_contract=OPTION_COMMISSION_PER_CONTRACT
+    commission_per_contract=OPTION_COMMISSION_PER_CONTRACT,
+    num_trades=60
 ):
     """
     Execute a complete Monte Carlo simulation for trade position sizing analysis.
@@ -406,6 +407,7 @@ def run_monte_carlo_simulation(
     - simulation_mode (str): 'iid' for independent trades or 'moving-block-bootstrap' for streak preservation.
     - block_size (int): Block size for bootstrap sampling (only used in bootstrap mode).
     - commission_per_contract (float): Commission cost per contract (currently unused in calculations).
+    - num_trades (int): Number of trades per simulation. Must be at least the number of historical trades.
     
     Returns:
     - list[dict]: List containing one trade report dictionary with:
@@ -420,9 +422,8 @@ def run_monte_carlo_simulation(
     - For 'percent' sizing, tests risk levels: 1%, 2%, 3%, 5%, 10%, 15%, 25%, 50%, 75%, 100%
     - For 'contracts' sizing, tests fixed counts: 1, 2, 5, 10, 15, 20
     - Each position size is simulated num_simulations times with num_trades per simulation
-    - Minimum num_trades is 55 or actual historical trade count, whichever is larger
     """
-    num_trades = max(55, trade_stats['num_trades'])
+    num_trades = max(num_trades, trade_stats['num_trades'])
     
     # Create trade dict
     trade = {

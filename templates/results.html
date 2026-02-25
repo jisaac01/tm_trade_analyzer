@@ -21,26 +21,41 @@
 {% for report in trade_reports %}
 <section class="trade-card">
     <h2>{{ report.trade_name|escape }}</h2>
-    <h3 class="section-label">TradeMachine Backtest Results (from CSV file)</h3>
-    {% if report.summary.min_date and report.summary.max_date %}
-    <p class="meta">Backtest Period: <strong>{{ report.summary.min_date }} to {{ report.summary.max_date }}</strong></p>
-    {% endif %}
-    <p class="meta">Note: These results should match the numbers shown in TradeMachine for the same backtest period (sanity check).</p>
-    <div class="summary-grid">
-        <div class="summary-item"><span title="The risk amount of the first trade in the backtest plus its entry commission. This is used to calculate percentage returns, not the total risk across all trades.">Risked</span><strong>${{ "{:,.0f}".format(report.summary.risked) }}</strong></div>
-        <div class="summary-item"><span title="Net profit or loss from all trades, after commissions. Positive indicates overall gain, negative indicates loss.">Total Return</span><strong>{{ report.total_return_formatted }}</strong></div>
-        <div class="summary-item"><span title="Percentage return on the initial balance. Calculated as (Total Return / Initial Balance) * 100.">% Return</span><strong>{{ "{:.1f}".format(report.summary.pct_return) }}%</strong></div>
-        <div class="summary-item"><span title="Average percentage return per trade. Calculated as % Return divided by number of trades.">Avg % Return</span><strong>{{ "{:.1f}".format(report.summary.avg_pct_return) }}%</strong></div>
-        <div class="summary-item"><span title="Total commissions paid, calculated as commission per contract times number of contracts traded times number of trades.">Commissions</span><strong>${{ "{:,.0f}".format(report.summary.commissions) }}</strong></div>
-        <div class="summary-item"><span title="Percentage of trades that resulted in a profit. Calculated as (Number of Wins / Total Trades) * 100.">Win Rate</span><strong>{{ "{:.1f}".format(report.summary.win_rate * 100) }}%</strong></div>
-        <div class="summary-item"><span title="Count of profitable trades versus losing trades in the backtest data.">Wins / Losses</span><strong>{{ report.summary.wins }} / {{ report.summary.losses }}</strong></div>
-        <div class="summary-item"><span title="Average profit per winning trade versus average loss per losing trade, based on historical data.">Avg Win / Avg Loss</span><strong>{{ report.avg_win_formatted }} / {{ report.avg_loss_formatted }}</strong></div>
-        <div class="summary-item"><span title="Total profits from all winning trades versus total losses from all losing trades in the backtest.">Gross Gain / Gross Loss</span><strong>{{ report.gross_gain_formatted }} / {{ report.gross_loss_formatted }}</strong></div>
-        <div class="summary-item"><span title="The most conservative estimate of maximum risk per spread, derived from the option structure (width, credit/debit). Used for position sizing calculations.">Conservative Max Risk</span><strong>${{ "{:,.0f}".format(report.summary.conservative_theoretical_max_loss) }}</strong></div>
-        <div class="summary-item"><span title="Maximum theoretical risk per spread, based on the worst-case scenario from the option positions. May be higher than conservative estimate.">Max Risk</span><strong>${{ "{:,.0f}".format(report.summary.max_theoretical_loss) }}</strong></div>
-        <div class="summary-item"><span title="The longest consecutive sequence of losing trades in the historical data. Indicates drawdown potential.">Max Loss Streak in History</span><strong>{{ report.historical_max_losing_streak }}</strong></div>
-    </div>
-    <p class="distribution" title="Sample of the first 10 profit/loss outcomes from the historical trade data. Shows the distribution used for Monte Carlo sampling."><strong>P/L Distribution (first 10):</strong> {{ report.pnl_preview|join(', ') }}</p>
+    <details open>
+        <summary style="cursor: pointer; color: var(--accent); margin-bottom: 10px;">TradeMachine Backtest Results (from CSV file)</summary>
+        {% if report.summary.min_date and report.summary.max_date %}
+        <p class="meta">Backtest Period: <strong>{{ report.summary.min_date }} to {{ report.summary.max_date }}</strong></p>
+        {% endif %}
+        <p class="meta">Note: These results should match the numbers shown in TradeMachine for the same backtest period (sanity check).</p>
+        <div class="summary-grid">
+            <div class="summary-group">
+                <h4>Performance</h4>
+                <div class="summary-item"><span title="Net profit or loss from all trades, after commissions. Positive indicates overall gain, negative indicates loss.">Total Return</span><strong>{{ report.total_return_formatted }}</strong></div>
+                <div class="summary-item"><span title="Percentage return on the initial balance. Calculated as (Total Return / Initial Balance) * 100.">% Return</span><strong>{{ "{:.1f}".format(report.summary.pct_return) }}%</strong></div>
+                <div class="summary-item"><span title="Average percentage return per trade. Calculated as % Return divided by number of trades.">Avg % Return</span><strong>{{ "{:.1f}".format(report.summary.avg_pct_return) }}%</strong></div>
+            </div>
+            <div class="summary-group">
+                <h4>Trade Stats</h4>
+                <div class="summary-item"><span title="Percentage of trades that resulted in a profit. Calculated as (Number of Wins / Total Trades) * 100.">Win Rate</span><strong>{{ "{:.1f}".format(report.summary.win_rate * 100) }}%</strong></div>
+                <div class="summary-item"><span title="Count of profitable trades versus losing trades in the backtest data.">Wins / Losses</span><strong>{{ report.summary.wins }} / {{ report.summary.losses }}</strong></div>
+                <div class="summary-item"><span title="Average profit per winning trade versus average loss per losing trade, based on historical data.">Avg Win / Avg Loss</span><strong>{{ report.avg_win_formatted }} / {{ report.avg_loss_formatted }}</strong></div>
+                <div class="summary-item"><span title="Average percentage return per winning trade versus average percentage loss per losing trade, calculated relative to the theoretical maximum risk per trade.">Avg Win % / Avg Loss %</span><strong>{{ "{:.1f}".format(report.summary.avg_pct_win) }}% / {{ "{:.1f}".format(report.summary.avg_pct_loss) }}%</strong></div>
+                <div class="summary-item"><span title="Total profits from all winning trades versus total losses from all losing trades in the backtest.">Gross Gain / Gross Loss</span><strong>{{ report.gross_gain_formatted }} / {{ report.gross_loss_formatted }}</strong></div>
+            </div>
+            <div class="summary-group">
+                <h4>Risk</h4>
+                <div class="summary-item"><span title="The risk amount of the first trade in the backtest plus its entry commission. This is used to calculate percentage returns, not the total risk across all trades.">Risked</span><strong>${{ "{:,.0f}".format(report.summary.risked) }}</strong></div>
+                <div class="summary-item"><span title="The most conservative estimate of maximum risk per spread, derived from the option structure (width, credit/debit). Used for position sizing calculations.">Conservative Max Risk</span><strong>${{ "{:,.0f}".format(report.summary.conservative_theoretical_max_loss) }}</strong></div>
+                <div class="summary-item"><span title="Maximum theoretical risk per spread, based on the worst-case scenario from the option positions. May be higher than conservative estimate.">Max Risk</span><strong>${{ "{:,.0f}".format(report.summary.max_theoretical_loss) }}</strong></div>
+                <div class="summary-item"><span title="The longest consecutive sequence of losing trades in the historical data. Indicates drawdown potential.">Max Loss Streak in History</span><strong>{{ report.historical_max_losing_streak }}</strong></div>
+            </div>
+            <div class="summary-group">
+                <h4>Costs</h4>
+                <div class="summary-item"><span title="Total commissions paid, calculated as commission per contract times number of contracts traded times number of trades.">Commissions</span><strong>${{ "{:,.0f}".format(report.summary.commissions) }}</strong></div>
+            </div>
+        </div>
+        <p class="distribution" title="Sample of the first 10 profit/loss outcomes from the historical trade data. Shows the distribution used for Monte Carlo sampling."><strong>P/L Distribution (first 10):</strong> {{ report.pnl_preview|join(', ') }}</p>
+    </details>
 </section>
 
 <section class="trade-card">
