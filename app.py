@@ -34,7 +34,7 @@ def index():
         # Handle file upload
         csv_file = request.files.get('csv_file')
         if not csv_file or not csv_file.filename.endswith('.csv'):
-            flash('Please upload a valid CSV file.')
+            flash('Please upload a valid CSV file.', 'error')
             return redirect(url_for('index'))
 
         # Save file
@@ -72,7 +72,11 @@ def index():
         return redirect(url_for('results'))
 
     # GET: render form
-    return render_template('index.html')
+    # Pass session data if available for form defaults
+    params = session.get('params', {})
+    return render_template('index.html', 
+                          original_filename=session.get('original_filename'),
+                          **params)
 
 @app.route('/results', methods=['GET', 'POST'])
 def results():
@@ -83,6 +87,9 @@ def results():
         # Handle new CSV upload
         csv_file = request.files.get('csv_file')
         if csv_file and csv_file.filename:
+            if not csv_file.filename.endswith('.csv'):
+                flash('Please upload a valid CSV file.', 'error')
+                return redirect(url_for('results'))
             filename = str(uuid.uuid4()) + '.csv'
             filepath = os.path.join(UPLOAD_FOLDER, filename)
             csv_file.save(filepath)
@@ -127,8 +134,13 @@ def results():
     csv_filepath = session['csv_filepath']
 
     # Parse CSV
-    trade_stats = trade_parser.parse_trade_csv(csv_filepath)
-    trade_stats['name'] = os.path.splitext(session['original_filename'])[0]
+    try:
+        trade_stats = trade_parser.parse_trade_csv(csv_filepath)
+        trade_stats['name'] = os.path.splitext(session['original_filename'])[0]
+    except Exception as e:
+        flash(f'Error parsing CSV file: {str(e)}. Please check your trade data.', 'error')
+        # Return to index page to allow user to upload a new file
+        return redirect(url_for('index'))
 
     num_trades_per_simulation = max(params['num_trades'], trade_stats['num_trades'])
 
@@ -145,8 +157,16 @@ def results():
             risk_calculation_method=params['risk_calculation_method']
         )
     except Exception as e:
-        flash(f'Error running simulation: {str(e)}. Please check your trade data.')
-        return redirect(url_for('index'))
+        flash(f'Error running simulation: {str(e)}', 'error')
+        # Render the results page with form but without results
+        # This allows the user to adjust parameters and try again
+        return render_template('results.html',
+                              trade_reports=[],
+                              original_filename=session['original_filename'],
+                              num_trades_per_simulation=0,
+                              position_sizing_display_text='',
+                              show_error_only=True,
+                              **params)
 
     # Prepare data for template
     for report in trade_reports:

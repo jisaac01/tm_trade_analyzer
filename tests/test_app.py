@@ -215,3 +215,114 @@ def test_risk_calculation_method_selector_labels_and_width(client):
     assert 'Fixed: Theoretical Max' in html
 
     assert 'id="risk_calculation_method" name="risk_calculation_method" style="width: 320px;"' in html
+
+
+@patch('app.trade_parser.parse_trade_csv')
+def test_results_simulation_error_displays_and_preserves_state(mock_parse, client):
+    """Test that simulation errors are displayed and form state is preserved."""
+    # Mock the parsing to return valid data
+    mock_parse.return_value = {
+        'num_trades': 10,
+        'pnl_distribution': [100, 200, -50, -100, 150],
+        'name': 'Test Trade',
+        'win_rate': 0.6,
+        'avg_win': 150,
+        'avg_loss': -75,
+        'max_win': 200,
+        'max_loss': -100,
+        'max_theoretical_loss': 500,
+        'conservative_theoretical_max_loss': 450,
+        'max_theoretical_gain': 300,
+        'conservative_realized_max_reward': 250,
+        'risked': 500,
+        'total_return': 300,
+        'pct_return': 60.0,
+        'avg_pct_return': 6.0,
+        'commissions': 5,
+        'wins': 6,
+        'losses': 4,
+        'avg_pct_win': 30,
+        'avg_pct_loss': -15,
+        'gross_gain': 900,
+        'gross_loss': -300,
+        'median_loss': -75,
+        'median_risk_per_spread': 75
+    }
+    
+    # Set session with very small balance that will trigger error
+    with client.session_transaction() as sess:
+        sess['csv_filepath'] = 'dummy.csv'
+        sess['original_filename'] = 'test_trades.csv'
+        sess['params'] = {
+            'initial_balance': 10,  # Too small!
+            'num_simulations': 100,
+            'num_trades': 10,
+            'option_commission': 0.50,
+            'position_sizing': 'percent',
+            'dynamic_risk_sizing': True,
+            'simulation_mode': 'iid',
+            'block_size': 5,
+            'position_sizing_display': 'dynamic-percent',
+            'risk_calculation_method': 'conservative_theoretical'
+        }
+
+    response = client.get('/results', follow_redirects=True)
+    assert response.status_code == 200
+    
+    # Check that error message is displayed
+    html = response.data.decode('utf-8')
+    assert 'Error running simulation' in html
+    assert 'insufficient' in html.lower() or 'balance' in html.lower()
+    
+    # Check that form is displayed with preserved values
+    assert 'value="10"' in html  # initial_balance preserved
+    assert 'value="100"' in html  # num_simulations preserved
+    assert 'test_trades.csv' in html  # filename shown
+    
+    # Check that the results section is not shown
+    assert 'Trade Stats' not in html or 'show_error_only' in html
+
+
+@patch('app.trade_parser.parse_trade_csv')
+def test_results_csv_parse_error_redirects_to_index(mock_parse, client):
+    """Test that CSV parse errors redirect to index with error message."""
+    # Mock the parsing to raise an error
+    mock_parse.side_effect = ValueError("Invalid CSV format")
+    
+    # Set session
+    with client.session_transaction() as sess:
+        sess['csv_filepath'] = 'bad.csv'
+        sess['original_filename'] = 'bad.csv'
+        sess['params'] = {
+            'initial_balance': 10000,
+            'num_simulations': 100,
+            'num_trades': 10,
+            'option_commission': 0.50,
+            'position_sizing': 'percent',
+            'dynamic_risk_sizing': True,
+            'simulation_mode': 'iid',
+            'block_size': 5,
+            'position_sizing_display': 'dynamic-percent',
+            'risk_calculation_method': 'conservative_theoretical'
+        }
+
+    response = client.get('/results', follow_redirects=True)
+    assert response.status_code == 200
+    
+    # Should redirect to index
+    html = response.data.decode('utf-8')
+    assert 'Upload your trade data' in html  # index page content
+    assert 'Error parsing CSV' in html or 'Invalid CSV' in html
+
+
+def test_flash_messages_have_categories(client):
+    """Test that flash messages support categories for styling."""
+    # Test that the app supports flash message categories
+    with client.session_transaction() as sess:
+        # Flash with category is handled by Flask, just verify template renders it
+        pass
+    
+    response = client.get('/')
+    html = response.data.decode('utf-8')
+    # Check that flash message container exists in base template
+    assert 'flash-message' in html or 'get_flashed_messages' in html

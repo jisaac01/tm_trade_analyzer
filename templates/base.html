@@ -124,6 +124,32 @@
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
+        /* Flash message styles */
+        .flash-messages {
+            margin-bottom: 20px;
+        }
+        .flash-message {
+            background: var(--panel);
+            border: 1px solid #253244;
+            border-left: 4px solid var(--warn);
+            border-radius: 8px;
+            padding: 16px 20px;
+            margin-bottom: 12px;
+            color: var(--text);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+        }
+        .flash-message.error {
+            border-left-color: #ef4444;
+            background: linear-gradient(90deg, rgba(239, 68, 68, 0.1), var(--panel));
+        }
+        .flash-message.success {
+            border-left-color: var(--good);
+            background: linear-gradient(90deg, rgba(52, 211, 153, 0.1), var(--panel));
+        }
+        .flash-message.info {
+            border-left-color: var(--accent);
+            background: linear-gradient(90deg, rgba(96, 165, 250, 0.1), var(--panel));
+        }
     </style>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
@@ -202,6 +228,15 @@
 </head>
 <body>
     <main class="container">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for category, message in messages %}
+                        <div class="flash-message {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
         {% block content %}{% endblock %}
     </main>
     <div class="spinner-overlay" id="spinner-overlay">

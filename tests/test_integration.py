@@ -44,3 +44,42 @@ def test_end_to_end_simulation(client):
     response = client.post('/results', data=data_update, follow_redirects=True)
     assert response.status_code == 200
     assert b'Monte Carlo Trade Sizing Report' in response.data
+
+
+def test_end_to_end_insufficient_balance_error(client):
+    """Test that insufficient balance errors are properly surfaced with preserved form state."""
+    # Use a real test CSV
+    csv_path = os.path.join(os.path.dirname(__file__), 'test_data', 'test_call_spread.csv')
+
+    with open(csv_path, 'rb') as f:
+        data = {
+            'csv_file': f,
+            'initial_balance': '1',  # Way too small - will trigger error
+            'num_simulations': '10',
+            'num_trades': '10',
+            'option_commission': '0.50',
+            'position_sizing_mode': 'dynamic-percent',
+            'simulation_mode': 'iid',
+            'block_size': '5',
+            'risk_calculation_method': 'conservative_theoretical'
+        }
+        response = client.post('/', data=data, content_type='multipart/form-data', follow_redirects=True)
+        assert response.status_code == 200
+        
+        html = response.data.decode('utf-8')
+        
+        # Check that error message is displayed
+        assert 'Error running simulation' in html
+        assert 'insufficient' in html.lower() or 'balance' in html.lower()
+        
+        # Check that form is displayed with preserved values
+        assert 'value="1"' in html  # initial_balance preserved
+        assert 'value="10"' in html  # num_simulations preserved
+        assert 'test_call_spread.csv' in html  # filename shown
+        
+        # Check that we're on results page (with form to adjust parameters)
+        assert 'Adjust Parameters' in html
+        
+        # Check that no results table is shown (because simulation failed)
+        # The results section should be hidden when show_error_only is True
+        assert 'TradeMachine Backtest Results' not in html or html.count('TradeMachine Backtest Results') == 0
