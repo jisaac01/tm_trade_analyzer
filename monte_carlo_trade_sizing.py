@@ -6,6 +6,10 @@ import argparse
 import webbrowser
 from html import escape
 
+# DEPRECATED: This file is a museum piece and should never be touched.
+# It is preserved for historical reference only. All new development should
+# use simulator.py and trade_parser.py instead.
+
 OPTION_COMMISSION_PER_CONTRACT = 0.495
 
 # Define the trades with their parameters (will be updated with real data)

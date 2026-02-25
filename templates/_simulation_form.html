@@ -47,6 +47,20 @@
                     <input type="number" id="block_size" name="block_size" value="{{ block_size|default(1) }}" min="1" style="width: 80px;">
                 </div>
             </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="risk_calculation_method" title="Method for calculating risk amount per trade:<br><b>Variable: Conservative Theoretical Max</b>: Variable losses up to 95th percentile of theoretical losses (excludes outlier losses)<br><b>Variable: Theoretical Max</b>: Variable losses up to maximum theoretical loss<br><b>Fixed: Median Realized</b>: Fixed loss amount at median of actual historical losses<br><b>Fixed: Average Realized</b>: Fixed loss amount at average of actual historical losses<br><b>Fixed: Average Realized (Trimmed)</b>: Fixed loss amount at average excluding top 5% outliers<br><b>Fixed: Conservative Theoretical Max</b>: Fixed loss amount at conservative theoretical max<br><b>Fixed: Theoretical Max</b>: Fixed loss amount at theoretical max">Risk Calculation Method:</label>
+                    <select id="risk_calculation_method" name="risk_calculation_method" style="width: 320px;">
+                        <option value="conservative_theoretical" {% if risk_calculation_method|default('conservative_theoretical') == 'conservative_theoretical' %}selected{% endif %}>Variable: Conservative Theoretical Max</option>
+                        <option value="max_theoretical" {% if risk_calculation_method|default('conservative_theoretical') == 'max_theoretical' %}selected{% endif %}>Variable: Theoretical Max</option>
+                        <option value="median_realized" {% if risk_calculation_method|default('conservative_theoretical') == 'median_realized' %}selected{% endif %}>Fixed: Median Realized</option>
+                        <option value="average_realized" {% if risk_calculation_method|default('conservative_theoretical') == 'average_realized' %}selected{% endif %}>Fixed: Average Realized</option>
+                        <option value="average_realized_trimmed" {% if risk_calculation_method|default('conservative_theoretical') == 'average_realized_trimmed' %}selected{% endif %}>Fixed: Average Realized (Trimmed)</option>
+                        <option value="fixed_conservative_theoretical_max" {% if risk_calculation_method|default('conservative_theoretical') == 'fixed_conservative_theoretical_max' %}selected{% endif %}>Fixed: Conservative Theoretical Max</option>
+                        <option value="fixed_theoretical_max" {% if risk_calculation_method|default('conservative_theoretical') == 'fixed_theoretical_max' %}selected{% endif %}>Fixed: Theoretical Max</option>
+                    </select>
+                </div>
+            </div>
         </details>
 
         <button type="submit">{{ submit_button_text|default('Run Simulation') }}</button>

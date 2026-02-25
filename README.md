@@ -122,6 +122,14 @@ The application will start and be available at `http://127.0.0.1:5001/`
      - **Dynamic Percent**: Adjusts contract count to maintain target risk percentage
      - **Fixed Percent**: Uses fixed risk percentages with static contract counts
      - **Fixed Contracts**: Uses predetermined contract counts
+   - **Risk Calculation Method**:
+       - **Variable: Conservative Theoretical Max**: Variable losses up to 95th percentile of theoretical losses (most conservative cap)
+       - **Variable: Theoretical Max**: Variable losses up to maximum theoretical loss
+       - **Fixed: Median Realized**: Fixed loss amount at median of actual historical losses
+       - **Fixed: Average Realized**: Fixed loss amount at average of actual historical losses
+       - **Fixed: Average Realized (Trimmed)**: Fixed loss amount at average excluding top 5% outliers
+       - **Fixed: Conservative Theoretical Max**: Fixed loss amount at conservative theoretical max
+       - **Fixed: Theoretical Max**: Fixed loss amount at theoretical max
    - **Simulation Mode**:
      - **IID (Independent Identical Distribution)**: Each trade is independent
      - **Moving Block Bootstrap**: Preserves historical streak patterns

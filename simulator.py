@@ -10,32 +10,71 @@ DEFAULT_POSITION_SIZES = [1, 2, 5, 10, 15, 20]
 DEFAULT_RISK_PCTS = [1, 2, 3, 5, 10, 15, 25, 50, 75, 100]
 
 
-def get_max_risk_per_spread(trade):
+def get_max_risk_per_spread(trade, risk_calculation_method='conservative_theoretical'):
     """
     Determine the maximum risk per spread for position sizing calculations.
     
-    This function prioritizes conservative theoretical loss estimates over realized losses
-    to provide a more robust risk assessment for Monte Carlo simulations.
+    This function calculates risk based on the specified method to provide
+    different risk assessment approaches for Monte Carlo simulations.
     
     Parameters:
     - trade (dict): Trade statistics dictionary containing risk metrics.
+    - risk_calculation_method (str): Method for calculating risk:
+        - 'conservative_theoretical': 95th percentile of theoretical losses (variable losses up to this cap)
+        - 'max_theoretical': Maximum theoretical loss (variable losses up to this cap)
+        - 'median_realized': Median of realized losses (fixed loss amount)
+        - 'average_realized': Average of realized losses (fixed loss amount)
+        - 'average_realized_trimmed': Average of realized losses excluding top 5% (fixed loss amount)
+        - 'fixed_conservative_theoretical_max': Conservative theoretical max as fixed loss amount
+        - 'fixed_theoretical_max': Theoretical max as fixed loss amount
     
     Returns:
     - float: The maximum risk amount per spread in dollars.
-    
-    Priority order for risk determination:
-    1. conservative_theoretical_max_loss (95th percentile of theoretical losses)
-    2. max_theoretical_loss (maximum theoretical loss)
-    3. abs(max_loss) (absolute value of maximum realized loss)
     """
-    conservative_theoretical_loss = trade.get('conservative_theoretical_max_loss', 0)
-    if conservative_theoretical_loss and conservative_theoretical_loss > 0:
-        return float(conservative_theoretical_loss)
+    if risk_calculation_method == 'conservative_theoretical':
+        conservative_theoretical_loss = trade.get('conservative_theoretical_max_loss', 0)
+        if conservative_theoretical_loss and conservative_theoretical_loss > 0:
+            return float(conservative_theoretical_loss)
+        raise ValueError("Conservative theoretical loss data is missing or invalid. Required field: 'conservative_theoretical_max_loss'")
+    
+    if risk_calculation_method == 'max_theoretical':
+        max_theoretical_loss = trade.get('max_theoretical_loss', 0)
+        if max_theoretical_loss and max_theoretical_loss > 0:
+            return float(max_theoretical_loss)
+        raise ValueError("Maximum theoretical loss data is missing or invalid. Required field: 'max_theoretical_loss'")
+    
+    if risk_calculation_method == 'median_realized':
+        median_risk = trade.get('median_risk_per_spread', 0)
+        if median_risk and median_risk > 0:
+            return float(median_risk)
+        raise ValueError("Median realized loss data is missing or invalid. Required field: 'median_risk_per_spread'")
+    
+    if risk_calculation_method == 'average_realized':
+        avg_loss = abs(trade.get('avg_loss', 0))
+        if avg_loss > 0:
+            return float(avg_loss)
+        raise ValueError("Average realized loss data is missing or invalid. Required field: 'avg_loss'")
+    
+    if risk_calculation_method == 'average_realized_trimmed':
+        pnl_distribution = trade.get('pnl_distribution', [])
+        if not pnl_distribution:
+            raise ValueError("PNL distribution data is missing. Required field: 'pnl_distribution'")
+        losses = [abs(pnl) for pnl in pnl_distribution if pnl < 0]
+        if not losses:
+            raise ValueError("No loss trades found in PNL distribution for trimmed average calculation")
+        # Remove top 5% of losses as outliers
+        losses_sorted = sorted(losses)
+        trim_count = max(1, int(len(losses) * 0.05))
+        trimmed_losses = losses_sorted[:-trim_count] if trim_count < len(losses) else losses_sorted
+        return float(np.mean(trimmed_losses))
 
-    max_theoretical_loss = trade.get('max_theoretical_loss', 0)
-    if max_theoretical_loss and max_theoretical_loss > 0:
-        return float(max_theoretical_loss)
-    return float(abs(trade['max_loss']))
+    if risk_calculation_method == 'fixed_conservative_theoretical_max':
+        return get_max_risk_per_spread(trade, 'conservative_theoretical')
+
+    if risk_calculation_method == 'fixed_theoretical_max':
+        return get_max_risk_per_spread(trade, 'max_theoretical')
+    
+    raise ValueError(f"Unknown risk calculation method: '{risk_calculation_method}'")
 
 
 def choose_contract_count_for_risk_pct(max_risk_per_spread, account_balance, target_risk_pct):
@@ -78,7 +117,12 @@ def choose_contract_count_for_risk_pct(max_risk_per_spread, account_balance, tar
     return lower if lower_diff <= upper_diff else upper
 
 
-def build_position_size_plan(trade, initial_balance, position_sizing):
+def build_position_size_plan(
+    trade,
+    initial_balance,
+    position_sizing,
+    risk_calculation_method='conservative_theoretical'
+):
     """
     Generate a plan of position sizes for Monte Carlo simulation testing.
     
@@ -90,6 +134,7 @@ def build_position_size_plan(trade, initial_balance, position_sizing):
     - trade (dict): Trade statistics dictionary containing risk metrics.
     - initial_balance (float): Starting account balance in dollars.
     - position_sizing (str): Sizing method - 'contracts' for fixed sizes or 'percent' for risk-based.
+    - risk_calculation_method (str): Method used to determine risk per spread.
     
     Returns:
     - list[dict]: List of position size configurations, each containing:
@@ -100,7 +145,7 @@ def build_position_size_plan(trade, initial_balance, position_sizing):
     For 'contracts' sizing, uses predefined contract counts: [1, 2, 5, 10, 15, 20]
     For 'percent' sizing, uses predefined risk percentages: [1, 2, 3, 5, 10, 15, 25, 50, 75, 100]%
     """
-    max_risk_per_spread = get_max_risk_per_spread(trade)
+    max_risk_per_spread = get_max_risk_per_spread(trade, risk_calculation_method)
 
     if position_sizing == 'contracts':
         return [
@@ -279,7 +324,8 @@ def simulate_trades(
     target_risk_pct=None,
     dynamic_risk_sizing=True,
     simulation_mode='iid',
-    block_size=5
+    block_size=5,
+    risk_calculation_method='conservative_theoretical'
 ):
     """
     Run a single Monte Carlo simulation path for a given position size.
@@ -298,6 +344,7 @@ def simulate_trades(
     - dynamic_risk_sizing (bool): Whether to adjust position size based on current balance.
     - simulation_mode (str): 'iid' for independent trades or 'moving-block-bootstrap' for streak preservation.
     - block_size (int): Block size for bootstrap sampling (only used in bootstrap mode).
+    - risk_calculation_method (str): Method for calculating risk amount per trade.
     
     Returns:
     - list[dict]: Simulation results for each path, each containing:
@@ -312,7 +359,7 @@ def simulate_trades(
     - Simulation stops if balance reaches zero (bankruptcy)
     """
     avg_risk_per_spread = abs(trade['avg_loss'])
-    max_risk_per_spread = get_max_risk_per_spread(trade)
+    max_risk_per_spread = get_max_risk_per_spread(trade, risk_calculation_method)
     avg_reward_per_spread = trade['avg_win']
     conservative_realized_max_reward = trade.get('conservative_realized_max_reward', 0)
     max_reward_per_spread = conservative_realized_max_reward if conservative_realized_max_reward > 0 else trade['max_win']
@@ -359,7 +406,17 @@ def simulate_trades(
                     max_losing_streak = max(max_losing_streak, current_losing_streak)
             else:
                 # Generate variable risk and reward for this specific trade
-                risk = generate_risk(avg_risk, max_risk)
+                fixed_risk_methods = {
+                    'median_realized',
+                    'average_realized',
+                    'average_realized_trimmed',
+                    'fixed_conservative_theoretical_max',
+                    'fixed_theoretical_max'
+                }
+                if risk_calculation_method in fixed_risk_methods:
+                    risk = max_risk
+                else:
+                    risk = generate_risk(avg_risk, max_risk)
                 reward = generate_reward(avg_reward, max_reward)
 
                 if random.random() < win_rate:
@@ -389,7 +446,8 @@ def run_monte_carlo_simulation(
     simulation_mode='iid',
     block_size=5,
     commission_per_contract=OPTION_COMMISSION_PER_CONTRACT,
-    num_trades=60
+    num_trades=60,
+    risk_calculation_method='conservative_theoretical'
 ):
     """
     Execute a complete Monte Carlo simulation for trade position sizing analysis.
@@ -408,6 +466,7 @@ def run_monte_carlo_simulation(
     - block_size (int): Block size for bootstrap sampling (only used in bootstrap mode).
     - commission_per_contract (float): Commission cost per contract (currently unused in calculations).
     - num_trades (int): Number of trades per simulation. Must be at least the number of historical trades.
+    - risk_calculation_method (str): Method for calculating risk amount per trade.
     
     Returns:
     - list[dict]: List containing one trade report dictionary with:
@@ -434,7 +493,8 @@ def run_monte_carlo_simulation(
     position_size_plan = build_position_size_plan(
         trade=trade,
         initial_balance=initial_balance,
-        position_sizing=position_sizing
+        position_sizing=position_sizing,
+        risk_calculation_method=risk_calculation_method
     )
 
     data = []
@@ -450,7 +510,8 @@ def run_monte_carlo_simulation(
                 target_risk_pct=row['target_risk_pct'],
                 dynamic_risk_sizing=dynamic_risk_sizing,
                 simulation_mode=simulation_mode,
-                block_size=block_size
+                block_size=block_size,
+                risk_calculation_method=risk_calculation_method
             )
         else:
             sim_results = simulate_trades(
@@ -462,7 +523,8 @@ def run_monte_carlo_simulation(
                 target_risk_pct=None,
                 dynamic_risk_sizing=False,
                 simulation_mode=simulation_mode,
-                block_size=block_size
+                block_size=block_size,
+                risk_calculation_method=risk_calculation_method
             )
         final_balances = [r['final_balance'] for r in sim_results]
         drawdowns = [r['max_drawdown'] for r in sim_results]

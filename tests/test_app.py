@@ -190,3 +190,28 @@ def test_format_currency_whole():
     assert format_currency_whole(1000) == '$1,000'
     assert format_currency_whole(-500) == '-$500'
     assert format_currency_whole(0) == '$0'
+
+
+def test_risk_calculation_method_selector_labels_and_width(client):
+    """Risk method selector should include readable prefixed labels and wider control."""
+    response = client.get('/')
+    assert response.status_code == 200
+
+    html = response.data.decode('utf-8')
+    assert 'value="conservative_theoretical"' in html
+    assert 'value="max_theoretical"' in html
+    assert 'value="median_realized"' in html
+    assert 'value="average_realized"' in html
+    assert 'value="average_realized_trimmed"' in html
+    assert 'value="fixed_conservative_theoretical_max"' in html
+    assert 'value="fixed_theoretical_max"' in html
+
+    assert 'Variable: Conservative Theoretical Max' in html
+    assert 'Variable: Theoretical Max' in html
+    assert 'Fixed: Median Realized' in html
+    assert 'Fixed: Average Realized' in html
+    assert 'Fixed: Average Realized (Trimmed)' in html
+    assert 'Fixed: Conservative Theoretical Max' in html
+    assert 'Fixed: Theoretical Max' in html
+
+    assert 'id="risk_calculation_method" name="risk_calculation_method" style="width: 320px;"' in html

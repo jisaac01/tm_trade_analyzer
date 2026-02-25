@@ -78,6 +78,7 @@ The goal of this section is to prevent recurring mistakes. **If you are correcte
 -   **Deterministic Tests:** Seed randomness in tests when asserting numeric behavior.
 -   **Project-local Execution:** Use the project environment tools (for example, `tm_trade_analyzer_venv/bin/pytest`) instead of relying on global interpreters.
 -   **No Hidden Defaults:** Prefer explicit inputs/config over silent fallbacks when behavior materially changes.
+-   **No Backward-Compatibility Additions Unless Requested:** Do not add aliases, fallback paths, fallthrough handling, or compatibility shims unless the user explicitly asks for them.
 -   **Keep Scope Tight:** Implement only the requested behavior; avoid adding speculative knobs.
 -   **Security Hygiene:** Never hardcode secrets, API keys, or private absolute file paths.
 

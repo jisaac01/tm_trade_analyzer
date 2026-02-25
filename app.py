@@ -98,7 +98,8 @@ def results():
             'dynamic_risk_sizing': dynamic_risk_sizing,
             'simulation_mode': request.form.get('simulation_mode', params.get('simulation_mode', 'iid')),
             'block_size': int(request.form.get('block_size', params.get('block_size', 1))),
-            'position_sizing_display': position_sizing_raw
+            'position_sizing_display': position_sizing_raw,
+            'risk_calculation_method': request.form.get('risk_calculation_method', params.get('risk_calculation_method', 'conservative_theoretical'))
         })
         session['params'] = params
         return redirect(url_for('results'))
@@ -113,7 +114,8 @@ def results():
         'dynamic_risk_sizing': True,
         'simulation_mode': 'iid',
         'block_size': 1,
-        'position_sizing_display': 'dynamic-percent'
+        'position_sizing_display': 'dynamic-percent',
+        'risk_calculation_method': 'conservative_theoretical'
     }
     params = session.get('params', default_params)
     params = {**default_params, **params}  # Ensure all defaults are present
@@ -135,7 +137,8 @@ def results():
             simulation_mode=params['simulation_mode'],
             block_size=params['block_size'],
             commission_per_contract=params['option_commission'],
-            num_trades=params['num_trades']
+            num_trades=params['num_trades'],
+            risk_calculation_method=params['risk_calculation_method']
         )
     except Exception as e:
         flash(f'Error running simulation: {str(e)}. Please check your trade data.')

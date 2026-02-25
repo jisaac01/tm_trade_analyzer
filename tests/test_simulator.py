@@ -103,11 +103,64 @@ class TestPositionSizing:
         assert simulator.get_max_risk_per_spread(trade) == 80
 
     def test_get_max_risk_per_spread_falls_back_to_max_loss(self):
-        """Should use abs(max_loss) if conservative not available."""
+        """Should raise error if conservative theoretical data is missing."""
         trade = {
             'max_loss': -150
         }
-        assert simulator.get_max_risk_per_spread(trade) == 150
+        with pytest.raises(ValueError, match="Conservative theoretical loss data is missing"):
+            simulator.get_max_risk_per_spread(trade)
+
+    def test_get_max_risk_per_spread_max_theoretical(self):
+        """Should use max_theoretical_loss when specified."""
+        trade = {
+            'max_theoretical_loss': 200,
+            'conservative_theoretical_max_loss': 80
+        }
+        assert simulator.get_max_risk_per_spread(trade, 'max_theoretical') == 200
+
+    def test_get_max_risk_per_spread_fixed_conservative_theoretical_max(self):
+        """Fixed conservative theoretical max should use conservative_theoretical_max_loss."""
+        trade = {
+            'conservative_theoretical_max_loss': 140,
+            'max_theoretical_loss': 200
+        }
+        assert simulator.get_max_risk_per_spread(trade, 'fixed_conservative_theoretical_max') == 140
+
+    def test_get_max_risk_per_spread_fixed_theoretical_max(self):
+        """Fixed theoretical max should use max_theoretical_loss."""
+        trade = {
+            'conservative_theoretical_max_loss': 140,
+            'max_theoretical_loss': 200
+        }
+        assert simulator.get_max_risk_per_spread(trade, 'fixed_theoretical_max') == 200
+
+    def test_get_max_risk_per_spread_median_realized(self):
+        """Should use median_risk_per_spread when specified."""
+        trade = {
+            'median_risk_per_spread': 75
+        }
+        assert simulator.get_max_risk_per_spread(trade, 'median_realized') == 75
+
+    def test_get_max_risk_per_spread_average_realized(self):
+        """Should use abs(avg_loss) when specified."""
+        trade = {
+            'avg_loss': -90
+        }
+        assert simulator.get_max_risk_per_spread(trade, 'average_realized') == 90
+
+    def test_get_max_risk_per_spread_average_realized_trimmed(self):
+        """Should calculate trimmed average of losses."""
+        trade = {
+            'pnl_distribution': [-50, -60, -70, -80, -1000]  # Top 20% is -1000
+        }
+        # Should exclude -1000, average of [-50,-60,-70,-80] = -65
+        assert simulator.get_max_risk_per_spread(trade, 'average_realized_trimmed') == 65
+
+    def test_get_max_risk_per_spread_raises_error_on_invalid_data(self):
+        """Should raise ValueError when conservative theoretical data is missing."""
+        trade = {}  # Empty trade data
+        with pytest.raises(ValueError, match="Conservative theoretical loss data is missing"):
+            simulator.get_max_risk_per_spread(trade, 'conservative_theoretical')
 
     def test_choose_contract_count_for_risk_pct(self):
         """Test contract count selection for target risk percentage."""
@@ -134,6 +187,33 @@ class TestPositionSizing:
             assert 'contracts' in item
             assert 'target_risk_pct' in item
             assert 'actual_risk_pct' in item
+
+    def test_build_position_size_plan_respects_risk_calculation_method(self):
+        """Percent sizing should use selected risk method when computing contracts."""
+        trade = {
+            'conservative_theoretical_max_loss': 100,
+            'max_theoretical_loss': 200
+        }
+        initial_balance = 10000
+
+        conservative_plan = simulator.build_position_size_plan(
+            trade,
+            initial_balance,
+            'percent',
+            risk_calculation_method='conservative_theoretical'
+        )
+        max_theoretical_plan = simulator.build_position_size_plan(
+            trade,
+            initial_balance,
+            'percent',
+            risk_calculation_method='max_theoretical'
+        )
+
+        conservative_25 = next(row for row in conservative_plan if row['target_risk_pct'] == 25.0)
+        max_theoretical_25 = next(row for row in max_theoretical_plan if row['target_risk_pct'] == 25.0)
+
+        assert conservative_25['contracts'] == 25
+        assert max_theoretical_25['contracts'] == 12
 
     def test_build_position_size_plan_contracts_mode(self):
         """Test position size plan building in contracts mode."""
@@ -189,7 +269,8 @@ class TestSimulateTrades:
                 "max_loss": -100,  # Max risk = 100
                 "avg_win": 50, 
                 "max_win": 50,
-                "win_rate": 1.0
+                "win_rate": 1.0,
+                "conservative_theoretical_max_loss": 100
             }
             position_size = 1
             initial_balance = 1000
@@ -217,7 +298,8 @@ class TestSimulateTrades:
                 "max_loss": -100,
                 "avg_win": 50, 
                 "max_win": 50,
-                "win_rate": 0.0
+                "win_rate": 0.0,
+                "conservative_theoretical_max_loss": 100
             }
             position_size = 1
             initial_balance = 1000
@@ -240,7 +322,8 @@ class TestSimulateTrades:
             "max_loss": -200,
             "avg_win": 50,
             "max_win": 100,
-            "win_rate": 0.5
+            "win_rate": 0.5,
+            "conservative_theoretical_max_loss": 200
         }
         position_size = 1  # Initial contracts
         initial_balance = 10000
@@ -268,7 +351,8 @@ class TestSimulateTrades:
             "avg_win": 50,
             "max_win": 100,
             "win_rate": 0.5,
-            "pnl_distribution": [50, -50, 100, -100, 25]
+            "pnl_distribution": [50, -50, 100, -100, 25],
+            "conservative_theoretical_max_loss": 200
         }
         position_size = 1
         initial_balance = 1000
@@ -282,6 +366,58 @@ class TestSimulateTrades:
         
         assert len(results) == num_simulations
 
+    def test_fixed_conservative_theoretical_max_risk_calculation_method(self):
+        """Fixed conservative theoretical max should apply full conservative max risk on each loss."""
+        with unittest.mock.patch('simulator.generate_reward', return_value=50):
+            trade = {
+                "name": "Test",
+                "avg_loss": -50,
+                "max_theoretical_loss": 200,
+                "conservative_theoretical_max_loss": 100,
+                "avg_win": 50,
+                "max_win": 50,
+                "win_rate": 0.0
+            }
+
+            results = simulator.simulate_trades(
+                trade,
+                position_size=1,
+                initial_balance=1000,
+                num_trades=5,
+                num_simulations=1,
+                risk_calculation_method='fixed_conservative_theoretical_max'
+            )
+
+            assert results[0]['final_balance'] == 500
+
+    def test_average_realized_risk_calculation_method(self):
+        """Test average realized risk method - all losses should be fixed at average amount."""
+        with unittest.mock.patch('simulator.generate_reward', return_value=50):
+            trade = {
+                "name": "Test",
+                "avg_loss": -75,  # Average loss = 75
+                "max_loss": -100,
+                "avg_win": 50,
+                "max_win": 50,
+                "win_rate": 0.0,  # 0% win rate to force losses
+                "conservative_theoretical_max_loss": 100
+            }
+            position_size = 1
+            initial_balance = 1000
+            num_trades = 3
+            num_simulations = 1
+
+            results = simulator.simulate_trades(
+                trade, position_size, initial_balance, num_trades, num_simulations,
+                risk_calculation_method='average_realized'
+            )
+
+            # With average_realized, each loss should be exactly 75 (fixed amount)
+            # 3 losses * 75 = 225 loss
+            expected_final_balance = initial_balance - 225
+
+            assert results[0]['final_balance'] == expected_final_balance
+
     def test_bankruptcy_stops_simulation(self):
         """Simulation should stop when balance reaches zero."""
         with unittest.mock.patch('simulator.generate_risk', return_value=500), \
@@ -292,7 +428,8 @@ class TestSimulateTrades:
                 "max_loss": -500,
                 "avg_win": 50,
                 "max_win": 50,
-                "win_rate": 0.0  # Always lose
+                "win_rate": 0.0,  # Always lose
+                "conservative_theoretical_max_loss": 500
             }
             position_size = 1
             initial_balance = 1000
@@ -314,7 +451,8 @@ class TestSimulateTrades:
                 "max_loss": -100,
                 "avg_win": 200,
                 "max_win": 200,
-                "win_rate": 1.0  # Always win
+                "win_rate": 1.0,  # Always win
+                "conservative_theoretical_max_loss": 100
             }
             position_size = 1
             initial_balance = 1000
@@ -340,7 +478,8 @@ class TestSimulateTrades:
                 "max_loss": -300,
                 "avg_win": 100,
                 "max_win": 100,
-                "win_rate": 0.5
+                "win_rate": 0.5,
+                "conservative_theoretical_max_loss": 300
             }
             position_size = 1
             initial_balance = 1000
@@ -369,7 +508,8 @@ class TestSimulateTrades:
                 "max_loss": -100,
                 "avg_win": 100,
                 "max_win": 100,
-                "win_rate": 0.5
+                "win_rate": 0.5,
+                "conservative_theoretical_max_loss": 100
             }
             position_size = 1
             initial_balance = 1000
