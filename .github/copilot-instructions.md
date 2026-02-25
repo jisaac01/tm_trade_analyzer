@@ -90,6 +90,13 @@ The goal of this section is to prevent recurring mistakes. **If you are correcte
 -   **Conservative metric selection:** When users request robust summaries, use the exact statistic requested (e.g., median vs p95) and label it explicitly in output to avoid confusion with means or raw maxima.
 -   **Printed risk metric vs cap metric:** Distinguish between the printed per-trade risk statistic and the conservative cap statistic. A request to change "Avg Risk per spread" to median does NOT imply changing conservative theoretical cap from p95.
 
-### CLI & UX Scope
--   **Avoid over-engineering CLI knobs:** Implement only what was requested. For trade sizing UX, prefer simple preset distributions over exposing multiple tuning switches unless the user explicitly asks for configurability.
-
+### Position Sizing & Broker Constraints
+-   **Position size must respect account balance:** The simulator must ALWAYS cap position sizing such that `max_risk_per_spread * contracts <= current_balance`. This simulates real broker margin requirements - a broker would never allow opening a position whose theoretical max loss exceeds the account balance. Even if a trader always takes losses to the theoretical maximum, the account balance can never go negative.
+-   **CRITICAL: Position sizing must use same risk method as loss simulation:**
+    - **Position sizing constraint (broker margin):** Use `get_position_sizing_risk_per_spread(trade, risk_calculation_method)` which uses the SAME risk method as loss simulation. This determines HOW MANY contracts can be traded.
+    - **Loss simulation amount:** Use `get_max_risk_per_spread(trade, risk_calculation_method)` which respects the selected method. This determines HOW MUCH is lost on a losing trade.
+    - **Why they must match:** If position sizing uses conservative_theoretical ($180) but loss simulation uses max_theoretical ($220), you could approve 5 contracts (5*180=$900 ≤ $1000) but then lose 5*220=$1100 > $1000, causing negative balance! Both must use the same risk method.
+    - **Default behavior:** If risk_calculation_method is NOT 'max_theoretical' or 'fixed_theoretical_max', position sizing uses conservative_theoretical (p95) for safety.
+    - **When user chooses max_theoretical:** Position sizing MUST also use max_theoretical to maintain the constraint that max_risk * contracts ≤ balance.
+-   **Cap applies universally:** Position size capping must apply to all simulation modes: fixed contract sizing, dynamic risk-based sizing, IID mode, and bootstrap mode.
+-   **No forced trades:** Never use `max(1, int(balance / risk))` as this forces 1 contract even when balance < risk per contract. If account cannot afford even 1 contract, stop trading (bankruptcy).

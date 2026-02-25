@@ -47,21 +47,25 @@ def index():
         # Get parameters
         initial_balance = float(request.form.get('initial_balance', 10000))
         num_simulations = int(request.form.get('num_simulations', 1000))
+        num_trades = int(request.form.get('num_trades', 60))
         option_commission = float(request.form.get('option_commission', 0.50))
         position_sizing_raw = request.form.get('position_sizing_mode', 'dynamic-percent')
         position_sizing, dynamic_risk_sizing = parse_position_sizing_mode(position_sizing_raw)
         simulation_mode = request.form.get('simulation_mode', 'iid')
-        block_size = int(request.form.get('block_size', 1))
+        block_size = int(request.form.get('block_size', 5))
+        risk_calculation_method = request.form.get('risk_calculation_method', 'conservative_theoretical')
 
         # Store params in session for re-run
         session['params'] = {
             'initial_balance': initial_balance,
             'num_simulations': num_simulations,
+            'num_trades': num_trades,
             'option_commission': option_commission,
             'position_sizing': position_sizing,
             'dynamic_risk_sizing': dynamic_risk_sizing,
             'simulation_mode': simulation_mode,
             'block_size': block_size,
+            'risk_calculation_method': risk_calculation_method,
             'position_sizing_display': position_sizing_raw  # For display
         }
 
@@ -113,7 +117,7 @@ def results():
         'position_sizing': 'percent',
         'dynamic_risk_sizing': True,
         'simulation_mode': 'iid',
-        'block_size': 1,
+        'block_size': 5,
         'position_sizing_display': 'dynamic-percent',
         'risk_calculation_method': 'conservative_theoretical'
     }

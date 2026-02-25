@@ -10,16 +10,64 @@ DEFAULT_POSITION_SIZES = [1, 2, 5, 10, 15, 20]
 DEFAULT_RISK_PCTS = [1, 2, 3, 5, 10, 15, 25, 50, 75, 100]
 
 
-def get_max_risk_per_spread(trade, risk_calculation_method='conservative_theoretical'):
+def get_position_sizing_risk_per_spread(trade, risk_calculation_method='conservative_theoretical'):
     """
-    Determine the maximum risk per spread for position sizing calculations.
+    Get the maximum theoretical risk per spread for POSITION SIZING purposes.
     
-    This function calculates risk based on the specified method to provide
-    different risk assessment approaches for Monte Carlo simulations.
+    This represents the broker's margin requirement: the theoretical maximum loss
+    that could occur on a single trade. Position sizing must be constrained by
+    this value to prevent the account balance from going negative.
+    
+    CRITICAL: When the user selects max_theoretical as their risk calculation method,
+    position sizing must ALSO use max_theoretical (not conservative). Otherwise,
+    the position sizing constraint (based on conservative) would allow more contracts
+    than the account can afford (based on max_theoretical losses).
     
     Parameters:
     - trade (dict): Trade statistics dictionary containing risk metrics.
-    - risk_calculation_method (str): Method for calculating risk:
+    - risk_calculation_method (str): Method used for risk calculation in simulation.
+        If 'max_theoretical' or 'fixed_theoretical_max', uses max_theoretical_loss.
+        Otherwise, uses conservative_theoretical_max_loss (p95, default safe behavior).
+    
+    Returns:
+    - float: The maximum theoretical loss per spread in dollars for position sizing.
+    
+    Raises:
+    - ValueError: If required risk data is missing or invalid.
+    """
+    # If using max_theoretical for loss simulation, must also use it for position sizing
+    if risk_calculation_method in ['max_theoretical', 'fixed_theoretical_max']:
+        max_theoretical_loss = trade.get('max_theoretical_loss', 0)
+        if max_theoretical_loss and max_theoretical_loss > 0:
+            return float(max_theoretical_loss)
+        raise ValueError(
+            "Maximum theoretical loss data is missing or invalid. "
+            "Required field: 'max_theoretical_loss'. "
+            "This is needed for position sizing when using max_theoretical risk method."
+        )
+    
+    # Default: Use conservative theoretical max (p95) for safety
+    conservative_theoretical_loss = trade.get('conservative_theoretical_max_loss', 0)
+    if conservative_theoretical_loss and conservative_theoretical_loss > 0:
+        return float(conservative_theoretical_loss)
+    raise ValueError(
+        "Conservative theoretical loss data is missing or invalid. "
+        "Required field: 'conservative_theoretical_max_loss'. "
+        "This is needed for position sizing to ensure broker margin requirements are met."
+    )
+
+
+def get_max_risk_per_spread(trade, risk_calculation_method='conservative_theoretical'):
+    """
+    Determine the risk per spread for LOSS SIMULATION purposes.
+    
+    This function calculates the amount that will be lost when a trade loses,
+    based on the specified risk calculation method. This is separate from
+    position sizing constraints (which always use conservative theoretical max).
+    
+    Parameters:
+    - trade (dict): Trade statistics dictionary containing risk metrics.
+    - risk_calculation_method (str): Method for calculating loss amounts:
         - 'conservative_theoretical': 95th percentile of theoretical losses (variable losses up to this cap)
         - 'max_theoretical': Maximum theoretical loss (variable losses up to this cap)
         - 'median_realized': Median of realized losses (fixed loss amount)
@@ -29,7 +77,7 @@ def get_max_risk_per_spread(trade, risk_calculation_method='conservative_theoret
         - 'fixed_theoretical_max': Theoretical max as fixed loss amount
     
     Returns:
-    - float: The maximum risk amount per spread in dollars.
+    - float: The risk amount per spread in dollars for simulation purposes.
     """
     if risk_calculation_method == 'conservative_theoretical':
         conservative_theoretical_loss = trade.get('conservative_theoretical_max_loss', 0)
@@ -130,29 +178,49 @@ def build_position_size_plan(
     target and actual risk percentages. Supports both fixed contract sizing
     and percentage-based risk sizing.
     
+    CRITICAL: Position sizing uses the same risk_calculation_method as loss simulation
+    to ensure the constraint `max_risk * contracts <= balance` is always maintained.
+    If the user chooses max_theoretical, position sizing will also use max_theoretical
+    to prevent trades that would exceed account balance on max loss.
+    
     Parameters:
     - trade (dict): Trade statistics dictionary containing risk metrics.
     - initial_balance (float): Starting account balance in dollars.
     - position_sizing (str): Sizing method - 'contracts' for fixed sizes or 'percent' for risk-based.
-    - risk_calculation_method (str): Method used to determine risk per spread.
+    - risk_calculation_method (str): Method used to determine risk per spread for BOTH
+        position sizing constraints and loss simulation. If 'max_theoretical' or
+        'fixed_theoretical_max', uses max_theoretical_loss. Otherwise uses
+        conservative_theoretical_max_loss (p95, default safe behavior).
     
     Returns:
     - list[dict]: List of position size configurations, each containing:
-        - 'contracts' (int): Number of contracts to trade
+        - 'contracts' (int): Number of contracts to trade (capped to affordability by position_sizing_risk)
         - 'target_risk_pct' (float): Target risk percentage (for percent sizing)
-        - 'actual_risk_pct' (float): Actual risk percentage based on max risk per spread
+        - 'starting_risk_pct' (float): Risk % at start based on simulation risk method (actual expected loss per trade)
+        - 'max_risk_pct' (float): Maximum possible risk % based on position sizing risk method (caps to ensure safety)
     
     For 'contracts' sizing, uses predefined contract counts: [1, 2, 5, 10, 15, 20]
     For 'percent' sizing, uses predefined risk percentages: [1, 2, 3, 5, 10, 15, 25, 50, 75, 100]%
     """
-    max_risk_per_spread = get_max_risk_per_spread(trade, risk_calculation_method)
+    # Position sizing constraint uses risk_calculation_method to ensure consistency
+    # If user chooses max_theoretical, position sizing must also use max_theoretical
+    position_sizing_risk = get_position_sizing_risk_per_spread(trade, risk_calculation_method)
+    
+    # Loss simulation uses the selected risk calculation method
+    simulation_risk = get_max_risk_per_spread(trade, risk_calculation_method)
 
     if position_sizing == 'contracts':
+        max_affordable = int(initial_balance / position_sizing_risk)
+        if max_affordable == 0:
+            # Can't afford any contracts at all - return empty plan
+            return []
+        
         return [
             {
                 'contracts': contracts,
-                'target_risk_pct': (max_risk_per_spread * contracts / initial_balance) * 100,
-                'actual_risk_pct': (max_risk_per_spread * contracts / initial_balance) * 100
+                'target_risk_pct': (position_sizing_risk * contracts / initial_balance) * 100,
+                'starting_risk_pct': (simulation_risk * min(contracts, max_affordable) / initial_balance) * 100,
+                'max_risk_pct': (position_sizing_risk * min(contracts, max_affordable) / initial_balance) * 100
             }
             for contracts in DEFAULT_POSITION_SIZES
             if contracts > 0
@@ -161,16 +229,24 @@ def build_position_size_plan(
     sizing_plan = []
     for target_risk_pct in DEFAULT_RISK_PCTS:
         contracts = choose_contract_count_for_risk_pct(
-            max_risk_per_spread=max_risk_per_spread,
+            max_risk_per_spread=simulation_risk,
             account_balance=initial_balance,
             target_risk_pct=target_risk_pct
         )
-        actual_risk_pct = (max_risk_per_spread * contracts / initial_balance) * 100
+        # Apply position sizing constraint (broker margin requirement)
+        max_affordable_contracts = int(initial_balance / position_sizing_risk)
+        if max_affordable_contracts == 0:
+            # Can't afford to trade - skip this risk level
+            continue
+        capped_contracts = min(contracts, max_affordable_contracts)
+        starting_risk_pct = (simulation_risk * capped_contracts / initial_balance) * 100
+        max_risk_pct = (position_sizing_risk * capped_contracts / initial_balance) * 100
         sizing_plan.append(
             {
-                'contracts': contracts,
+                'contracts': capped_contracts,
                 'target_risk_pct': float(target_risk_pct),
-                'actual_risk_pct': float(actual_risk_pct)
+                'starting_risk_pct': float(starting_risk_pct),
+                'max_risk_pct': float(max_risk_pct)
             }
         )
 
@@ -334,9 +410,13 @@ def simulate_trades(
     outcomes or moving-block bootstrap sampling to preserve historical streak patterns.
     Tracks account balance, drawdown, and losing streaks across the simulation.
     
+    CRITICAL: Position sizing is capped to ensure `position_sizing_risk * contracts <= balance`
+    at all times, where position_sizing_risk uses the same risk_calculation_method as
+    loss simulation. This prevents trades that would exceed account balance on max loss.
+    
     Parameters:
     - trade (dict): Trade statistics dictionary containing win rates, avg losses, etc.
-    - position_size (int): Number of contracts per trade.
+    - position_size (int): Number of contracts per trade (will be capped to affordability).
     - initial_balance (float): Starting account balance in dollars.
     - num_trades (int): Number of trades to simulate in this path.
     - num_simulations (int): Total number of simulation paths (for context, not used here).
@@ -344,7 +424,8 @@ def simulate_trades(
     - dynamic_risk_sizing (bool): Whether to adjust position size based on current balance.
     - simulation_mode (str): 'iid' for independent trades or 'moving-block-bootstrap' for streak preservation.
     - block_size (int): Block size for bootstrap sampling (only used in bootstrap mode).
-    - risk_calculation_method (str): Method for calculating risk amount per trade.
+    - risk_calculation_method (str): Method for calculating risk amount per trade AND
+        position sizing constraints. Both use the same method to maintain safety invariant.
     
     Returns:
     - list[dict]: Simulation results for each path, each containing:
@@ -359,6 +440,10 @@ def simulate_trades(
     - Simulation stops if balance reaches zero (bankruptcy)
     """
     avg_risk_per_spread = abs(trade['avg_loss'])
+    # Position sizing uses risk_calculation_method to ensure consistency
+    # If user chooses max_theoretical, position sizing must also use max_theoretical
+    position_sizing_risk = get_position_sizing_risk_per_spread(trade, risk_calculation_method)
+    # Loss simulation uses selected risk calculation method
     max_risk_per_spread = get_max_risk_per_spread(trade, risk_calculation_method)
     avg_reward_per_spread = trade['avg_win']
     conservative_realized_max_reward = trade.get('conservative_realized_max_reward', 0)
@@ -390,6 +475,23 @@ def simulate_trades(
                     account_balance=max(balance, 1),
                     target_risk_pct=target_risk_pct
                 )
+            
+            # CRITICAL: Cap contracts to ensure theoretical max loss never exceeds balance
+            # This simulates broker margin requirements: cannot open a position whose
+            # theoretical max loss would make the account balance negative.
+            # Position sizing is based on conservative theoretical max, NOT risk_calculation_method.
+            if balance <= 0:
+                # Account is broke, stop simulation
+                balance = 0
+                break
+            
+            max_affordable_contracts = int(balance / position_sizing_risk)
+            if max_affordable_contracts == 0:
+                # Not enough balance to afford even 1 contract
+                # (balance < position_sizing_risk)
+                balance = 0
+                break
+            contracts = min(contracts, max_affordable_contracts)
 
             max_risk = max_risk_per_spread * contracts
             avg_risk = min(avg_risk_per_spread * contracts, max_risk)
@@ -473,7 +575,7 @@ def run_monte_carlo_simulation(
         - 'trade_name' (str): Name of the trade strategy
         - 'summary' (dict): Original trade statistics
         - 'table_rows' (list[dict]): Position sizing results with metrics like:
-            - Contracts, Target Risk %, Actual Risk %, Avg Final $, Bankruptcy Prob, etc.
+            - Contracts, Target Risk %, Starting Risk %, Max Risk %, Avg Final $, Bankruptcy Prob, etc.
         - 'pnl_preview' (list[str]): Formatted preview of first 10 P/L values
         - 'historical_max_losing_streak' (int): Longest losing streak in historical data
     
@@ -496,6 +598,15 @@ def run_monte_carlo_simulation(
         position_sizing=position_sizing,
         risk_calculation_method=risk_calculation_method
     )
+    
+    # Validate that we can afford to trade
+    if not position_size_plan:
+        position_sizing_risk = get_position_sizing_risk_per_spread(trade, risk_calculation_method)
+        raise ValueError(
+            f"Initial balance (${initial_balance:,.2f}) is insufficient to trade even 1 contract. "
+            f"Required: ${position_sizing_risk:,.2f} per contract (based on {risk_calculation_method} risk method for position sizing). "
+            f"Please increase your initial balance or review your trade risk parameters."
+        )
 
     data = []
     for row in position_size_plan:
@@ -540,7 +651,8 @@ def run_monte_carlo_simulation(
         data.append({
             'Contracts': ps,
             'Target Risk %': f"{row['target_risk_pct']:.2f}%",
-            'Actual Risk %': f"{row['actual_risk_pct']:.2f}%",
+            'Starting Risk %': f"{row['starting_risk_pct']:.2f}%",
+            'Max Risk %': f"{row['max_risk_pct']:.2f}%",
             'Avg Final $': f"${avg_final_balance:,.0f}",
             'Bankruptcy Prob': f"{bankrupt_prob:.0%}",
             'Avg Max Drawdown': f"${avg_max_drawdown:,.0f}",
