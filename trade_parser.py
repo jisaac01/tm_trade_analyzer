@@ -156,27 +156,32 @@ def parse_trade_csv(file_or_path):
     commissions = float(df['Size'].abs().sum() * OPTION_COMMISSION_PER_CONTRACT)
 
     joined = theoretical.join(trade_pnl.rename('pnl'), how='inner') if not open_df.empty else pd.DataFrame()
-    avg_pct_return = 0
-    avg_pct_win = 0
-    avg_pct_loss = 0
-    per_trade_theoretical_risk = []
-    per_trade_theoretical_reward = []
-    per_trade_dates = []
-    if not joined.empty:
-        joined['pct_return'] = np.where(
-            joined['theoretical_max_loss'] > 0,
-            joined['pnl'] / joined['theoretical_max_loss'] * 100,
-            0
+    
+    # Critical: If we have closing P/L but no matching opening data, we cannot proceed
+    # This indicates a data integrity issue that would cause incorrect simulation results
+    if joined.empty:
+        raise ValueError(
+            "CSV contains closing P/L data but no matching opening trade data. "
+            "This likely means: (1) no opening legs found with valid Strike/Trade Price/Size, "
+            "or (2) Expiration values don't match between opening and closing trades. "
+            "The simulator requires opening data to calculate theoretical risk/reward metrics and dates."
         )
-        avg_pct_return = float(joined['pct_return'].mean())
-        avg_pct_win = float(joined.loc[joined['pnl'] > 0, 'pct_return'].mean()) if (joined['pnl'] > 0).any() else 0
-        avg_pct_loss = float(joined.loc[joined['pnl'] < 0, 'pct_return'].mean()) if (joined['pnl'] < 0).any() else 0
-        # Extract per-trade theoretical risk in the same order as pnl_distribution
-        per_trade_theoretical_risk = joined['theoretical_max_loss'].tolist()
-        # Extract per-trade theoretical reward in the same order as pnl_distribution
-        per_trade_theoretical_reward = joined['theoretical_max_gain'].tolist()
-        # Extract per-trade dates (opening date for each trade) in same order
-        per_trade_dates = [d.strftime('%Y-%m-%d') for d in joined['open_date']]
+    
+    # At this point, joined is guaranteed to be non-empty (error raised above if empty)
+    joined['pct_return'] = np.where(
+        joined['theoretical_max_loss'] > 0,
+        joined['pnl'] / joined['theoretical_max_loss'] * 100,
+        0
+    )
+    avg_pct_return = float(joined['pct_return'].mean())
+    avg_pct_win = float(joined.loc[joined['pnl'] > 0, 'pct_return'].mean()) if (joined['pnl'] > 0).any() else 0
+    avg_pct_loss = float(joined.loc[joined['pnl'] < 0, 'pct_return'].mean()) if (joined['pnl'] < 0).any() else 0
+    # Extract per-trade theoretical risk in the same order as pnl_distribution
+    per_trade_theoretical_risk = joined['theoretical_max_loss'].tolist()
+    # Extract per-trade theoretical reward in the same order as pnl_distribution
+    per_trade_theoretical_reward = joined['theoretical_max_gain'].tolist()
+    # Extract per-trade dates (opening date for each trade) in same order
+    per_trade_dates = [d.strftime('%Y-%m-%d') for d in joined['open_date']]
     
     wins = pnl_values[pnl_values > 0]
     losses = pnl_values[pnl_values < 0]
@@ -209,7 +214,9 @@ def parse_trade_csv(file_or_path):
         'avg_pct_loss': avg_pct_loss,
         'gross_gain': float(np.sum(wins)) if len(wins) > 0 else 0,
         'gross_loss': float(np.sum(losses)) if len(losses) > 0 else 0,
-        'pnl_distribution': pnl_values.tolist(),
+        # Use chronologically-ordered P/L from joined dataframe to ensure alignment with dates
+        # joined is guaranteed to be non-empty at this point (error raised earlier if not)
+        'pnl_distribution': joined['pnl'].tolist(),
         'per_trade_theoretical_risk': per_trade_theoretical_risk,
         'per_trade_theoretical_reward': per_trade_theoretical_reward,
         'per_trade_dates': per_trade_dates,

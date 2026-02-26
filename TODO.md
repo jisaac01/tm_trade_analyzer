@@ -286,6 +286,191 @@ Total: 17 methods (1 no_cap + 16 capping variants)
 - **Reward capping**: Verify caps apply correctly with magnitude_sampling='generated' (not bootstrap)
 - **Edge cases**: Empty data, single trade, all wins, all losses
 
+## Phase 10: Data Quality Improvements & Validation
+**Goal:** Fix critical data alignment bug and add data quality warnings to help users identify and handle trades with missing or suspicious data.
+
+**Context:** Backtest CSV files from trading platforms often have missing closing prices or P/L values that exceed theoretical limits due to commissions, slippage, or data export errors. Additionally, a critical bug in trade_parser.py causes P/L values to be misaligned with dates, producing completely incorrect results.
+
+### Issues Identified  
+1. **🚨 CRITICAL BUG: P/L and Date Misalignment**: trade_parser.py sorts P/L values alphabetically but dates chronologically, causing complete data corruption
+   - Root cause: Line 70 `groupby('Expiration')` has no `sort=False`, so pandas sorts alphabetically by expiration string
+   - Line 117 `groupby('Expiration', sort=False)` preserves chronological order
+   - Line 72: `pnl_values = trade_pnl.values` extracts alphabetically-sorted P/L
+   - Line 213: Returns sorted `pnl_values` as `pnl_distribution`
+   - Line 178: Returns dates from `joined` which is chronologically ordered
+   - Impact: **Every trade gets the wrong P/L value!** Index 7 gets P/L from position 7 alphabetically ("11-Apr-25" = $1085) but date from position 7 chronologically ("2020-07-28" = should be $266)
+   - Affects: Both Monte Carlo simulator AND historical replay (both use pnl_distribution from trade_parser)
+   - Evidence: User saw 301% for 2020-07-28 trade ($1085/$360), but CSV shows $266 P/L for that trade
+
+2. **Minor Display Issue**: Template P/L % calculation would be wrong for multi-contract scenarios (but not causing current bug since user uses 1 contract)
+   - Template divides `total_pnl` (scaled by contracts) by `theoretical_risk` (per-spread)
+   - Would multiply percentage by contract count if using >1 contracts
+   
+2. **Data Quality Issues**: 10-11% of trades in real backtest files have losses exceeding theoretical maximum
+   - Root cause: Missing closing prices, commissions not included in theoretical max, slippage, or data export errors
+   - Impact: Skewed risk metrics, unrealistic Monte Carlo samples
+
+3. **Missing Price Data**: Some closing trades lack actual trade prices, only P/L values
+   - Root cause: Trading platform data export limitations
+   - Impact: Cannot verify P/L calculations or validate data accuracy
+
+### Steps
+
+#### Part A: Fix Critical Data Alignment Bug (PRIORITY 0 - CRITICAL)
+- [X] **Step 10.1:** Write test that verifies P/L and date alignment with real data
+  - Use actual test CSV file with known trades
+  - Verify specific trades: check that date at index i corresponds to correct P/L at index i
+  - Example: 2020-07-28 opening should have $266 P/L (from 5-Aug-20 expiration), not $1085
+  - Test that chronological file order is preserved in pnl_distribution
+  - Test with data that would expose alphabetical sorting (e.g., "11-Apr" comes before "5-Aug")
+
+- [X] **Step 10.2:** Fix sorting bug in `trade_parser.py`
+  - Line 70: Add `sort=False` to `close_df.groupby('Expiration', sort=False)`
+  - OR better: Use `joined['pnl'].values` instead of `pnl_values` for pnl_distribution (line 213)
+  - This ensures P/L values come from the joined dataframe in the same order as dates
+  - Verify all extraction lists use the same source order
+
+- [X] **Step 10.3:** Run full test suite and verify fix
+  - Run `tm_trade_analyzer_venv/bin/pytest -v`
+  - Manually verify with real data: 2020-07-28 trade should show 73.9%, not 301%
+  - Check multiple known trades from CSV to confirm alignment
+
+#### Part B: Fix Template Display for Multi-Contract (PRIORITY 1 - Important)
+- [ ] **Step 10.4:** Write test for replay table P/L percentage calculation with multiple contracts
+  - Test with 1 contract, 2 contracts, and 5 contracts
+  - Verify percentage remains constant regardless of contract count
+  - Verify calculation: `(pnl_per_contract / theoretical_risk_per_spread) * 100`
+
+- [ ] **Step 10.5:** Fix P/L % calculation in `templates/results.html`
+  - Change: `(trade.total_pnl / trade.theoretical_risk) * 100`
+  - To: `(trade.pnl_per_contract / trade.theoretical_risk) * 100`
+  - Update tooltip to clarify it's P/L per spread, not total P/L
+
+- [ ] **Step 10.6:** Verify fix doesn't break existing tests
+  - Run `tm_trade_analyzer_venv/bin/pytest tests/test_integration.py -v`
+  - Manually test in browser with various contract counts
+
+#### Part C: Data Quality Warnings (PRIORITY 2 - High Value)
+- [ ] **Step 10.7:** Write tests for data validation in `trade_parser.py`
+  - Test detection of missing closing prices
+  - Test detection of losses exceeding theoretical max (with 5% commission buffer)
+  - Test detection of gains exceeding theoretical max + spread width (impossible)
+  - Test that validation returns warnings list with trade identifiers
+
+- [ ] **Step 10.8:** Implement data validation in `trade_parser.py`
+  - Add `validate_trade_data()` function that checks for:
+    - Missing closing prices (blank 'Trade Price' field)
+    - Losses > theoretical_max_loss * 1.05 (5% buffer for commissions)
+    - Gains > theoretical_max_gain + spread_width (physically impossible)
+  - Return list of warnings with: trade_date, expiration, issue_type, details
+  - Add field `data_quality_warnings` to stats dictionary returned by `parse_trade_csv()`
+
+- [ ] **Step 10.9:** Write integration tests for warning display in app
+  - Test that warnings are passed to template
+  - Test that warnings are displayed in UI
+  - Test with CSV files having known data issues
+
+- [ ] **Step 10.10:** Update `app.py` to pass warnings to template
+  - Extract `data_quality_warnings` from trade_stats
+  - Pass to results template as separate variable
+  - Flash warnings to user if any critical issues found
+
+- [ ] **Step 10.11:** Update `templates/results.html` to display warnings
+  - Add "Data Quality Warnings" section above replay table (if warnings exist)
+  - Use warning/alert styling (yellow/orange background)
+  - List each warning with trade date, issue type, and recommendation
+  - Add option to "Show only clean trades" (future enhancement)
+
+## Phase 11: Process Improvements - Prevent Data Corruption Bugs
+**Goal:** Improve testing and development practices to prevent critical bugs like the P/L/date misalignment from reaching production.
+
+**Root Cause Analysis:**
+1. **Insufficient test data validation**: Tests check lengths and types but not actual values
+2. **Synthetic test data hides bugs**: Simple alphabetically-sortable test data doesn't expose sorting issues
+3. **No end-to-end value validation**: Integration tests check page loads but not correctness of specific trade calculations
+4. **Missing known-value tests**: No tests that verify "trade X should have P/L Y"
+
+### Steps
+- [ ] **Step 11.1:** Add data validation requirements to copilot instructions
+  - Tests must verify actual values, not just structure
+  - Tests must use real data that exposes edge cases (alphabetical sorting, date formatting, etc.)
+  - Integration tests must include "golden file" comparisons for known trades
+  - Any groupby operation must explicitly set sort parameter
+
+- [ ] **Step 11.2:** Create "golden file" test fixtures
+  - Select 5-10 specific trades from real CSV files
+  - Document expected values: date, P/L, risk, reward, percentage
+  - Create test that parses real file and verifies these exact values
+  - Update fixture when intentionally changing calculation logic
+
+- [ ] **Step 11.3:** Add data integrity checks to trade_parser
+  - Validate that dates are in chronological order after parsing
+  - Add assertions that all per-trade lists have same length
+  - Add warnings if dates are out of order (suggests sorting bug)
+  - Return metadata about data quality to help debugging
+
+- [ ] **Step 11.4:** Improve test coverage for edge cases
+  - Test with unsorted expirations (alphabetically different from chronological)
+  - Test with duplicate expirations
+  - Test with missing data in various combinations
+  - Test parsing output consistency: verify same data different ways
+
+- [ ] **Step 11.5:** Add automated checks before commits
+  - Consider pre-commit hook that runs key tests with real data
+  - Flag any groupby without explicit sort parameter
+  - Verify test files include at least one real data file test
+
+### Success Criteria
+- [ ] Tests verify actual calculated values, not just structure
+- [ ] All tests use realistic data that could expose hidden bugs
+- [ ] Integration tests include known-value verification
+- [ ] Copilot instructions updated with testing requirements
+- [ ] No groupby operations without explicit sort parameter
+- [ ] Real data test files committed to repository
+
+#### Part D: Improved Handling of Missing Prices (PRIORITY 3 - Nice to Have)
+- [ ] **Step 10.12:** Write tests for theoretical risk estimation when prices missing
+  - Test that risk can be back-calculated from P/L when closing prices absent
+  - Test that estimation includes commission buffer
+  - Test fallback behavior when neither prices nor P/L available
+
+- [ ] **Step 10.13:** Implement smarter risk estimation in `trade_parser.py`
+  - When closing prices missing but P/L present, use P/L to estimate actual risk
+  - For missing prices: `estimated_risk = max(abs(pnl), opening_debit)`
+  - Mark estimated values with flag for transparency
+  - Update documentation to explain estimation methodology
+
+#### Part E: Alpaca Data Integration (PRIORITY 4 - Future Enhancement)
+**Note:** This is a larger effort and not needed immediately. Consider only if data quality issues are severe across many files.
+
+- [ ] **Step 10.14:** Research Alpaca API for historical options data
+  - Investigate data availability (date ranges, symbols, strikes)
+  - Check if free tier provides sufficient access
+  - Document API rate limits and data limitations
+  - Assess data quality vs trading platform exports
+
+- [ ] **Step 10.15:** Design backfill architecture
+  - Create separate tool/module for data enrichment (not in main flow)
+  - Read CSV, identify missing prices, query Alpaca API, write enriched CSV
+  - Keep original CSV unchanged, create new file with "_enriched" suffix
+  - Add validation to compare Alpaca prices vs reported P/L
+
+- [ ] **Step 10.16:** Implement proof-of-concept for one trade
+  - Successfully fetch historical option price for specific contract
+  - Match against CSV data
+  - Validate P/L calculation accuracy
+  - Document findings and decide on full implementation
+
+### Success Criteria
+- [ ] **CRITICAL**: P/L values align with correct dates (2020-07-28 shows 73.9%, not 301%)
+- [ ] **CRITICAL**: Chronological order preserved from CSV file 
+- [ ] All existing tests pass with corrected data alignment
+- [ ] Replay table shows correct P/L percentages for multi-contract scenarios
+- [ ] Users see clear warnings for trades with data quality issues  
+- [ ] Documentation explains how to handle missing/suspicious data
+- [ ] Test coverage includes real-data validation (not just synthetic test data)
+- [ ] No regressions in existing functionality
+
 ## Additional Completed Tasks
 - [X] **Testing:** Added comprehensive test suite including unit tests for web app functionality and end-to-end integration test with real data.
 - [X] **Re-run functionality:** Implemented ability to change options after results and re-run simulation without re-uploading CSV.

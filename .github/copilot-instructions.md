@@ -62,10 +62,16 @@
 ### Data & Paths
 - Use project-relative paths for local data files and generated reports.
 - Avoid assumptions about external services, databases, or infrastructure.
+- **File Creation:** When creating temporary or analysis files, create them WITHIN the workspace (e.g., in a `scripts/` folder) rather than in system directories like `/tmp/`. 
 
 ### Verification
 - Run focused tests first (for changed functions), then broader tests if needed.
 - Keep test coverage close to numerical logic, argument parsing, and edge cases.
+- **Test Real Values, Not Just Structure:** Tests must verify actual calculated values (specific P/L, percentages, dates), not just lengths and types.
+- **Use Real Data in Tests:** Use actual CSV files from production to expose edge cases that synthetic data misses (alphabetical vs chronological ordering, date formats, missing data patterns).
+- **Known-Value Verification:** Include tests that verify specific known trades have expected values (golden file approach).
+- **Explicit Sort Parameters:** Any pandas groupby operation must explicitly set the `sort` parameter (typically `sort=False` to preserve file order). Never rely on default sorting behavior.
+- **Data Integrity Checks:** Validate that related lists (dates, P/L, risks) maintain alignment and correct ordering after operations.
 
 ### Documentation
 - Keep `README.md` aligned with CLI flags, expected inputs, and outputs.
@@ -82,6 +88,7 @@ The goal of this section is to prevent recurring mistakes. **If you are correcte
 -   **No Mocks for Core Math:** Do not mock internal simulation/analysis logic; only mock external I/O when needed.
 -   **Deterministic Tests:** Seed randomness in tests when asserting numeric behavior.
 -   **No Hidden Defaults:** Prefer explicit inputs/config over silent fallbacks when behavior materially changes.
+-   **No Silent Error Swallowing:** When required data is missing or invalid, raise clear errors instead of falling back to buggy behavior. Never use fallbacks like `if data_exists else broken_fallback()` - if the data is required, fail loudly with an informative error message.
 -   **No Backward-Compatibility Additions Unless Requested:** Do not add aliases, fallback paths, fallthrough handling, or compatibility shims unless the user explicitly asks for them.
 -   **Keep Scope Tight:** Implement only the requested behavior; avoid adding speculative knobs.
 -   **Security Hygiene:** Never hardcode secrets, API keys, or private absolute file paths.
@@ -89,10 +96,17 @@ The goal of this section is to prevent recurring mistakes. **If you are correcte
 ### Strategy Analytics
 -   **Spread Risk/Reward Semantics:** For options spread analytics, do NOT label realized close-to-close P/L extremes as theoretical max risk/reward. Keep both metrics separate and explicit:
     - Theoretical max risk/reward must be derived from opening structure (`width`, `credit/debit`).
-    - Realized max win/loss must be derived from historical close outcomes.
+    - Realized max win/loss must be derived from historical close outcomes.  
     - If Monte Carlo is configured to be conservative, cap simulated risk with theoretical max loss while capping reward with realized max win.
 -   **Conservative metric selection:** When users request robust summaries, use the exact statistic requested (e.g., median vs p95) and label it explicitly in output to avoid confusion with means or raw maxima.
 -   **Printed risk metric vs cap metric:** Distinguish between the printed per-trade risk statistic and the conservative cap statistic. A request to change "Avg Risk per spread" to median does NOT imply changing conservative theoretical cap from p95.
+
+### Data Parsing & Integrity  
+-   **Preserve File Order:** When parsing CSV data, maintain chronological order from the source file. Use `sort=False` in pandas groupby operations to prevent alphabetical sorting.
+-   **Verify Alignment:** After any groupby or join operation, verify that related lists (dates, P/L, theoretical risk) remain aligned. Index i in one list must correspond to index i in all related lists.
+-   **Data Quality Validation:** Flag trades with missing prices, impossible returns (losses > theoretical max + commissions), or other integrity issues. Don't silently accept corrupt data.
+-   **Commission Handling:** Per-spread commissions are `4 legs × $0.495 = $1.98`. Use this for validation buffers, not arbitrary percentages.
+-   **Required Data Validation:** If closing P/L data exists but opening data is missing or mismatched, raise a clear error immediately. The simulator cannot function without opening data for theoretical metrics and dates. Never fall back to potentially buggy behavior when data integrity is compromised.
 
 ### Position Sizing & Broker Constraints
 -   **Position size must respect account balance:** The simulator must ALWAYS cap position sizing such that `max_risk_per_spread * contracts <= current_balance`. This simulates real broker margin requirements - a broker would never allow opening a position whose theoretical max loss exceeds the account balance. Even if a trader always takes losses to the theoretical maximum, the account balance can never go negative.
