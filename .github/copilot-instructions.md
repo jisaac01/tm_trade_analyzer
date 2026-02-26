@@ -88,7 +88,10 @@ The goal of this section is to prevent recurring mistakes. **If you are correcte
 -   **No Mocks for Core Math:** Do not mock internal simulation/analysis logic; only mock external I/O when needed.
 -   **Deterministic Tests:** Seed randomness in tests when asserting numeric behavior.
 -   **No Hidden Defaults:** Prefer explicit inputs/config over silent fallbacks when behavior materially changes.
--   **No Silent Error Swallowing:** When required data is missing or invalid, raise clear errors instead of falling back to buggy behavior. Never use fallbacks like `if data_exists else broken_fallback()` - if the data is required, fail loudly with an informative error message.
+-   **No Silent Error Swallowing / Fail Fast on Invalid Data:** When required data is missing or invalid, raise clear errors immediately instead of falling back to buggy behavior. Never use fallbacks like `if data_exists else broken_fallback()` or `value if value > 0 else 0` - if the data is required, fail loudly with an informative error message. Examples:
+    - ❌ WRONG: `pnl_pct = (pnl / risk * 100) if risk > 0 else 0.0` (hides CSV data quality issues)
+    - ✅ CORRECT: Validate `risk > 0` upfront and raise ValueError with specific details (date, value, likely cause)
+    - This surfaces CSV data quality issues (missing prices, invalid spreads) immediately rather than hiding them with silent fallbacks
 -   **No Backward-Compatibility Additions Unless Requested:** Do not add aliases, fallback paths, fallthrough handling, or compatibility shims unless the user explicitly asks for them.
 -   **Keep Scope Tight:** Implement only the requested behavior; avoid adding speculative knobs.
 -   **Security Hygiene:** Never hardcode secrets, API keys, or private absolute file paths.

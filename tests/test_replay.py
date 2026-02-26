@@ -520,3 +520,268 @@ class TestReplayActualTrades:
         assert result['trade_details'][2]['contracts'] == 2
         assert result['trade_details'][2]['balance_before'] == 10020
         assert result['trade_details'][2]['balance_after'] == 10120  # 10020 + 2*50
+
+
+class TestReplayPnlPercentageCalculation:
+    """Tests for P/L percentage calculation in trade details."""
+
+    def test_pnl_percentage_constant_across_contract_counts(self):
+        """Verify P/L % remains constant regardless of number of contracts."""
+        trade_stats = {
+            'num_trades': 3,
+            'win_rate': 0.67,
+            'avg_win': 50,
+            'avg_loss': -60,
+            'max_win': 80,
+            'max_loss': -80,
+            'max_theoretical_loss': 100,
+            'conservative_theoretical_max_loss': 100,
+            'pnl_distribution': [50, -60, 80],  # Win, Loss, Win
+            'per_trade_theoretical_risk': [100, 100, 100],
+            'per_trade_theoretical_reward': [100, 100, 100],
+            'per_trade_dates': ['2023-01-01', '2023-02-01', '2023-03-01']
+        }
+        
+        # Test with 1 contract
+        result_1 = replay.replay_actual_trades(
+            trade_stats=trade_stats,
+            initial_balance=10000,
+            position_sizing='contracts',
+            position_size=1,
+            dynamic_risk_sizing=False,
+            risk_calculation_method='conservative_theoretical'
+        )
+        
+        # Test with 2 contracts
+        result_2 = replay.replay_actual_trades(
+            trade_stats=trade_stats,
+            initial_balance=10000,
+            position_sizing='contracts',
+            position_size=2,
+            dynamic_risk_sizing=False,
+            risk_calculation_method='conservative_theoretical'
+        )
+        
+        # Test with 5 contracts
+        result_5 = replay.replay_actual_trades(
+            trade_stats=trade_stats,
+            initial_balance=10000,
+            position_sizing='contracts',
+            position_size=5,
+            dynamic_risk_sizing=False,
+            risk_calculation_method='conservative_theoretical'
+        )
+        
+        # Verify all results have trade_details with pnl_pct field
+        assert 'trade_details' in result_1
+        assert 'trade_details' in result_2
+        assert 'trade_details' in result_5
+        
+        assert len(result_1['trade_details']) == 3
+        assert len(result_2['trade_details']) == 3
+        assert len(result_5['trade_details']) == 3
+        
+        # Verify each trade has pnl_pct field
+        for trade in result_1['trade_details']:
+            assert 'pnl_pct' in trade
+        
+        # Trade 1: 50 / 100 = 50%
+        assert result_1['trade_details'][0]['pnl_pct'] == 50.0
+        assert result_2['trade_details'][0]['pnl_pct'] == 50.0
+        assert result_5['trade_details'][0]['pnl_pct'] == 50.0
+        
+        # Trade 2: -60 / 100 = -60%
+        assert result_1['trade_details'][1]['pnl_pct'] == -60.0
+        assert result_2['trade_details'][1]['pnl_pct'] == -60.0
+        assert result_5['trade_details'][1]['pnl_pct'] == -60.0
+        
+        # Trade 3: 80 / 100 = 80%
+        assert result_1['trade_details'][2]['pnl_pct'] == 80.0
+        assert result_2['trade_details'][2]['pnl_pct'] == 80.0
+        assert result_5['trade_details'][2]['pnl_pct'] == 80.0
+
+    def test_pnl_percentage_with_zero_risk(self):
+        """Verify replay raises error when theoretical risk is zero (invalid data)."""
+        trade_stats = {
+            'num_trades': 2,
+            'win_rate': 1.0,
+            'avg_win': 50,
+            'avg_loss': 0,
+            'max_win': 50,
+            'max_loss': 0,
+            'max_theoretical_loss': 100,
+            'conservative_theoretical_max_loss': 100,
+            'pnl_distribution': [50, 25],
+            'per_trade_theoretical_risk': [100, 0],  # Second trade has zero risk - INVALID DATA
+            'per_trade_theoretical_reward': [100, 100],
+            'per_trade_dates': ['2023-01-01', '2023-02-01']
+        }
+        
+        # Zero theoretical risk should raise an error immediately
+        with pytest.raises(ValueError) as exc_info:
+            replay.replay_actual_trades(
+                trade_stats=trade_stats,
+                initial_balance=10000,
+                position_sizing='contracts',
+                position_size=2,
+                dynamic_risk_sizing=False,
+                risk_calculation_method='conservative_theoretical'
+            )
+        
+        assert "Invalid theoretical risk" in str(exc_info.value)
+        assert "2023-02-01" in str(exc_info.value)
+        assert "missing or invalid data in the CSV" in str(exc_info.value)
+
+
+class TestReplayDataValidation:
+    """Tests for data validation in replay."""
+
+    def test_negative_theoretical_risk_raises_error(self):
+        """Verify replay raises clear error for negative theoretical risk."""
+        trade_stats = {
+            'num_trades': 1,
+            'win_rate': 1.0,
+            'avg_win': 50,
+            'avg_loss': 0,
+            'max_win': 50,
+            'max_loss': 0,
+            'max_theoretical_loss': 100,
+            'conservative_theoretical_max_loss': 100,
+            'pnl_distribution': [50],
+            'per_trade_theoretical_risk': [-100],  # NEGATIVE - invalid data
+            'per_trade_theoretical_reward': [100],
+            'per_trade_dates': ['2023-01-01']
+        }
+        
+        with pytest.raises(ValueError) as exc_info:
+            replay.replay_actual_trades(
+                trade_stats=trade_stats,
+                initial_balance=10000,
+                position_sizing='contracts',
+                position_size=1,
+                dynamic_risk_sizing=False,
+                risk_calculation_method='conservative_theoretical'
+            )
+        
+        assert "Invalid theoretical risk" in str(exc_info.value)
+        assert "2023-01-01" in str(exc_info.value)
+        assert "missing or invalid data in the CSV" in str(exc_info.value)
+
+
+class TestReplayRiskPercentageCalculation:
+    """Tests for risk percentage calculation in trade details."""
+
+    def test_risk_percentage_scales_with_theoretical_risk(self):
+        """Verify Risk % = (theoretical_risk / balance_before) * 100."""
+        trade_stats = {
+            'num_trades': 3,
+            'win_rate': 1.0,
+            'avg_win': 50,
+            'avg_loss': 0,
+            'max_win': 50,
+            'max_loss': 0,
+            'max_theoretical_loss': 150,
+            'conservative_theoretical_max_loss': 150,
+            'pnl_distribution': [50, 40, 30],  # Different P/Ls
+            'per_trade_theoretical_risk': [100, 150, 50],  # Varying risk amounts
+            'per_trade_theoretical_reward': [100, 100, 100],
+            'per_trade_dates': ['2023-01-01', '2023-02-01', '2023-03-01']
+        }
+        
+        result = replay.replay_actual_trades(
+            trade_stats=trade_stats,
+            initial_balance=10000,
+            position_sizing='contracts',
+            position_size=1,
+            dynamic_risk_sizing=False,
+            risk_calculation_method='conservative_theoretical'
+        )
+        
+        assert len(result['trade_details']) == 3
+        
+        # Verify each trade has risk_pct field
+        for trade in result['trade_details']:
+            assert 'risk_pct' in trade
+        
+        # Trade 1: 100 / 10000 * 100 = 1.0%
+        assert result['trade_details'][0]['risk_pct'] == 1.0
+        assert result['trade_details'][0]['balance_before'] == 10000
+        
+        # Trade 2: 150 / 10050 * 100 = 1.49%
+        assert result['trade_details'][1]['balance_before'] == 10050
+        expected_risk_pct_2 = (150 / 10050) * 100
+        assert abs(result['trade_details'][1]['risk_pct'] - expected_risk_pct_2) < 0.01
+        
+        # Trade 3: 50 / 10090 * 100 = 0.50%
+        assert result['trade_details'][2]['balance_before'] == 10090
+        expected_risk_pct_3 = (50 / 10090) * 100
+        assert abs(result['trade_details'][2]['risk_pct'] - expected_risk_pct_3) < 0.01
+
+    def test_risk_percentage_with_multiple_contracts(self):
+        """Verify Risk % reflects actual position size (contracts * theoretical_risk per spread)."""
+        trade_stats = {
+            'num_trades': 2,
+            'win_rate': 1.0,
+            'avg_win': 50,
+            'avg_loss': 0,
+            'max_win': 50,
+            'max_loss': 0,
+            'max_theoretical_loss': 100,
+            'conservative_theoretical_max_loss': 100,
+            'pnl_distribution': [50, 30],
+            'per_trade_theoretical_risk': [100, 100],
+            'per_trade_theoretical_reward': [100, 100],
+            'per_trade_dates': ['2023-01-01', '2023-02-01']
+        }
+        
+        result = replay.replay_actual_trades(
+            trade_stats=trade_stats,
+            initial_balance=10000,
+            position_sizing='contracts',
+            position_size=3,  # 3 contracts
+            dynamic_risk_sizing=False,
+            risk_calculation_method='conservative_theoretical'
+        )
+        
+        # Trade 1: theoretical_risk is per spread (100), not total
+        # Risk % = 100 / 10000 * 100 = 1.0% (per spread, not 3%)
+        assert result['trade_details'][0]['risk_pct'] == 1.0
+        
+        # Trade 2: 100 / 10150 * 100 = 0.985%
+        expected_risk_pct = (100 / 10150) * 100
+        assert abs(result['trade_details'][1]['risk_pct'] - expected_risk_pct) < 0.01
+
+    def test_risk_percentage_with_zero_balance(self):
+        """Verify Risk % handles zero balance gracefully."""
+        trade_stats = {
+            'num_trades': 2,
+            'win_rate': 0.5,
+            'avg_win': 50,
+            'avg_loss': -1000,
+            'max_win': 50,
+            'max_loss': -1000,
+            'max_theoretical_loss': 100,
+            'conservative_theoretical_max_loss': 100,
+            'pnl_distribution': [-1000, 50],  # First trade bankrupts us
+            'per_trade_theoretical_risk': [100, 100],
+            'per_trade_theoretical_reward': [100, 100],
+            'per_trade_dates': ['2023-01-01', '2023-02-01']
+        }
+        
+        result = replay.replay_actual_trades(
+            trade_stats=trade_stats,
+            initial_balance=1000,
+            position_sizing='contracts',
+            position_size=1,
+            dynamic_risk_sizing=False,
+            risk_calculation_method='conservative_theoretical'
+        )
+        
+        # First trade executes
+        assert result['trade_details'][0]['risk_pct'] == 10.0  # 100 / 1000 * 100
+        
+        # After first trade, balance = 0 (bankruptcy)
+        assert result['trade_details'][0]['balance_after'] == 0
+        
+        # No second trade (balance <= 0)
+        assert len(result['trade_details']) == 1

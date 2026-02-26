@@ -115,20 +115,11 @@
                             ${{ "{:,.0f}".format(trade.total_pnl|abs) if trade.total_pnl >= 0 else "-{:,.0f}".format(trade.total_pnl|abs) }}
                         </td>
                         <td style="color: {% if trade.total_pnl >= 0 %}var(--win-color, green){% else %}var(--loss-color, red){% endif %};">
-                            {% if trade.theoretical_risk > 0 %}
-                            {{ "{:.1f}".format((trade.total_pnl / trade.theoretical_risk) * 100) }}%
-                            {% else %}
-                            -
-                            {% endif %}
+                            {{ "{:.1f}".format(trade.pnl_pct) }}%
+                        </td>
                         </td>
                         <td>${{ "{:,.0f}".format(trade.theoretical_risk) }}</td>
-                        <td>
-                            {% if trade.balance_before > 0 %}
-                            {{ "{:.1f}".format((trade.theoretical_risk / trade.balance_before) * 100) }}%
-                            {% else %}
-                            -
-                            {% endif %}
-                        </td>
+                        <td>{{ "{:.1f}".format(trade.risk_pct) }}%</td>
                         <td>${{ "{:,.0f}".format(trade.theoretical_reward) }}</td>
                         <td>${{ "{:,.0f}".format(trade.balance_after) }}</td>
                     </tr>

@@ -84,6 +84,17 @@ def replay_actual_trades(
             f"pnl_distribution length ({len(pnl_distribution)})"
         )
     
+    # Validate all theoretical risk values are positive
+    for idx, risk in enumerate(per_trade_risk):
+        if risk <= 0:
+            trade_date = trade_stats.get('per_trade_dates', [None] * len(per_trade_risk))[idx]
+            date_str = f" on {trade_date}" if trade_date else f" at index {idx}"
+            raise ValueError(
+                f"Invalid theoretical risk{date_str}: {risk}. "
+                f"Theoretical risk must be positive. This indicates missing or invalid data in the CSV "
+                f"(e.g., missing strike prices, invalid spread structure, or malformed trade data)."
+            )
+    
     # Get per-trade theoretical reward - REQUIRED, no fallback
     per_trade_reward = trade_stats.get('per_trade_theoretical_reward', [])
     if not per_trade_reward:
@@ -130,7 +141,8 @@ def replay_actual_trades(
         if balance <= 0:
             break
         
-        max_affordable_contracts = int(balance / trade_theoretical_risk) if trade_theoretical_risk > 0 else 0
+        # Calculate max affordable contracts (theoretical risk is guaranteed positive from validation)
+        max_affordable_contracts = int(balance / trade_theoretical_risk)
         if max_affordable_contracts == 0:
             # Not enough balance to afford even 1 contract - stop trading
             # Don't modify balance, just stop
@@ -181,7 +193,14 @@ def replay_actual_trades(
         if balance < 0:
             balance = 0
         
-        # Record trade details
+        # Validate balance before recording (should never be <= 0 due to earlier break)
+        if balance_before <= 0:
+            raise ValueError(
+                f"Logic error: balance_before is {balance_before} for trade on {trade_date}. "
+                f"Trades should not execute when balance <= 0. This indicates a bug in replay logic."
+            )
+        
+        # Record trade details (theoretical_risk is guaranteed positive from upfront validation)
         trade_details.append({
             'date': trade_date,
             'contracts': contracts,
@@ -189,6 +208,8 @@ def replay_actual_trades(
             'total_pnl': realized_pnl,
             'theoretical_risk': trade_theoretical_risk,
             'theoretical_reward': trade_theoretical_reward,
+            'pnl_pct': (pnl / trade_theoretical_risk) * 100,
+            'risk_pct': (trade_theoretical_risk / balance_before) * 100,
             'balance_before': balance_before,
             'balance_after': balance
         })
