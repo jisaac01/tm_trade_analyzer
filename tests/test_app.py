@@ -138,7 +138,9 @@ def test_results_get_with_session(mock_parse, mock_simulate, client):
             'position_sizing': 'percent',
             'dynamic_risk_sizing': True,
             'simulation_mode': 'iid',
-            'block_size': 1
+            'block_size': 1,
+            'risk_calculation_method': 'conservative_theoretical',
+            'reward_calculation_method': 'no_cap'
         }
 
     response = client.get('/results')
@@ -184,6 +186,112 @@ def test_results_post_update_params(client):
         assert sess['params']['dynamic_risk_sizing'] == False
         assert sess['params']['simulation_mode'] == 'moving-block-bootstrap'
         assert sess['params']['block_size'] == 2
+
+@patch('app.replay.replay_actual_trades')
+@patch('app.simulator.run_monte_carlo_simulation')
+@patch('app.trade_parser.parse_trade_csv')
+def test_reward_calculation_method_passed_to_simulator(mock_parse, mock_simulate, mock_replay, client):
+    """Test that reward_calculation_method is properly passed from form to simulator."""
+    # Mock the parsing to return valid trade data
+    mock_parse.return_value = {
+        'num_trades': 10,
+        'pnl_distribution': [100, 200, -50, -100, 150, 80, -60, 120, -40, 180],
+        'per_trade_theoretical_risk': [300] * 10,
+        'per_trade_dates': ['2023-01-01'] * 10,
+        'name': 'Test Trade',
+        'win_rate': 0.6,
+        'avg_win': 150,
+        'avg_loss': -75,
+        'max_win': 200,
+        'max_loss': -100,
+        'max_theoretical_loss': 300,
+        'conservative_theoretical_max_loss': 280,
+        'max_theoretical_gain': 400,
+        'conservative_theoretical_max_reward': 360,
+        'conservative_realized_max_reward': 180,
+        'risked': 3000,
+        'total_return': 500,
+        'pct_return': 16.67,
+        'avg_pct_return': 1.67,
+        'commissions': 10,
+        'wins': 6,
+        'losses': 4,
+        'avg_pct_win': 50,
+        'avg_pct_loss': -25,
+        'gross_gain': 900,
+        'gross_loss': -400,
+        'median_loss': -60,
+        'median_risk_per_spread': 75
+    }
+    
+    # Mock the simulation
+    mock_simulate.return_value = [{
+        'trade_name': 'Test Trade',
+        'summary': {
+            'total_return': 1000,
+            'risked': 500,
+            'pct_return': 10.0,
+            'avg_pct_return': 5.0,
+            'commissions': 10,
+            'win_rate': 0.6,
+            'wins': 6,
+            'losses': 4,
+            'avg_win': 200,
+            'avg_loss': -100,
+            'avg_pct_win': 200,
+            'avg_pct_loss': -100,
+            'gross_gain': 1200,
+            'gross_loss': -400,
+            'conservative_theoretical_max_loss': 280,
+            'max_theoretical_loss': 300,
+            'historical_max_losing_streak': 2
+        },
+        'table_rows': [
+            {'Percentile': '50%', 'Balance': 105000, 'Trades': 10, 'Win Rate': '60%'}
+        ],
+        'pnl_preview': ['100', '200', '-50']
+    }]
+    
+    # Mock replay
+    mock_replay.return_value = {
+        'final_balance': 105000,
+        'max_drawdown': 5000,
+        'max_losing_streak': 2,
+        'trade_details': []
+    }
+    
+    # Create a temporary CSV file
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
+        f.write("Trade Name,Entry Date,Exit Date,P/L\nTest Trade,2023-01-01,2023-01-02,100\n")
+        temp_file = f.name
+
+    try:
+        with open(temp_file, 'rb') as f:
+            data = {
+                'csv_file': f,
+                'initial_balance': '100000',
+                'num_simulations': '100',
+                'option_commission': '1.0',
+                'position_sizing_mode': 'percent',
+                'dynamic_risk_sizing': 'on',
+                'simulation_mode': 'iid',
+                'block_size': '5',
+                'risk_calculation_method': 'conservative_theoretical',
+                'reward_calculation_method': 'cap_50pct_conservative_theoretical_max'
+            }
+            response = client.post('/', data=data, content_type='multipart/form-data', follow_redirects=True)
+            assert response.status_code == 200
+            
+            # Verify run_monte_carlo_simulation was called with reward_calculation_method
+            mock_simulate.assert_called_once()
+            call_kwargs = mock_simulate.call_args[1]
+            assert call_kwargs['reward_calculation_method'] == 'cap_50pct_conservative_theoretical_max'
+            
+            # Verify parameter is stored in session
+            with client.session_transaction() as sess:
+                assert sess['params']['reward_calculation_method'] == 'cap_50pct_conservative_theoretical_max'
+    finally:
+        os.unlink(temp_file)
 
 def test_format_currency_whole():
     """Test the format_currency_whole function."""

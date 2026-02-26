@@ -55,6 +55,7 @@ def index():
         simulation_mode = request.form.get('simulation_mode', 'iid')
         block_size = int(request.form.get('block_size', 5))
         risk_calculation_method = request.form.get('risk_calculation_method', 'conservative_theoretical')
+        reward_calculation_method = request.form.get('reward_calculation_method', 'no_cap')
 
         # Store params in session for re-run
         session['params'] = {
@@ -67,6 +68,7 @@ def index():
             'simulation_mode': simulation_mode,
             'block_size': block_size,
             'risk_calculation_method': risk_calculation_method,
+            'reward_calculation_method': reward_calculation_method,
             'position_sizing_display': position_sizing_raw  # For display
         }
 
@@ -111,7 +113,8 @@ def results():
             'simulation_mode': request.form.get('simulation_mode', params.get('simulation_mode', 'iid')),
             'block_size': int(request.form.get('block_size', params.get('block_size', 1))),
             'position_sizing_display': position_sizing_raw,
-            'risk_calculation_method': request.form.get('risk_calculation_method', params.get('risk_calculation_method', 'conservative_theoretical'))
+            'risk_calculation_method': request.form.get('risk_calculation_method', params.get('risk_calculation_method', 'conservative_theoretical')),
+            'reward_calculation_method': request.form.get('reward_calculation_method', params.get('reward_calculation_method', 'no_cap'))
         })
         session['params'] = params
         return redirect(url_for('results'))
@@ -127,7 +130,8 @@ def results():
         'simulation_mode': 'iid',
         'block_size': 5,
         'position_sizing_display': 'dynamic-percent',
-        'risk_calculation_method': 'conservative_theoretical'
+        'risk_calculation_method': 'conservative_theoretical',
+        'reward_calculation_method': 'no_cap'
     }
     params = session.get('params', default_params)
     params = {**default_params, **params}  # Ensure all defaults are present
@@ -158,7 +162,8 @@ def results():
             block_size=params['block_size'],
             commission_per_contract=params['option_commission'],
             num_trades=params['num_trades'],
-            risk_calculation_method=params['risk_calculation_method']
+            risk_calculation_method=params['risk_calculation_method'],
+            reward_calculation_method=params['reward_calculation_method']
         )
         
         # Run historical replay with same position sizing settings

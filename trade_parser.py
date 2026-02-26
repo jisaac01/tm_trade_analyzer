@@ -82,6 +82,7 @@ def parse_trade_csv(file_or_path):
             'max_theoretical_loss': 0,
             'conservative_theoretical_max_loss': 0,
             'max_theoretical_gain': 0,
+            'conservative_theoretical_max_reward': 0,
             'conservative_realized_max_reward': 0,
             'risked': 0,
             'total_return': 0,
@@ -108,6 +109,7 @@ def parse_trade_csv(file_or_path):
     max_theoretical_loss = 0
     conservative_theoretical_max_loss = 0
     max_theoretical_gain = 0
+    conservative_theoretical_max_reward = 0
     if not open_df.empty:
         open_df['open_cashflow'] = -open_df['Size'] * open_df['Trade Price'] * 100
         theoretical = open_df.groupby('Expiration', sort=False).agg(
@@ -135,6 +137,7 @@ def parse_trade_csv(file_or_path):
             conservative_theoretical_max_loss = float(np.quantile(theoretical_losses, 0.95))
         if len(theoretical_gains) > 0:
             max_theoretical_gain = float(np.max(theoretical_gains))
+            conservative_theoretical_max_reward = float(np.quantile(theoretical_gains, 0.95))
 
     risked = 0
     if not open_df.empty:
@@ -184,6 +187,7 @@ def parse_trade_csv(file_or_path):
         'max_theoretical_loss': max_theoretical_loss,
         'conservative_theoretical_max_loss': conservative_theoretical_max_loss,
         'max_theoretical_gain': max_theoretical_gain,
+        'conservative_theoretical_max_reward': conservative_theoretical_max_reward,
         'conservative_realized_max_reward': conservative_realized_max_reward,
         'risked': risked,
         'total_return': total_return,
