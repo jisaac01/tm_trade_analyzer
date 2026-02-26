@@ -449,8 +449,8 @@ class TestReplayActualTrades:
         assert trade1['contracts'] == 2
         assert trade1['pnl_per_contract'] == 100
         assert trade1['total_pnl'] == 200
-        assert trade1['theoretical_risk'] == 200
-        assert trade1['theoretical_reward'] == 150
+        assert trade1['theoretical_risk'] == 400  # 200 per-contract * 2 contracts
+        assert trade1['theoretical_reward'] == 300  # 150 per-contract * 2 contracts
         assert trade1['balance_before'] == 1000
         assert trade1['balance_after'] == 1200
         
@@ -460,8 +460,8 @@ class TestReplayActualTrades:
         assert trade2['contracts'] == 2
         assert trade2['pnl_per_contract'] == -40
         assert trade2['total_pnl'] == -80
-        assert trade2['theoretical_reward'] == 120
-        assert trade2['theoretical_risk'] == 180
+        assert trade2['theoretical_reward'] == 240  # 120 per-contract * 2 contracts
+        assert trade2['theoretical_risk'] == 360  # 180 per-contract * 2 contracts
         assert trade2['balance_before'] == 1200
         assert trade2['balance_after'] == 1120
         
@@ -471,8 +471,8 @@ class TestReplayActualTrades:
         assert trade3['contracts'] == 2
         assert trade3['pnl_per_contract'] == 80
         assert trade3['total_pnl'] == 160
-        assert trade3['theoretical_risk'] == 200
-        assert trade3['theoretical_reward'] == 150
+        assert trade3['theoretical_risk'] == 400  # 200 per-contract * 2 contracts
+        assert trade3['theoretical_reward'] == 300  # 150 per-contract * 2 contracts
         assert trade3['balance_before'] == 1120
         assert trade3['balance_after'] == 1280
     
@@ -743,12 +743,14 @@ class TestReplayRiskPercentageCalculation:
             risk_calculation_method='conservative_theoretical'
         )
         
-        # Trade 1: theoretical_risk is per spread (100), not total
-        # Risk % = 100 / 10000 * 100 = 1.0% (per spread, not 3%)
-        assert result['trade_details'][0]['risk_pct'] == 1.0
+        # Trade 1: total risk = 3 contracts * 100 per-contract = 300
+        # Risk % = 300 / 10000 * 100 = 3.0% (reflects actual position size)
+        assert result['trade_details'][0]['risk_pct'] == 3.0
         
-        # Trade 2: 100 / 10150 * 100 = 0.985%
-        expected_risk_pct = (100 / 10150) * 100
+        # Trade 2: Balance after trade 1 = 10000 + 3*50 = 10150
+        # Total risk = 3 contracts * 100 per-contract = 300
+        # Risk % = 300 / 10150 * 100 = 2.96%
+        expected_risk_pct = (300 / 10150) * 100
         assert abs(result['trade_details'][1]['risk_pct'] - expected_risk_pct) < 0.01
 
     def test_risk_percentage_with_zero_balance(self):
@@ -785,3 +787,63 @@ class TestReplayRiskPercentageCalculation:
         
         # No second trade (balance <= 0)
         assert len(result['trade_details']) == 1
+
+    def test_trade_details_risk_reward_multiplied_by_contracts(self):
+        """Test that Risk ($), Risk (%), and Reward ($) in trade_details are multiplied by contracts."""
+        trade_stats = {
+            'num_trades': 2,
+            'win_rate': 0.5,
+            'avg_win': 50,
+            'avg_loss': -30,
+            'max_win': 50,
+            'max_loss': -30,
+            'max_theoretical_loss': 100,
+            'conservative_theoretical_max_loss': 80,
+            'pnl_distribution': [50, -30],
+            'per_trade_theoretical_risk': [100, 80],  # Per-contract risk
+            'per_trade_theoretical_reward': [60, 50],  # Per-contract reward
+            'per_trade_dates': ['2023-01-01', '2023-02-01']
+        }
+        
+        result = replay.replay_actual_trades(
+            trade_stats=trade_stats,
+            initial_balance=1000,
+            position_sizing='contracts',
+            position_size=3,  # 3 contracts per trade
+            dynamic_risk_sizing=False,
+            risk_calculation_method='conservative_theoretical'
+        )
+        
+        # First trade: 3 contracts
+        trade1 = result['trade_details'][0]
+        assert trade1['contracts'] == 3
+        
+        # Risk ($) should be per-contract risk * contracts = 100 * 3 = 300
+        assert trade1['theoretical_risk'] == 300, \
+            f"Expected theoretical_risk=300 (100*3), got {trade1['theoretical_risk']}"
+        
+        # Reward ($) should be per-contract reward * contracts = 60 * 3 = 180
+        assert trade1['theoretical_reward'] == 180, \
+            f"Expected theoretical_reward=180 (60*3), got {trade1['theoretical_reward']}"
+        
+        # Risk (%) should be total risk / balance_before = 300 / 1000 = 30%
+        assert trade1['risk_pct'] == 30.0, \
+            f"Expected risk_pct=30.0 (300/1000*100), got {trade1['risk_pct']}"
+        
+        # Second trade: 3 contracts
+        # Balance after trade 1 = 1000 + 3*50 = 1150
+        trade2 = result['trade_details'][1]
+        assert trade2['contracts'] == 3
+        
+        # Risk ($) should be per-contract risk * contracts = 80 * 3 = 240
+        assert trade2['theoretical_risk'] == 240, \
+            f"Expected theoretical_risk=240 (80*3), got {trade2['theoretical_risk']}"
+        
+        # Reward ($) should be per-contract reward * contracts = 50 * 3 = 150
+        assert trade2['theoretical_reward'] == 150, \
+            f"Expected theoretical_reward=150 (50*3), got {trade2['theoretical_reward']}"
+        
+        # Risk (%) should be total risk / balance_before = 240 / 1150 ≈ 20.87%
+        expected_risk_pct_2 = (240 / 1150) * 100
+        assert abs(trade2['risk_pct'] - expected_risk_pct_2) < 0.01, \
+            f"Expected risk_pct={expected_risk_pct_2:.2f} (240/1150*100), got {trade2['risk_pct']}"

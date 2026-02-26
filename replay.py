@@ -200,16 +200,20 @@ def replay_actual_trades(
                 f"Trades should not execute when balance <= 0. This indicates a bug in replay logic."
             )
         
+        # Calculate total risk and reward for the position (per-contract values * contracts)
+        total_theoretical_risk = trade_theoretical_risk * contracts
+        total_theoretical_reward = trade_theoretical_reward * contracts
+        
         # Record trade details (theoretical_risk is guaranteed positive from upfront validation)
         trade_details.append({
             'date': trade_date,
             'contracts': contracts,
             'pnl_per_contract': pnl,
             'total_pnl': realized_pnl,
-            'theoretical_risk': trade_theoretical_risk,
-            'theoretical_reward': trade_theoretical_reward,
+            'theoretical_risk': total_theoretical_risk,
+            'theoretical_reward': total_theoretical_reward,
             'pnl_pct': (pnl / trade_theoretical_risk) * 100,
-            'risk_pct': (trade_theoretical_risk / balance_before) * 100,
+            'risk_pct': (total_theoretical_risk / balance_before) * 100,
             'balance_before': balance_before,
             'balance_after': balance
         })
