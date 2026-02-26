@@ -2,6 +2,7 @@ from flask import Flask, render_template, request, session, redirect, url_for, f
 import pandas as pd
 from html import escape
 import simulator
+import replay
 import trade_parser
 import os
 import uuid
@@ -144,8 +145,11 @@ def results():
 
     num_trades_per_simulation = max(params['num_trades'], trade_stats['num_trades'])
 
+    # Initialize replay_data in case of error
+    replay_data = []
+    
     try:
-        # Run simulation
+        # Run Monte Carlo simulation
         trade_reports = simulator.run_monte_carlo_simulation(
             trade_stats, params['initial_balance'], params['num_simulations'],
             position_sizing=params['position_sizing'],
@@ -156,12 +160,55 @@ def results():
             num_trades=params['num_trades'],
             risk_calculation_method=params['risk_calculation_method']
         )
+        
+        # Run historical replay with same position sizing settings
+        position_size_plan = simulator.build_position_size_plan(
+            trade=trade_stats,
+            initial_balance=params['initial_balance'],
+            position_sizing=params['position_sizing'],
+            risk_calculation_method=params['risk_calculation_method']
+        )
+        
+        replay_data = []
+        for row in position_size_plan:
+            ps = row['contracts']
+            if params['position_sizing'] == 'percent':
+                replay_result = replay.replay_actual_trades(
+                    trade_stats=trade_stats,
+                    initial_balance=params['initial_balance'],
+                    position_sizing='percent',
+                    target_risk_pct=row['target_risk_pct'],
+                    dynamic_risk_sizing=params['dynamic_risk_sizing'],
+                    risk_calculation_method=params['risk_calculation_method']
+                )
+            else:
+                replay_result = replay.replay_actual_trades(
+                    trade_stats=trade_stats,
+                    initial_balance=params['initial_balance'],
+                    position_sizing='contracts',
+                    position_size=ps,
+                    dynamic_risk_sizing=False,
+                    risk_calculation_method=params['risk_calculation_method']
+                )
+            
+            replay_data.append({
+                'Contracts': ps,
+                'Target Risk %': f"{row['target_risk_pct']:.2f}%",
+                'Starting Risk %': f"{row['starting_risk_pct']:.2f}%",
+                'Max Risk %': f"{row['max_risk_pct']:.2f}%",
+                'Final Balance': f"${replay_result['final_balance']:,.0f}",
+                'Max Drawdown': f"${replay_result['max_drawdown']:,.0f}",
+                'Max Losing Streak': f"{replay_result['max_losing_streak']:.0f}",
+                'Num Trades': len(replay_result['trade_history']) - 1  # Exclude initial balance
+            })
+        
     except Exception as e:
         flash(f'Error running simulation: {str(e)}', 'error')
         # Render the results page with form but without results
         # This allows the user to adjust parameters and try again
         return render_template('results.html',
                               trade_reports=[],
+                              replay_table_html='',
                               original_filename=session['original_filename'],
                               num_trades_per_simulation=0,
                               position_sizing_display_text='',
@@ -210,6 +257,33 @@ def results():
         for old, new in replacements:
             report['table_html'] = report['table_html'].replace(old, new)
 
+    # Prepare replay data table
+    replay_df = pd.DataFrame(replay_data)
+    if params['position_sizing'] == 'contracts':
+        # For contracts mode, rename and drop columns similar to Monte Carlo table
+        replay_df = replay_df.rename(columns={'Starting Risk %': 'Initial Risk %'})
+        replay_df = replay_df.drop(columns=['Target Risk %'], errors='ignore')
+    replay_table_html = replay_df.to_html(index=False, classes='sim-table', border=0, escape=False)
+    
+    # Add tooltips to replay table headers
+    replay_replacements = [
+        ('<th>Contracts</th>', f'<th title="Number of contracts used for historical replay.">Contracts</th>'),
+        ('<th>Final Balance</th>', '<th title="Actual final account balance after replaying all historical trades with this position sizing.">Final Balance</th>'),
+        ('<th>Max Drawdown</th>', '<th title="Maximum peak-to-trough decline experienced during the historical replay.">Max Drawdown</th>'),
+        ('<th>Max Losing Streak</th>', '<th title="Longest consecutive losing streak in the historical replay.">Max Losing Streak</th>'),
+        ('<th>Num Trades</th>', '<th title="Number of trades completed before stopping (may be less than total if bankruptcy occurred).">Num Trades</th>')
+    ]
+    if params['position_sizing'] == 'percent':
+        replay_replacements.extend([
+            ('<th>Target Risk %</th>', '<th title="Target risk percentage used for historical replay.">Target Risk %</th>'),
+            ('<th>Starting Risk %</th>', '<th title="Starting risk percentage used for historical replay.">Starting Risk %</th>')
+        ])
+    else:
+        replay_replacements.append(('<th>Initial Risk %</th>', '<th title="Initial risk percentage for this contract count.">Initial Risk %</th>'))
+    replay_replacements.append(('<th>Max Risk %</th>', '<th title="Maximum risk percentage based on position sizing constraints.">Max Risk %</th>'))
+    for old, new in replay_replacements:
+        replay_table_html = replay_table_html.replace(old, new)
+
     # Calculate display text for header
     position_sizing_display_text = {
         'percent': 'Percentage of Account Balance',
@@ -218,6 +292,7 @@ def results():
 
     return render_template('results.html',
                            trade_reports=trade_reports,
+                           replay_table_html=replay_table_html,
                            original_filename=session['original_filename'],
                            num_trades_per_simulation=num_trades_per_simulation,
                            position_sizing_display_text=position_sizing_display_text,

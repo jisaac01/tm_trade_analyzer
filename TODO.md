@@ -40,8 +40,20 @@
 - [X] **Step 5.3:** Add a loading spinner/overlay on the frontend using simple JavaScript. Monte Carlo simulations can take a few seconds, so visual feedback is critical for a quality product.
 - [ ] **Step 5.4:** (Optional but recommended) Move the simulation processing into a background thread or use AJAX/Fetch API to prevent the browser from timing out or appearing frozen during heavy calculations. (Skip for now)
 
+## Phase 6: Historical Trade Replay Feature
+- [X] **Step 6.1:** Write tests for `replay_actual_trades()` function that applies position sizing rules to actual historical trade sequence.
+- [X] **Step 6.2:** Implement `replay_actual_trades()` function in `simulator.py` that:
+  - Takes actual P/L distribution (in order from historical trades)
+  - Applies same position sizing rules as Monte Carlo (fixed contracts or dynamic risk %)
+  - Tracks balance evolution, max drawdown, and losing streaks
+  - Returns detailed metrics including balance history for potential charting
+- [X] **Step 6.3:** Extract any shared balance-tracking logic into small helper functions (without adding branching to existing simulator code).
+- [X] **Step 6.4:** Add `replay_actual_trades()` to the simulation workflow in `app.py` to run alongside Monte Carlo simulation.
+- [X] **Step 6.5:** Update results template to display historical replay results alongside Monte Carlo results with clear labeling.
+
 ## Additional Completed Tasks
 - [X] **Testing:** Added comprehensive test suite including unit tests for web app functionality and end-to-end integration test with real data.
 - [X] **Re-run functionality:** Implemented ability to change options after results and re-run simulation without re-uploading CSV.
 - [X] **Risk method consistency:** Fixed percent-sizing planning to respect selected `risk_calculation_method`, corrected Nuclear semantics to use max theoretical loss consistently across simulator/UI/README, and updated simulator tests accordingly.
 - [X] **Risk method UX update:** Added `Variable`/`Fixed` prefixes in the UI selector, introduced separate fixed methods for conservative theoretical max and theoretical max, widened selector width for readability, and added/updated tests.
+- [X] **Historical trade replay:** Implemented feature to show actual trade performance using the same position sizing settings as Monte Carlo simulation, displayed alongside simulation results for comparison.

@@ -71,6 +71,7 @@ def test_results_get_with_session(mock_parse, mock_simulate, client):
     mock_parse.return_value = {
         'num_trades': 1,
         'pnl_distribution': [100, 200, -50],
+        'per_trade_theoretical_risk': [300, 300, 300],
         'name': 'Test Trade',
         'win_rate': 0.6,
         'avg_win': 200,
