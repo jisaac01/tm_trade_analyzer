@@ -335,6 +335,27 @@ Total: 17 methods (1 no_cap + 16 capping variants)
   - Manually verify with real data: 2020-07-28 trade should show 73.9%, not 301%
   - Check multiple known trades from CSV to confirm alignment
 
+#### Part A.1: Additional Groupby Consistency Improvements (PRIORITY 1 - Code Quality)
+**Context:** Audit found one remaining groupby without explicit sort parameter in production code. While this doesn't cause a bug in current implementation (since we use `joined['pnl']` for aligned data), it violates the best practice established in copilot-instructions.md: "Any pandas groupby operation must explicitly set the `sort` parameter."
+
+- [X] **Step 10.3a:** Add `sort=False` to remaining groupby in trade_parser.py
+  - Line 70: Change `close_df.groupby('Expiration')` to `close_df.groupby('Expiration', sort=False)`
+  - This ensures consistency across codebase and prevents potential future issues
+  - Write test to verify behavior doesn't change (aggregate stats should be identical)
+  - Note: monte_carlo_trade_sizing.py line 424 has same issue but is deprecated and should not be modified
+
+- [X] **Step 10.3b:** Consider refactoring to use single P/L source
+  - Currently: `pnl_values` used for aggregate stats, `joined['pnl']` used for aligned distribution
+  - Potential improvement: Use `joined['pnl'].values` for ALL P/L operations after join
+  - Benefits: Single source of truth, explicit chronological order throughout
+  - Trade-off: Some operations (like early checks) happen before join exists
+  - Decision: Deferred - current implementation is clear and works correctly
+
+- [X] **Step 10.3c:** Run full test suite after consistency changes
+  - Run `tm_trade_analyzer_venv/bin/pytest -v`
+  - Verify all 140 tests still pass
+  - Verify aggregate statistics (wins, losses, totals) are identical to before
+
 #### Part B: Fix Template Display for Multi-Contract (PRIORITY 1 - Important)
 - [ ] **Step 10.4:** Write test for replay table P/L percentage calculation with multiple contracts
   - Test with 1 contract, 2 contracts, and 5 contracts

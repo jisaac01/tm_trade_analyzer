@@ -67,7 +67,8 @@ def parse_trade_csv(file_or_path):
     close_df = close_df[close_df['Profit/Loss'].notna()]
     
     # Group by Expiration to get net P/L per trade
-    trade_pnl = close_df.groupby('Expiration')['Profit/Loss'].sum()
+    # sort=False preserves chronological order from file instead of alphabetical sorting
+    trade_pnl = close_df.groupby('Expiration', sort=False)['Profit/Loss'].sum()
     
     pnl_values = trade_pnl.values
     
