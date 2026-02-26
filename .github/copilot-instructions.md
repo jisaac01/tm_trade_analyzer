@@ -3,16 +3,20 @@
 **Note:** The original file `monte_carlo_trade_sizing.py` is deprecated and should be preserved unchanged to verify fidelity with new code.
 
 1.  **Mandatory TDD:** You MUST write a failing test *before* writing any implementation code.
-    -   **Run Tests Correctly:** Use the full path: `tm_trade_analyzer_venv/bin/pytest`. Do NOT use `source ...`.
-2.  **Update the 'Lessons & Mistakes to Avoid' section below:**
+2.  **🚨 ALWAYS USE DIRECT PYTEST PATH: `tm_trade_analyzer_venv/bin/pytest` 🚨**
+    -   **NEVER** use `tm_trade_analyzer_venv/bin/python -m pytest`
+    -   **NEVER** use `source ... && pytest`
+    -   **ALWAYS** use the full direct path: `tm_trade_analyzer_venv/bin/pytest`
+    -   This allows auto-approval of test runs.
+3.  **Update the 'Lessons & Mistakes to Avoid' section below:**
     -   If the user corrects your logic or behavior, you MUST update the 'Lessons & Mistakes to Avoid' section below with the lesson learned.
     -   Review this section before starting complex tasks.
-3.  **Follow `TODO.md`:**
+4.  **Follow `TODO.md`:**
     -   `TODO.md` is the single source of truth for the current project plan.
     -   Update it as tasks are completed or requirements change.
     -   When implementing from the TODO, **do not go past the current Phase** (or the current item, if it's complex or requires a lot of code). Stop and wait for review/confirmation before proceeding to the next chunk.
     -   **Question Assumptions:** Before implementing each step, question assumptions, validate the approach, and ensure it is bulletproofed (e.g., consider alternatives, check for edge cases, and confirm alignment with project goals).
-4.  **No "Plan" Confirmation:**
+5.  **No "Plan" Confirmation:**
     -   If requirements are clear, just execute. Do not ask "Shall I proceed?" unless the plan is high-risk.
 
 ## Scope
@@ -73,10 +77,10 @@ The goal of this section is to prevent recurring mistakes. **If you are correcte
 
 ### 🚨 Critical (Do Not Violate)
 -   **Mandatory TDD:** Write the failing test first for any behavior change.
--   **Always Run Tests After Changes:** Execute the full test suite (using `tm_trade_analyzer_venv/bin/python -m pytest`) after any code modifications to detect regressions early and ensure code quality.
+-   **🚨 PYTEST PATH: ALWAYS use `tm_trade_analyzer_venv/bin/pytest` (NOT `python -m pytest`) 🚨** - This allows auto-approval of test runs.
+-   **Always Run Tests After Changes:** Execute the full test suite after any code modifications to detect regressions early and ensure code quality.
 -   **No Mocks for Core Math:** Do not mock internal simulation/analysis logic; only mock external I/O when needed.
 -   **Deterministic Tests:** Seed randomness in tests when asserting numeric behavior.
--   **Project-local Execution:** Use the project environment tools (for example, `tm_trade_analyzer_venv/bin/pytest`) instead of relying on global interpreters.
 -   **No Hidden Defaults:** Prefer explicit inputs/config over silent fallbacks when behavior materially changes.
 -   **No Backward-Compatibility Additions Unless Requested:** Do not add aliases, fallback paths, fallthrough handling, or compatibility shims unless the user explicitly asks for them.
 -   **Keep Scope Tight:** Implement only the requested behavior; avoid adding speculative knobs.
