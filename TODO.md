@@ -287,76 +287,11 @@ Total: 17 methods (1 no_cap + 16 capping variants)
 - **Edge cases**: Empty data, single trade, all wins, all losses
 
 ## Phase 10: Data Quality Improvements & Validation
-**Goal:** Fix critical data alignment bug and add data quality warnings to help users identify and handle trades with missing or suspicious data.
 
-**Context:** Backtest CSV files from trading platforms often have missing closing prices or P/L values that exceed theoretical limits due to commissions, slippage, or data export errors. Additionally, a critical bug in trade_parser.py causes P/L values to be misaligned with dates, producing completely incorrect results.
+### Part A: Critical Data Alignment Bug Fix ✅
+Fixed P/L/date misalignment caused by alphabetical sorting in trade_parser.py. Added `sort=False` to all groupby operations for consistency. Verified alignment with real data and existing tests.
 
-### Issues Identified  
-1. **🚨 CRITICAL BUG: P/L and Date Misalignment**: trade_parser.py sorts P/L values alphabetically but dates chronologically, causing complete data corruption
-   - Root cause: Line 70 `groupby('Expiration')` has no `sort=False`, so pandas sorts alphabetically by expiration string
-   - Line 117 `groupby('Expiration', sort=False)` preserves chronological order
-   - Line 72: `pnl_values = trade_pnl.values` extracts alphabetically-sorted P/L
-   - Line 213: Returns sorted `pnl_values` as `pnl_distribution`
-   - Line 178: Returns dates from `joined` which is chronologically ordered
-   - Impact: **Every trade gets the wrong P/L value!** Index 7 gets P/L from position 7 alphabetically ("11-Apr-25" = $1085) but date from position 7 chronologically ("2020-07-28" = should be $266)
-   - Affects: Both Monte Carlo simulator AND historical replay (both use pnl_distribution from trade_parser)
-   - Evidence: User saw 301% for 2020-07-28 trade ($1085/$360), but CSV shows $266 P/L for that trade
-
-2. **Minor Display Issue**: Template P/L % calculation would be wrong for multi-contract scenarios (but not causing current bug since user uses 1 contract)
-   - Template divides `total_pnl` (scaled by contracts) by `theoretical_risk` (per-spread)
-   - Would multiply percentage by contract count if using >1 contracts
-   
-2. **Data Quality Issues**: 10-11% of trades in real backtest files have losses exceeding theoretical maximum
-   - Root cause: Missing closing prices, commissions not included in theoretical max, slippage, or data export errors
-   - Impact: Skewed risk metrics, unrealistic Monte Carlo samples
-
-3. **Missing Price Data**: Some closing trades lack actual trade prices, only P/L values
-   - Root cause: Trading platform data export limitations
-   - Impact: Cannot verify P/L calculations or validate data accuracy
-
-### Steps
-
-#### Part A: Fix Critical Data Alignment Bug (PRIORITY 0 - CRITICAL)
-- [X] **Step 10.1:** Write test that verifies P/L and date alignment with real data
-  - Use actual test CSV file with known trades
-  - Verify specific trades: check that date at index i corresponds to correct P/L at index i
-  - Example: 2020-07-28 opening should have $266 P/L (from 5-Aug-20 expiration), not $1085
-  - Test that chronological file order is preserved in pnl_distribution
-  - Test with data that would expose alphabetical sorting (e.g., "11-Apr" comes before "5-Aug")
-
-- [X] **Step 10.2:** Fix sorting bug in `trade_parser.py`
-  - Line 70: Add `sort=False` to `close_df.groupby('Expiration', sort=False)`
-  - OR better: Use `joined['pnl'].values` instead of `pnl_values` for pnl_distribution (line 213)
-  - This ensures P/L values come from the joined dataframe in the same order as dates
-  - Verify all extraction lists use the same source order
-
-- [X] **Step 10.3:** Run full test suite and verify fix
-  - Run `tm_trade_analyzer_venv/bin/pytest -v`
-  - Manually verify with real data: 2020-07-28 trade should show 73.9%, not 301%
-  - Check multiple known trades from CSV to confirm alignment
-
-#### Part A.1: Additional Groupby Consistency Improvements (PRIORITY 1 - Code Quality)
-**Context:** Audit found one remaining groupby without explicit sort parameter in production code. While this doesn't cause a bug in current implementation (since we use `joined['pnl']` for aligned data), it violates the best practice established in copilot-instructions.md: "Any pandas groupby operation must explicitly set the `sort` parameter."
-
-- [X] **Step 10.3a:** Add `sort=False` to remaining groupby in trade_parser.py
-  - Line 70: Change `close_df.groupby('Expiration')` to `close_df.groupby('Expiration', sort=False)`
-  - This ensures consistency across codebase and prevents potential future issues
-  - Write test to verify behavior doesn't change (aggregate stats should be identical)
-  - Note: monte_carlo_trade_sizing.py line 424 has same issue but is deprecated and should not be modified
-
-- [X] **Step 10.3b:** Consider refactoring to use single P/L source
-  - Currently: `pnl_values` used for aggregate stats, `joined['pnl']` used for aligned distribution
-  - Potential improvement: Use `joined['pnl'].values` for ALL P/L operations after join
-  - Benefits: Single source of truth, explicit chronological order throughout
-  - Trade-off: Some operations (like early checks) happen before join exists
-  - Decision: Deferred - current implementation is clear and works correctly
-
-- [X] **Step 10.3c:** Run full test suite after consistency changes
-  - Run `tm_trade_analyzer_venv/bin/pytest -v`
-  - Verify all 140 tests still pass
-  - Verify aggregate statistics (wins, losses, totals) are identical to before
-
-#### Part B: Fix Template Display for Multi-Contract (PRIORITY 1 - Important)
+### Part B: Fix Template Display for Multi-Contract (PRIORITY 1 - Important)
 - [ ] **Step 10.4:** Write test for replay table P/L percentage calculation with multiple contracts
   - Test with 1 contract, 2 contracts, and 5 contracts
   - Verify percentage remains constant regardless of contract count
