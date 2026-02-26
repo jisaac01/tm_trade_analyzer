@@ -72,6 +72,7 @@ def test_results_get_with_session(mock_parse, mock_simulate, client):
         'num_trades': 1,
         'pnl_distribution': [100, 200, -50],
         'per_trade_theoretical_risk': [300, 300, 300],
+        'per_trade_dates': ['2023-01-01', '2023-02-01', '2023-03-01'],
         'name': 'Test Trade',
         'win_rate': 0.6,
         'avg_win': 200,
@@ -333,6 +334,8 @@ def test_results_simulation_error_displays_and_preserves_state(mock_parse, clien
     mock_parse.return_value = {
         'num_trades': 10,
         'pnl_distribution': [100, 200, -50, -100, 150],
+        'per_trade_theoretical_risk': [500, 500, 500, 500, 500],
+        'per_trade_dates': ['2023-01-01', '2023-02-01', '2023-03-01', '2023-04-01', '2023-05-01'],
         'name': 'Test Trade',
         'win_rate': 0.6,
         'avg_win': 150,

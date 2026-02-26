@@ -51,6 +51,14 @@ def replay_actual_trades(
         - 'max_drawdown' (float): Maximum drawdown experienced
         - 'max_losing_streak' (int): Longest losing streak
         - 'trade_history' (list[float]): Balance at each step (initial + after each trade)
+        - 'trade_details' (list[dict]): Per-trade details with keys:
+            - 'date' (str): Opening date of the trade
+            - 'contracts' (int): Number of contracts used
+            - 'pnl_per_contract' (float): P/L per contract
+            - 'total_pnl' (float): Total P/L for the trade
+            - 'theoretical_risk' (float): Theoretical max risk for this trade
+            - 'balance_before' (float): Account balance before the trade
+            - 'balance_after' (float): Account balance after the trade
     
     Raises:
     - ValueError: If pnl_distribution is empty or required parameters are missing.
@@ -75,6 +83,16 @@ def replay_actual_trades(
             f"pnl_distribution length ({len(pnl_distribution)})"
         )
     
+    # Get per-trade dates - REQUIRED, no fallback
+    per_trade_dates = trade_stats.get('per_trade_dates', [])
+    if not per_trade_dates:
+        raise ValueError("per_trade_dates is required but missing from trade_stats")
+    if len(per_trade_dates) != len(pnl_distribution):
+        raise ValueError(
+            f"per_trade_dates length ({len(per_trade_dates)}) must match "
+            f"pnl_distribution length ({len(pnl_distribution)})"
+        )
+    
     # Validate required parameters
     if position_sizing == 'contracts' and position_size is None:
         raise ValueError("position_size must be provided when using 'contracts' position sizing")
@@ -88,11 +106,13 @@ def replay_actual_trades(
     current_losing_streak = 0
     max_losing_streak = 0
     trade_history = [balance]
+    trade_details = []
     
     # Replay each trade in order
     for idx, pnl in enumerate(pnl_distribution):
-        # Get this trade's actual theoretical risk
+        # Get this trade's actual theoretical risk and date
         trade_theoretical_risk = per_trade_risk[idx]
+        trade_date = per_trade_dates[idx]
         
         # Check if we can afford to trade
         if balance <= 0:
@@ -127,6 +147,9 @@ def replay_actual_trades(
         # CRITICAL: Cap contracts based on this trade's actual theoretical max loss
         contracts = min(contracts, max_affordable_contracts)
         
+        # Save balance before trade
+        balance_before = balance
+        
         # Apply the actual P/L for this trade
         realized_pnl = pnl * contracts
         balance += realized_pnl
@@ -146,11 +169,23 @@ def replay_actual_trades(
         if balance < 0:
             balance = 0
         
+        # Record trade details
+        trade_details.append({
+            'date': trade_date,
+            'contracts': contracts,
+            'pnl_per_contract': pnl,
+            'total_pnl': realized_pnl,
+            'theoretical_risk': trade_theoretical_risk,
+            'balance_before': balance_before,
+            'balance_after': balance
+        })
+        
         trade_history.append(balance)
     
     return {
         'final_balance': balance,
         'max_drawdown': max_drawdown,
         'max_losing_streak': max_losing_streak,
-        'trade_history': trade_history
+        'trade_history': trade_history,
+        'trade_details': trade_details
     }

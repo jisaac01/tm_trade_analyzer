@@ -50,6 +50,23 @@
 - [X] **Step 6.3:** Extract any shared balance-tracking logic into small helper functions (without adding branching to existing simulator code).
 - [X] **Step 6.4:** Add `replay_actual_trades()` to the simulation workflow in `app.py` to run alongside Monte Carlo simulation.
 - [X] **Step 6.5:** Update results template to display historical replay results alongside Monte Carlo results with clear labeling.
+
+## Phase 7: Historical Replay Trade Details Table
+**Goal:** Add a detailed trade-by-trade table below the historical replay section showing per-trade metrics including dates, P/L, and risk amounts.
+
+- [X] **Step 7.1:** Write tests for `trade_parser.parse_trade_csv` to return per-trade dates (opening date for each expiration group).
+- [X] **Step 7.2:** Modify `trade_parser.parse_trade_csv` to extract and return `per_trade_dates` list (opening date for each trade, matched to pnl_distribution order).
+- [X] **Step 7.3:** Write tests for `replay.replay_actual_trades` to return per-trade details including: date, contracts, pnl per contract, total pnl, theoretical risk, previous balance, new balance.
+- [X] **Step 7.4:** Modify `replay.replay_actual_trades` to return `trade_details` list in addition to summary metrics.
+- [X] **Step 7.5:** Write integration tests for app.py replay table generation with multiple scenarios.
+- [X] **Step 7.6:** Modify `app.py` to collect per-trade details from replay and pass to template for each scenario.
+- [X] **Step 7.7:** Modify `templates/results.html` to add:
+  - Dropdown selector for scenario selection
+  - Detailed trade table for each scenario (hidden by default, shown via JS)
+  - Columns: Previous Balance, Date, P/L $, P/L %, Theoretical Risk $, Theoretical Risk %, New Balance
+  - Final row showing final balance only
+- [X] **Step 7.8:** Add JavaScript to handle scenario selection and show/hide appropriate tables without page reload.
+
 ## Phase 8: Reward Calculation Method (Profit Capping)
 **Goal:** Add parallel functionality to Risk Calculation Method that allows testing how early profit-taking affects Monte Carlo simulations.
 
@@ -108,6 +125,166 @@ Total: 17 methods (1 no_cap + 16 capping variants)
   - Run `tm_trade_analyzer_venv/bin/python -m pytest -v`
   - Manually test in browser with various reward cap settings
   - Verify results make intuitive sense (capping should reduce final balances)
+
+
+## Phase 9: Separate Outcome Sampling from Magnitude Sampling
+**Goal:** Decouple win/loss determination from profit/loss magnitude to enable flexible simulation modes. This allows testing scenarios like "preserve historical win rate patterns but use different profit/loss distributions."
+
+### Current State
+- **IID mode**: Outcome determined by win_rate (independent), magnitude from distributions
+- **Bootstrap mode**: Outcome AND magnitude sampled together from historical P/L sequence
+
+### Proposed Architecture
+
+#### Two Independent Configuration Dimensions
+1. **`outcome_sampling`**: How to determine if a trade wins or loses
+   - `'iid'`: Use win_rate with random.random() (independent trials)
+   - `'bootstrap'`: Sample win/loss outcomes from historical P/L signs (preserves win rate patterns and streaks)
+
+2. **`magnitude_sampling`**: How to determine profit/loss amounts
+   - `'generated'`: Use generate_risk()/generate_reward() with distributions
+   - `'bootstrap'`: Use historical P/L values from pnl_distribution
+
+#### Valid Combinations (4 modes)
+1. **IID + Generated** (current IID mode): Independent outcomes, distribution-based magnitudes
+2. **Bootstrap + Bootstrap** (current bootstrap mode): Historical outcomes and magnitudes together
+3. **Bootstrap + Generated** (NEW): Historical win/loss patterns, distribution-based magnitudes
+4. **IID + Bootstrap** (NEW): Independent outcomes, historical magnitudes
+
+### Implementation Steps
+
+- [ ] **Step 9.1:** Write tests for `sample_outcomes_bootstrap()` function
+  - Test that it samples win/loss indicators (boolean or ±1) from historical P/L
+  - Test that it preserves win rate from historical data
+  - Test moving-blocks bootstrap with specified block_size
+  - Test streak preservation (consecutive wins/losses)
+  - Test with edge cases: all wins, all losses, single trade
+  - Test that returned array length matches num_trades
+
+- [ ] **Step 9.2:** Implement `sample_outcomes_bootstrap(pnl_distribution, num_trades, block_size)` in `simulator.py`
+  - Extract win/loss indicators from pnl_distribution (win if pnl >= 0)
+  - Apply moving-blocks bootstrap to sample outcome sequence
+  - Return boolean array or ±1 array indicating win/loss for each trade
+  - DRY: Consider reusing/refactoring `sample_pnl_moving_blocks()` logic
+  - No fallbacks: raise ValueError if pnl_distribution is empty or invalid
+
+- [ ] **Step 9.3:** Write tests for `sample_magnitudes_bootstrap()` function
+  - Test that it samples P/L magnitudes separately from outcomes
+  - Test that it returns separate win_magnitudes and loss_magnitudes arrays
+  - Test moving-blocks bootstrap with specified block_size
+  - Test with historical data containing only wins or only losses
+  - Test edge cases: single trade, empty distribution
+  - Test that magnitude signs are stripped (return absolute values)
+
+- [ ] **Step 9.4:** Implement `sample_magnitudes_bootstrap(pnl_distribution, num_trades, block_size)` in `simulator.py`
+  - Sample from pnl_distribution using moving-blocks bootstrap
+  - Return array of absolute magnitudes (strip signs)
+  - OR: Return two arrays (win_magnitudes, loss_magnitudes) sampled separately from wins/losses
+  - DRY: Reuse moving-blocks logic, avoid duplicating bootstrap mechanics
+  - Document that magnitudes will be applied with sign from outcome_sampling
+
+- [ ] **Step 9.5:** Write tests for refactored `simulate_trades()` with new parameters
+  - Test all 4 combinations: (iid/bootstrap) × (generated/bootstrap)
+  - Test that IID+Generated matches current IID mode behavior exactly
+  - Test that Bootstrap+Bootstrap matches current bootstrap mode behavior exactly
+  - Test new Bootstrap+Generated mode: historical win rate, distribution magnitudes
+  - Test new IID+Bootstrap mode: independent outcomes, historical magnitudes
+  - Test that losing streaks are correctly tracked in all modes
+  - Test interaction with reward_calculation_method (capping should work in all modes)
+  - Verify no backward-compatibility fallbacks or silent defaults
+
+- [ ] **Step 9.6:** Refactor `simulate_trades()` to use new architecture
+  - Add parameters: `outcome_sampling='iid'`, `magnitude_sampling='generated'`
+  - Remove existing `simulation_mode` parameter (breaking change requiring updates elsewhere)
+  - Early in function: Call outcome/magnitude sampling functions based on parameters
+  - In main loop: Combine sampled outcome with sampled/generated magnitude
+  - Apply reward caps appropriately based on magnitude_sampling method
+  - DRY: Extract outcome application logic to avoid duplication
+  - No fallbacks: Raise ValueError for invalid parameter combinations
+  - Update docstring with clear explanation of all parameters and combinations
+
+- [ ] **Step 9.7:** Write tests for `run_monte_carlo_simulation()` parameter changes
+  - Test that it accepts outcome_sampling and magnitude_sampling parameters
+  - Test that it correctly passes them to simulate_trades()
+  - Test that old simulation_mode parameter is removed (should raise error if used)
+  - Test default values: outcome_sampling='iid', magnitude_sampling='generated'
+
+- [ ] **Step 9.8:** Update `run_monte_carlo_simulation()` function signature
+  - Replace `simulation_mode` with `outcome_sampling` and `magnitude_sampling`
+  - Add defaults: `outcome_sampling='iid'`, `magnitude_sampling='generated'`
+  - Pass new parameters to all `simulate_trades()` calls
+  - Update docstring with examples of each combination
+  - No backward compatibility: Remove simulation_mode entirely
+
+- [ ] **Step 9.9:** Update `replay.py` if it uses simulation_mode
+  - Check if replay_actual_trades() or related functions reference simulation_mode
+  - Update to new parameter names if needed
+  - Add tests to verify replay still works
+
+- [ ] **Step 9.10:** Write integration tests for `app.py` with new parameters
+  - Test form submission with outcome_sampling and magnitude_sampling dropdowns
+  - Test session storage of new parameters for re-runs
+  - Test all 4 valid combinations via form submission
+  - Test that invalid combinations are rejected with clear error messages
+
+- [ ] **Step 9.11:** Update `app.py` Flask routes
+  - Replace simulation_mode handling with outcome_sampling and magnitude_sampling
+  - Accept both parameters from form POST data
+  - Set explicit defaults (no fallbacks to old simulation_mode)
+  - Store both in session for re-runs
+  - Pass both to run_monte_carlo_simulation()
+  - Add validation: reject if parameters are missing or invalid
+
+- [ ] **Step 9.12:** Update `templates/_simulation_form.html`
+  - Replace single "Simulation Mode" dropdown with two separate dropdowns:
+    1. "Outcome Sampling" (IID, Bootstrap)
+    2. "Magnitude Sampling" (Generated, Bootstrap)
+  - Add comprehensive tooltips explaining:
+    - What outcome vs magnitude sampling means
+    - Use cases for each combination
+    - When to use bootstrap vs IID for each dimension
+  - Set defaults: outcome='iid', magnitude='generated' (preserves current default behavior)
+  - Add visual grouping or hint showing the 4 valid combinations
+
+- [ ] **Step 9.13:** Update all tests to use new parameter names
+  - Update test_simulator.py: Replace simulation_mode with new parameters
+  - Update test_app.py: Replace simulation_mode with new parameters
+  - Update test_integration.py: Test all 4 combinations
+  - Ensure no tests use old simulation_mode parameter
+  - Run full test suite: `tm_trade_analyzer_venv/bin/pytest -v`
+
+- [ ] **Step 9.14:** Update documentation
+  - Update README.md: Replace simulation_mode with outcome/magnitude_sampling
+  - Add examples showing when to use each combination
+  - Update CLI help text if CLI still exists (monte_carlo_trade_sizing.py)
+  - Add clear migration notes for any external users of the API
+
+- [ ] **Step 9.15:** Final validation and cleanup
+  - Run full test suite: `tm_trade_analyzer_venv/bin/pytest -v`
+  - Manually test all 4 combinations in web UI
+  - Verify results are intuitive and correct for each mode
+  - Verify no old simulation_mode references remain in codebase
+  - Search for any TODO comments added during implementation
+  - Verify DRY principle: no duplicated outcome/magnitude logic
+
+### DRY Principles to Follow
+- **Extract moving-blocks logic**: Create shared helper for bootstrap block sampling (avoid duplication in outcome vs magnitude functions)
+- **Extract outcome application**: Single function to apply outcome + magnitude → realized P/L
+- **No duplicated validation**: Validate parameters once at entry point, not in every helper
+
+### No Fallbacks / Explicit Errors
+- **No silent defaults**: If parameters are missing, raise ValueError with clear message
+- **No backward compatibility**: Remove simulation_mode entirely, don't map it to new parameters
+- **Validate combinations**: Reject invalid parameter values immediately
+- **Clear error messages**: Explain what went wrong and what valid options are
+
+### Testing Focus
+- **Exact behavior preservation**: IID+Generated must match old IID mode exactly
+- **Exact behavior preservation**: Bootstrap+Bootstrap must match old bootstrap mode exactly
+- **New combinations work correctly**: Bootstrap+Generated and IID+Bootstrap produce sensible results
+- **Streak tracking**: Verify losing streaks tracked correctly in all 4 modes
+- **Reward capping**: Verify caps apply correctly with magnitude_sampling='generated' (not bootstrap)
+- **Edge cases**: Empty data, single trade, all wins, all losses
 
 ## Additional Completed Tasks
 - [X] **Testing:** Added comprehensive test suite including unit tests for web app functionality and end-to-end integration test with real data.

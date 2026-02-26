@@ -71,6 +71,76 @@
     <h3 class="section-label">Historical Trade Replay (actual sequence)</h3>
     <p class="meta">Shows what would have happened using your actual trades in order with the selected position sizing settings. This is <strong>not</strong> a simulation—it replays your historical trades exactly as they occurred.</p>
     {{ replay_table_html|safe }}
+    
+    {% if replay_details_data and replay_details_data|length > 0 %}
+    <div style="margin-top: 30px;">
+        <h4>Trade-by-Trade Details</h4>
+        <p class="meta">Select a scenario to view detailed breakdown of each trade.</p>
+        
+        <div style="margin: 15px 0;">
+            <label for="scenario-selector" style="font-weight: bold; margin-right: 10px;">Scenario:</label>
+            <select id="scenario-selector" style="padding: 8px; font-size: 14px; border: 1px solid var(--border-color); border-radius: 4px; background: white;">
+                {% for scenario in replay_details_data %}
+                <option value="{{ scenario.scenario_id }}">
+                    {{ scenario.contracts }} contract{{ 's' if scenario.contracts != 1 else '' }}
+                    {% if position_sizing == 'percent' %}
+                    ({{ "{:.2f}".format(scenario.target_risk_pct) }}% risk)
+                    {% endif %}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        
+        {% for scenario in replay_details_data %}
+        <div id="{{ scenario.scenario_id }}" class="scenario-details" style="display: none;">
+            <table class="sim-table">
+                <thead>
+                    <tr>
+                        <th title="Account balance before this trade was executed">Previous Balance</th>
+                        <th title="Date when the trade was opened">Date</th>
+                        <th title="Profit or loss for this trade in dollars">P/L ($)</th>
+                        <th title="P/L as a percentage of theoretical risk for this trade">P/L (%)</th>
+                        <th title="Theoretical maximum risk for this trade in dollars">Theoretical Risk ($)</th>
+                        <th title="Theoretical risk as a percentage of previous account balance">Theoretical Risk (%)</th>
+                        <th title="Account balance after this trade was executed">New Balance</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for trade in scenario.trade_details %}
+                    <tr>
+                        <td>${{ "{:,.0f}".format(trade.balance_before) }}</td>
+                        <td>{{ trade.date }}</td>
+                        <td style="color: {% if trade.total_pnl >= 0 %}var(--win-color, green){% else %}var(--loss-color, red){% endif %};">
+                            ${{ "{:,.0f}".format(trade.total_pnl|abs) if trade.total_pnl >= 0 else "-{:,.0f}".format(trade.total_pnl|abs) }}
+                        </td>
+                        <td style="color: {% if trade.total_pnl >= 0 %}var(--win-color, green){% else %}var(--loss-color, red){% endif %};">
+                            {% if trade.theoretical_risk > 0 %}
+                            {{ "{:.1f}".format((trade.total_pnl / trade.theoretical_risk) * 100) }}%
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td>${{ "{:,.0f}".format(trade.theoretical_risk) }}</td>
+                        <td>
+                            {% if trade.balance_before > 0 %}
+                            {{ "{:.1f}".format((trade.theoretical_risk / trade.balance_before) * 100) }}%
+                            {% else %}
+                            -
+                            {% endif %}
+                        </td>
+                        <td>${{ "{:,.0f}".format(trade.balance_after) }}</td>
+                    </tr>
+                    {% endfor %}
+                    <tr style="font-weight: bold; border-top: 2px solid var(--border-color);">
+                        <td colspan="6" style="text-align: right; padding-right: 10px;">Final Balance:</td>
+                        <td>${{ "{:,.0f}".format(scenario.final_balance) }}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
 </section>
 {% endfor %}
 {% endif %}
@@ -81,6 +151,32 @@
         if (form) {
             form.addEventListener('submit', function() {
                 document.getElementById('spinner-overlay').style.display = 'flex';
+            });
+        }
+        
+        // Handle scenario selector for replay trade details
+        const scenarioSelector = document.getElementById('scenario-selector');
+        if (scenarioSelector) {
+            // Show the first scenario by default
+            const firstScenario = scenarioSelector.value;
+            if (firstScenario) {
+                document.getElementById(firstScenario).style.display = 'block';
+            }
+            
+            // Add change event listener
+            scenarioSelector.addEventListener('change', function() {
+                // Hide all scenario details
+                const allScenarios = document.querySelectorAll('.scenario-details');
+                allScenarios.forEach(function(scenario) {
+                    scenario.style.display = 'none';
+                });
+                
+                // Show selected scenario
+                const selectedScenario = this.value;
+                const selectedElement = document.getElementById(selectedScenario);
+                if (selectedElement) {
+                    selectedElement.style.display = 'block';
+                }
             });
         }
     });

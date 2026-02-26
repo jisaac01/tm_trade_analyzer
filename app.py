@@ -149,8 +149,9 @@ def results():
 
     num_trades_per_simulation = max(params['num_trades'], trade_stats['num_trades'])
 
-    # Initialize replay_data in case of error
+    # Initialize replay_data and replay_details_data in case of error
     replay_data = []
+    replay_details_data = []
     
     try:
         # Run Monte Carlo simulation
@@ -175,6 +176,7 @@ def results():
         )
         
         replay_data = []
+        replay_details_data = []  # Store per-scenario trade details
         for row in position_size_plan:
             ps = row['contracts']
             if params['position_sizing'] == 'percent':
@@ -206,6 +208,16 @@ def results():
                 'Max Losing Streak': f"{replay_result['max_losing_streak']:.0f}",
                 'Num Trades': len(replay_result['trade_history']) - 1  # Exclude initial balance
             })
+            
+            # Store trade details for this scenario with scenario identifier
+            replay_details_data.append({
+                'scenario_id': f"scenario_{len(replay_data) - 1}",  # Use 0-based index
+                'contracts': ps,
+                'target_risk_pct': row['target_risk_pct'],
+                'initial_balance': params['initial_balance'],
+                'trade_details': replay_result['trade_details'],
+                'final_balance': replay_result['final_balance']
+            })
         
     except Exception as e:
         flash(f'Error running simulation: {str(e)}', 'error')
@@ -214,6 +226,7 @@ def results():
         return render_template('results.html',
                               trade_reports=[],
                               replay_table_html='',
+                              replay_details_data=replay_details_data,
                               original_filename=session['original_filename'],
                               num_trades_per_simulation=0,
                               position_sizing_display_text='',
@@ -298,6 +311,7 @@ def results():
     return render_template('results.html',
                            trade_reports=trade_reports,
                            replay_table_html=replay_table_html,
+                           replay_details_data=replay_details_data,
                            original_filename=session['original_filename'],
                            num_trades_per_simulation=num_trades_per_simulation,
                            position_sizing_display_text=position_sizing_display_text,
