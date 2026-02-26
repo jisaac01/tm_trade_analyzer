@@ -22,6 +22,7 @@ class TestReplayActualTrades:
             'conservative_theoretical_max_loss': 80,
             'pnl_distribution': [50, 75, 100, 60, 80],  # All positive
             'per_trade_theoretical_risk': [100, 100, 100, 100, 100],
+            'per_trade_theoretical_reward': [50, 50, 50, 50, 50],
             'per_trade_dates': ['2023-01-01', '2023-02-01', '2023-03-01', '2023-04-01', '2023-05-01']
         }
         
@@ -59,6 +60,7 @@ class TestReplayActualTrades:
             'conservative_theoretical_max_loss': 80,
             'pnl_distribution': [50, -40, 100, -60, 75, -30],  # Mix of wins/losses
             'per_trade_theoretical_risk': [150, 150, 150, 150, 150, 150],
+            'per_trade_theoretical_reward': [100, 100, 100, 100, 100, 100],
             'per_trade_dates': ['2023-01-01', '2023-02-01', '2023-03-01', '2023-04-01', '2023-05-01', '2023-06-01']
         }
         
@@ -97,6 +99,7 @@ class TestReplayActualTrades:
             'conservative_theoretical_max_loss': 100,
             'pnl_distribution': [100, -50, 80, -40],
             'per_trade_theoretical_risk': [100, 100, 100, 100],
+            'per_trade_theoretical_reward': [75, 75, 75, 75],
             'per_trade_dates': ['2023-01-01', '2023-02-01', '2023-03-01', '2023-04-01']
         }
         
@@ -135,6 +138,7 @@ class TestReplayActualTrades:
             'conservative_theoretical_max_loss': 100,
             'pnl_distribution': [-80, -60, -70, -50, -40],  # All losses
             'per_trade_theoretical_risk': [100, 100, 100, 100, 100],
+            'per_trade_theoretical_reward': [60, 60, 60, 60, 60],
             'per_trade_dates': ['2023-01-01', '2023-02-01', '2023-03-01', '2023-04-01', '2023-05-01']
         }
         
@@ -168,6 +172,7 @@ class TestReplayActualTrades:
             'conservative_theoretical_max_loss': 100,
             'pnl_distribution': [100, 150, -80, -70, 200],
             'per_trade_theoretical_risk': [100, 100, 100, 100, 100],
+            'per_trade_theoretical_reward': [80, 80, 80, 80, 80],
             'per_trade_dates': ['2023-01-01', '2023-02-01', '2023-03-01', '2023-04-01', '2023-05-01']
         }
         
@@ -200,6 +205,7 @@ class TestReplayActualTrades:
             'conservative_theoretical_max_loss': 100,
             'pnl_distribution': [-80, -60, 50],
             'per_trade_theoretical_risk': [100, 100, 100],
+            'per_trade_theoretical_reward': [70, 70, 70],
             'per_trade_dates': ['2023-01-01', '2023-02-01', '2023-03-01']
         }
         
@@ -232,6 +238,7 @@ class TestReplayActualTrades:
             'conservative_theoretical_max_loss': 100,  # Lower
             'pnl_distribution': [50, -60],
             'per_trade_theoretical_risk': [200, 200],
+            'per_trade_theoretical_reward': [150, 150],
             'per_trade_dates': ['2023-01-01', '2023-02-01']
         }
         
@@ -281,6 +288,7 @@ class TestReplayActualTrades:
             'conservative_theoretical_max_loss': 100,
             'pnl_distribution': [],
             'per_trade_theoretical_risk': [],
+            'per_trade_theoretical_reward': [],
             'per_trade_dates': []
         }
         
@@ -302,6 +310,7 @@ class TestReplayActualTrades:
         trade_stats = {
             'pnl_distribution': [100, 50, 200],
             'per_trade_theoretical_risk': [500, 200, 1000],
+            'per_trade_theoretical_reward': [300, 150, 600],
             'per_trade_dates': ['2023-01-01', '2023-02-01', '2023-03-01'],
             'num_trades': 3,
             'max_theoretical_loss': 500,
@@ -358,6 +367,7 @@ class TestReplayActualTrades:
         trade_stats = {
             'pnl_distribution': [100, -50, 200],
             'per_trade_theoretical_risk': [2000, 500, 10000],  # Varying risks
+            'per_trade_theoretical_reward': [1200, 300, 6000],  # Varying rewards
             'per_trade_dates': ['2023-01-01', '2023-02-01', '2023-03-01'],
             'num_trades': 3,
             'max_theoretical_loss': 2000,
@@ -416,6 +426,7 @@ class TestReplayActualTrades:
             'conservative_theoretical_max_loss': 180,
             'pnl_distribution': [100, -40, 80],
             'per_trade_theoretical_risk': [200, 180, 200],
+            'per_trade_theoretical_reward': [150, 120, 150],
             'per_trade_dates': ['2023-01-01', '2023-02-01', '2023-03-01']
         }
         
@@ -439,6 +450,7 @@ class TestReplayActualTrades:
         assert trade1['pnl_per_contract'] == 100
         assert trade1['total_pnl'] == 200
         assert trade1['theoretical_risk'] == 200
+        assert trade1['theoretical_reward'] == 150
         assert trade1['balance_before'] == 1000
         assert trade1['balance_after'] == 1200
         
@@ -448,6 +460,7 @@ class TestReplayActualTrades:
         assert trade2['contracts'] == 2
         assert trade2['pnl_per_contract'] == -40
         assert trade2['total_pnl'] == -80
+        assert trade2['theoretical_reward'] == 120
         assert trade2['theoretical_risk'] == 180
         assert trade2['balance_before'] == 1200
         assert trade2['balance_after'] == 1120
@@ -459,6 +472,7 @@ class TestReplayActualTrades:
         assert trade3['pnl_per_contract'] == 80
         assert trade3['total_pnl'] == 160
         assert trade3['theoretical_risk'] == 200
+        assert trade3['theoretical_reward'] == 150
         assert trade3['balance_before'] == 1120
         assert trade3['balance_after'] == 1280
     
@@ -475,6 +489,7 @@ class TestReplayActualTrades:
             'conservative_theoretical_max_loss': 100,
             'pnl_distribution': [50, -40, 50],
             'per_trade_theoretical_risk': [100, 100, 100],
+            'per_trade_theoretical_reward': [80, 80, 80],
             'per_trade_dates': ['2023-01-15', '2023-02-15', '2023-03-15']
         }
         

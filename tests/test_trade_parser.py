@@ -104,3 +104,25 @@ class TestTradeParser:
         assert stats['pnl_distribution'][0] == 250.0
         assert stats['pnl_distribution'][1] == -150.0
         assert stats['pnl_distribution'][2] == 250.0
+    
+    def test_parse_trade_csv_returns_per_trade_theoretical_reward(self):
+        """Test that parse_trade_csv returns theoretical reward for each trade."""
+        # Credit spread: Collected $300 net credit on $500 width
+        # Theoretical max gain = $300, theoretical max loss = $200
+        csv_data = """Date,Description,Size,Symbol,Expiration,Strike,Type,Trade Price,Profit/Loss,Stock Price,Adjusted Stock Price
+2023-01-01,Open Short,-1,SPY,2023-01-31,100,Call,$5.00,, $100,$100
+2023-01-01,Open Long,1,SPY,2023-01-31,105,Call,$2.00,, $100,$100
+2023-01-31,Close Short,1,SPY,2023-01-31,100,Call,$3.00,$200,$105,$105
+2023-01-31,Close Long,-1,SPY,2023-01-31,105,Call,$1.50,$50,$105,$105"""
+        
+        stream = StringIO(csv_data)
+        stats = trade_parser.parse_trade_csv(stream)
+        
+        # Should have per_trade_theoretical_reward
+        assert 'per_trade_theoretical_reward' in stats
+        assert len(stats['per_trade_theoretical_reward']) == 1
+        
+        # Net credit = -1 * 5.00 * 100 + 1 * 2.00 * 100 = -500 + 200 = -300 (we collected $300)
+        # Width = (105 - 100) * 100 = 500
+        # For credit spread: theoretical_max_gain = net_credit = 300
+        assert stats['per_trade_theoretical_reward'][0] == 300.0

@@ -57,6 +57,7 @@ def replay_actual_trades(
             - 'pnl_per_contract' (float): P/L per contract
             - 'total_pnl' (float): Total P/L for the trade
             - 'theoretical_risk' (float): Theoretical max risk for this trade
+            - 'theoretical_reward' (float): Theoretical max reward for this trade
             - 'balance_before' (float): Account balance before the trade
             - 'balance_after' (float): Account balance after the trade
     
@@ -80,6 +81,16 @@ def replay_actual_trades(
     if len(per_trade_risk) != len(pnl_distribution):
         raise ValueError(
             f"per_trade_theoretical_risk length ({len(per_trade_risk)}) must match "
+            f"pnl_distribution length ({len(pnl_distribution)})"
+        )
+    
+    # Get per-trade theoretical reward - REQUIRED, no fallback
+    per_trade_reward = trade_stats.get('per_trade_theoretical_reward', [])
+    if not per_trade_reward:
+        raise ValueError("per_trade_theoretical_reward is required but missing from trade_stats")
+    if len(per_trade_reward) != len(pnl_distribution):
+        raise ValueError(
+            f"per_trade_theoretical_reward length ({len(per_trade_reward)}) must match "
             f"pnl_distribution length ({len(pnl_distribution)})"
         )
     
@@ -110,8 +121,9 @@ def replay_actual_trades(
     
     # Replay each trade in order
     for idx, pnl in enumerate(pnl_distribution):
-        # Get this trade's actual theoretical risk and date
+        # Get this trade's actual theoretical risk, reward, and date
         trade_theoretical_risk = per_trade_risk[idx]
+        trade_theoretical_reward = per_trade_reward[idx]
         trade_date = per_trade_dates[idx]
         
         # Check if we can afford to trade
@@ -176,6 +188,7 @@ def replay_actual_trades(
             'pnl_per_contract': pnl,
             'total_pnl': realized_pnl,
             'theoretical_risk': trade_theoretical_risk,
+            'theoretical_reward': trade_theoretical_reward,
             'balance_before': balance_before,
             'balance_after': balance
         })

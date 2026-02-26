@@ -100,8 +100,9 @@
                         <th title="Date when the trade was opened">Date</th>
                         <th title="Profit or loss for this trade in dollars">P/L ($)</th>
                         <th title="P/L as a percentage of theoretical risk for this trade">P/L (%)</th>
-                        <th title="Theoretical maximum risk for this trade in dollars">Theoretical Risk ($)</th>
-                        <th title="Theoretical risk as a percentage of previous account balance">Theoretical Risk (%)</th>
+                        <th title="Theoretical maximum risk for this trade in dollars">Risk ($)</th>
+                        <th title="Theoretical risk as a percentage of previous account balance">Risk (%)</th>
+                        <th title="Theoretical maximum reward for this trade in dollars">Reward ($)</th>
                         <th title="Account balance after this trade was executed">New Balance</th>
                     </tr>
                 </thead>
@@ -128,11 +129,12 @@
                             -
                             {% endif %}
                         </td>
+                        <td>${{ "{:,.0f}".format(trade.theoretical_reward) }}</td>
                         <td>${{ "{:,.0f}".format(trade.balance_after) }}</td>
                     </tr>
                     {% endfor %}
                     <tr style="font-weight: bold; border-top: 2px solid var(--border-color);">
-                        <td colspan="6" style="text-align: right; padding-right: 10px;">Final Balance:</td>
+                        <td colspan="7" style="text-align: right; padding-right: 10px;">Final Balance:</td>
                         <td>${{ "{:,.0f}".format(scenario.final_balance) }}</td>
                     </tr>
                 </tbody>

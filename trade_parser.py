@@ -96,6 +96,7 @@ def parse_trade_csv(file_or_path):
             'gross_gain': 0,
             'gross_loss': 0,
             'pnl_distribution': [],
+            'per_trade_theoretical_reward': [],
             'per_trade_dates': []
         }
 
@@ -159,6 +160,7 @@ def parse_trade_csv(file_or_path):
     avg_pct_win = 0
     avg_pct_loss = 0
     per_trade_theoretical_risk = []
+    per_trade_theoretical_reward = []
     per_trade_dates = []
     if not joined.empty:
         joined['pct_return'] = np.where(
@@ -171,6 +173,8 @@ def parse_trade_csv(file_or_path):
         avg_pct_loss = float(joined.loc[joined['pnl'] < 0, 'pct_return'].mean()) if (joined['pnl'] < 0).any() else 0
         # Extract per-trade theoretical risk in the same order as pnl_distribution
         per_trade_theoretical_risk = joined['theoretical_max_loss'].tolist()
+        # Extract per-trade theoretical reward in the same order as pnl_distribution
+        per_trade_theoretical_reward = joined['theoretical_max_gain'].tolist()
         # Extract per-trade dates (opening date for each trade) in same order
         per_trade_dates = [d.strftime('%Y-%m-%d') for d in joined['open_date']]
     
@@ -207,6 +211,7 @@ def parse_trade_csv(file_or_path):
         'gross_loss': float(np.sum(losses)) if len(losses) > 0 else 0,
         'pnl_distribution': pnl_values.tolist(),
         'per_trade_theoretical_risk': per_trade_theoretical_risk,
+        'per_trade_theoretical_reward': per_trade_theoretical_reward,
         'per_trade_dates': per_trade_dates,
         'min_date': min_date,
         'max_date': max_date
