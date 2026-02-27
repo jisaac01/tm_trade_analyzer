@@ -109,7 +109,7 @@
                 </thead>
                 <tbody>
                     {% for trade in scenario.trade_details %}
-                    <tr>
+                    <tr class="trade-row-hoverable" data-trade-date="{{ trade.date }}">
                         <td>${{ "{:,.0f}".format(trade.balance_before) }}</td>
                         <td>{{ trade.date }}</td>
                         <td>{{ trade.contracts }}</td>
@@ -174,6 +174,94 @@
                 }
             });
         }
+        
+        // Trade detail tooltip functionality
+        {% if raw_trade_data and raw_trade_data|length > 0 %}
+        // Embed raw trade data
+        const rawTradeData = {{ raw_trade_data|tojson|safe }};
+        
+        // Create a lookup map by date for quick access
+        const tradeDataByDate = {};
+        rawTradeData.forEach(trade => {
+            // Extract opening date from the first opening leg
+            if (trade.opening_legs && trade.opening_legs.length > 0) {
+                const openDate = trade.opening_legs[0].date;
+                tradeDataByDate[openDate] = trade;
+            }
+        });
+        
+        // Create tooltip element
+        const tooltip = document.createElement('div');
+        tooltip.className = 'trade-tooltip';
+        document.body.appendChild(tooltip);
+        
+        // Add hover listeners to all trade rows
+        document.querySelectorAll('.trade-row-hoverable').forEach(row => {
+            row.addEventListener('mouseenter', function(e) {
+                const tradeDate = this.dataset.tradeDate;
+                const trade = tradeDataByDate[tradeDate];
+                
+                if (!trade) return;
+                
+                // Build tooltip content
+                let content = `<h4>Trade Details - Expiration: ${trade.expiration}</h4>`;
+                
+                if (trade.opening_legs && trade.opening_legs.length > 0) {
+                    content += '<div class="leg-section"><h5>Opening Legs:</h5>';
+                    trade.opening_legs.forEach(leg => {
+                        content += `<div class="leg">${leg.date} | ${leg.description} | Size: ${leg.size} | ${leg.symbol} ${leg.strike} ${leg.type} @ ${leg.trade_price} | Stock: ${leg.stock_price}</div>`;
+                    });
+                    content += '</div>';
+                }
+                
+                if (trade.closing_legs && trade.closing_legs.length > 0) {
+                    content += '<div class="leg-section"><h5>Closing Legs:</h5>';
+                    trade.closing_legs.forEach(leg => {
+                        content += `<div class="leg">${leg.date} | ${leg.description} | Size: ${leg.size} | ${leg.symbol} ${leg.strike} ${leg.type} @ ${leg.trade_price} | P/L: ${leg.profit_loss} | Stock: ${leg.stock_price}</div>`;
+                    });
+                    content += '</div>';
+                }
+                
+                tooltip.innerHTML = content;
+                tooltip.classList.add('visible');
+                
+                // Position tooltip near cursor but ensure it stays on screen
+                const updatePosition = (e) => {
+                    const x = e.clientX + 15;
+                    const y = e.clientY + 15;
+                    const tooltipRect = tooltip.getBoundingClientRect();
+                    
+                    // Adjust position if tooltip would go off screen
+                    let finalX = x;
+                    let finalY = y;
+                    
+                    if (x + tooltipRect.width > window.innerWidth) {
+                        finalX = e.clientX - tooltipRect.width - 15;
+                    }
+                    if (y + tooltipRect.height > window.innerHeight) {
+                        finalY = e.clientY - tooltipRect.height - 15;
+                    }
+                    
+                    tooltip.style.left = finalX + 'px';
+                    tooltip.style.top = finalY + 'px';
+                };
+                
+                updatePosition(e);
+                
+                // Update position as mouse moves
+                this.addEventListener('mousemove', updatePosition);
+                this._updatePosition = updatePosition;
+            });
+            
+            row.addEventListener('mouseleave', function() {
+                tooltip.classList.remove('visible');
+                if (this._updatePosition) {
+                    this.removeEventListener('mousemove', this._updatePosition);
+                    delete this._updatePosition;
+                }
+            });
+        });
+        {% endif %}
     });
 </script>
 {% endblock %}

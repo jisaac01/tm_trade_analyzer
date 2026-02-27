@@ -271,3 +271,53 @@ class TestTradeParser:
         # These aggregate values should be identical whether pnl_values is from
         # alphabetically-sorted or chronologically-sorted groupby
         # because numpy operations (sum, mean, max, min) are order-independent
+
+    def test_parse_trade_csv_returns_raw_trade_data(self):
+        """Test that parse_trade_csv returns raw CSV data grouped by trade."""
+        csv_data = """Date,Description,Size,Symbol,Expiration,Strike,Type,Trade Price,Profit/Loss,Stock Price,Adjusted Stock Price
+2023-01-01,Open Long,1,SPY,2023-01-31,100,Call,$5.00,, $100,$100
+2023-01-01,Open Short,-1,SPY,2023-01-31,105,Call,$2.00,, $100,$100
+2023-01-31,Close Long,-1,SPY,2023-01-31,100,Call,$8.00,$300,$105,$105
+2023-01-31,Close Short,1,SPY,2023-01-31,105,Call,$1.00,$100,$105,$105
+2023-02-01,Open Long,1,SPY,2023-02-28,110,Call,$3.00,, $102,$102
+2023-02-01,Open Short,-1,SPY,2023-02-28,115,Call,$1.50,, $102,$102
+2023-02-28,Close Long,-1,SPY,2023-02-28,110,Call,$2.00,-$100,$101,$101
+2023-02-28,Close Short,1,SPY,2023-02-28,115,Call,$2.00,-$50,$101,$101"""
+        
+        stream = StringIO(csv_data)
+        stats = trade_parser.parse_trade_csv(stream)
+        
+        # Should have raw_trade_data key
+        assert 'raw_trade_data' in stats
+        raw_data = stats['raw_trade_data']
+        
+        # Should have 2 trades
+        assert len(raw_data) == 2
+        
+        # First trade
+        trade1 = raw_data[0]
+        assert trade1['expiration'] == '2023-01-31'
+        assert len(trade1['opening_legs']) == 2
+        assert len(trade1['closing_legs']) == 2
+        
+        # Check opening leg data structure
+        open_leg1 = trade1['opening_legs'][0]
+        assert open_leg1['date'] == '2023-01-01'
+        assert open_leg1['description'] == 'Open Long'
+        assert open_leg1['size'] == 1
+        assert open_leg1['symbol'] == 'SPY'
+        assert open_leg1['strike'] == 100.0
+        assert open_leg1['type'] == 'Call'
+        assert open_leg1['trade_price'] == '$5.00'
+        
+        # Check closing leg data structure
+        close_leg1 = trade1['closing_legs'][0]
+        assert close_leg1['date'] == '2023-01-31'
+        assert close_leg1['description'] == 'Close Long'
+        assert close_leg1['profit_loss'] == '$300'
+        
+        # Second trade
+        trade2 = raw_data[1]
+        assert trade2['expiration'] == '2023-02-28'
+        assert len(trade2['opening_legs']) == 2
+        assert len(trade2['closing_legs']) == 2

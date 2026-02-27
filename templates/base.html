@@ -150,6 +150,61 @@
             border-left-color: var(--accent);
             background: linear-gradient(90deg, rgba(96, 165, 250, 0.1), var(--panel));
         }
+        
+        /* Trade detail tooltip styles */
+        .trade-row-hoverable {
+            cursor: pointer;
+            position: relative;
+        }
+        .trade-row-hoverable:hover {
+            background-color: rgba(96, 165, 250, 0.1);
+        }
+        .trade-tooltip {
+            position: fixed;
+            background: var(--panel-2);
+            border: 2px solid var(--accent);
+            border-radius: 8px;
+            padding: 16px;
+            max-width: 780px;
+            z-index: 10000;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            pointer-events: none;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .trade-tooltip.visible {
+            opacity: 1;
+        }
+        .trade-tooltip h4 {
+            color: var(--accent);
+            margin: 0 0 12px 0;
+            font-size: 14px;
+        }
+        .trade-tooltip .leg-section {
+            margin-bottom: 12px;
+        }
+        .trade-tooltip .leg-section:last-child {
+            margin-bottom: 0;
+        }
+        .trade-tooltip .leg-section h5 {
+            color: var(--text);
+            margin: 0 0 8px 0;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        .trade-tooltip .leg {
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 11px;
+            color: var(--muted);
+            padding: 4px 8px;
+            background: rgba(96, 165, 250, 0.05);
+            border-radius: 4px;
+            margin-bottom: 4px;
+            white-space: nowrap;
+        }
+        .trade-tooltip .leg:last-child {
+            margin-bottom: 0;
+        }
     </style>
     <script>
         document.addEventListener('DOMContentLoaded', function() {

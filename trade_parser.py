@@ -98,7 +98,8 @@ def parse_trade_csv(file_or_path):
             'gross_loss': 0,
             'pnl_distribution': [],
             'per_trade_theoretical_reward': [],
-            'per_trade_dates': []
+            'per_trade_dates': [],
+            'raw_trade_data': []
         }
 
     # Compute theoretical risk/reward from opening legs per expiration
@@ -184,6 +185,52 @@ def parse_trade_csv(file_or_path):
     # Extract per-trade dates (opening date for each trade) in same order
     per_trade_dates = [d.strftime('%Y-%m-%d') for d in joined['open_date']]
     
+    # Extract raw trade data grouped by expiration for drill-down functionality
+    raw_trade_data = []
+    for expiration in joined.index:
+        # Get all rows for this expiration
+        trade_rows = df[df['Expiration'] == expiration].copy()
+        
+        # Separate opening and closing legs
+        opening_legs = trade_rows[trade_rows['Description'].fillna('').str.contains('Open')].copy()
+        closing_legs = trade_rows[~trade_rows['Description'].fillna('').str.contains('Open') & 
+                                  trade_rows['Profit/Loss'].notna()].copy()
+        
+        # Convert each row to a dict with formatted values
+        def format_row(row):
+            # Clean stock price (may have $ and comma)
+            def clean_display_price(value):
+                if pd.isna(value):
+                    return ''
+                if isinstance(value, str):
+                    value = value.replace('$', '').replace(',', '').strip()
+                    try:
+                        return float(value)
+                    except (ValueError, TypeError):
+                        return ''
+                return float(value)
+            
+            stock_price = clean_display_price(row['Stock Price'])
+            
+            return {
+                'date': row['Date'].strftime('%Y-%m-%d'),
+                'description': str(row['Description']),
+                'size': int(row['Size']) if pd.notna(row['Size']) else '',
+                'symbol': str(row['Symbol']) if pd.notna(row['Symbol']) else '',
+                'strike': float(row['Strike']) if pd.notna(row['Strike']) else '',
+                'type': str(row['Type']) if pd.notna(row['Type']) else '',
+                'trade_price': f"${row['Trade Price']:.2f}" if pd.notna(row['Trade Price']) else '',
+                'profit_loss': f"${row['Profit/Loss']:.0f}" if pd.notna(row['Profit/Loss']) else '',
+                'stock_price': f"${stock_price:.2f}" if stock_price != '' else '',
+            }
+        
+        trade_data = {
+            'expiration': expiration.strftime('%Y-%m-%d') if isinstance(expiration, pd.Timestamp) else pd.to_datetime(expiration).strftime('%Y-%m-%d'),
+            'opening_legs': [format_row(row) for _, row in opening_legs.iterrows()],
+            'closing_legs': [format_row(row) for _, row in closing_legs.iterrows()]
+        }
+        raw_trade_data.append(trade_data)
+    
     wins = pnl_values[pnl_values > 0]
     losses = pnl_values[pnl_values < 0]
     median_loss = float(np.median(losses)) if len(losses) > 0 else 0
@@ -221,6 +268,7 @@ def parse_trade_csv(file_or_path):
         'per_trade_theoretical_risk': per_trade_theoretical_risk,
         'per_trade_theoretical_reward': per_trade_theoretical_reward,
         'per_trade_dates': per_trade_dates,
+        'raw_trade_data': raw_trade_data,
         'min_date': min_date,
         'max_date': max_date
     }
