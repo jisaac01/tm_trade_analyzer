@@ -441,3 +441,264 @@ def test_flash_messages_have_categories(client):
     html = response.data.decode('utf-8')
     # Check that flash message container exists in base template
     assert 'flash-message' in html or 'get_flashed_messages' in html
+
+
+def test_index_get_with_url_parameters(client):
+    """Test that GET on index with URL parameters populates form fields."""
+    response = client.get('/?initial_balance=50000&num_simulations=500&num_trades=30'
+                         '&option_commission=0.75&position_sizing_mode=fixed-percent'
+                         '&simulation_mode=moving-block-bootstrap&block_size=7'
+                         '&risk_calculation_method=max_theoretical'
+                         '&reward_calculation_method=cap_50pct_conservative_theoretical_max'
+                         '&allow_exceed_target_risk=true')
+    
+    assert response.status_code == 200
+    html = response.data.decode('utf-8')
+    
+    # Verify form fields are populated with URL parameter values
+    assert 'value="50000"' in html  # initial_balance
+    assert 'value="500"' in html    # num_simulations
+    assert 'value="30"' in html     # num_trades
+    assert 'value="0.75"' in html   # option_commission
+    assert 'value="7"' in html      # block_size
+    
+    # Check select options are selected
+    assert 'value="fixed-percent" selected' in html or 'value="fixed-percent"\n           selected' in html
+    assert 'value="moving-block-bootstrap" selected' in html or 'value="moving-block-bootstrap"\n               selected' in html
+    assert 'value="max_theoretical" selected' in html or 'value="max_theoretical"\n                       selected' in html
+    assert 'value="cap_50pct_conservative_theoretical_max" selected' in html
+    
+    # Check checkbox is checked
+    assert 'checked' in html  # allow_exceed_target_risk
+
+
+def test_index_post_with_file_uuid_reuses_existing_file(client):
+    """Test POST to index with file_uuid reuses existing file without requiring upload."""
+    # Create a temporary CSV file with known UUID
+    test_uuid = 'test-uuid-12345'
+    uploads_dir = 'uploads'
+    os.makedirs(uploads_dir, exist_ok=True)
+    test_filepath = os.path.join(uploads_dir, f'{test_uuid}.csv')
+    
+    with open(test_filepath, 'w') as f:
+        f.write("Trade Name,Entry Date,Exit Date,P/L\nTest Trade,2023-01-01,2023-01-02,100\n")
+    
+    try:
+        # POST with file_uuid but no csv_file
+        data = {
+            'file_uuid': test_uuid,
+            'initial_balance': '100000',
+            'num_simulations': '100',
+            'num_trades': '60',
+            'option_commission': '0.50',
+            'position_sizing_mode': 'dynamic-percent',
+            'simulation_mode': 'iid',
+            'block_size': '5',
+            'risk_calculation_method': 'conservative_theoretical',
+            'reward_calculation_method': 'no_cap'
+        }
+        response = client.post('/', data=data, content_type='multipart/form-data')
+        
+        # Should redirect to results
+        assert response.status_code == 302
+        assert '/results' in response.headers['Location']
+        
+        # Verify session has correct file path and UUID
+        with client.session_transaction() as sess:
+            assert sess['csv_filepath'] == test_filepath
+            assert sess['csv_file_uuid'] == test_uuid
+    finally:
+        if os.path.exists(test_filepath):
+            os.unlink(test_filepath)
+
+
+def test_index_post_with_invalid_file_uuid_shows_error(client):
+    """Test POST with non-existent file_uuid shows error and redirects."""
+    data = {
+        'file_uuid': 'nonexistent-uuid',
+        'initial_balance': '100000',
+        'num_simulations': '100',
+        'num_trades': '60',
+        'option_commission': '0.50',
+        'position_sizing_mode': 'dynamic-percent',
+        'simulation_mode': 'iid',
+        'block_size': '5'
+    }
+    response = client.post('/', data=data, content_type='multipart/form-data')
+    
+    # Should redirect back to index
+    assert response.status_code == 302
+    assert '/' in response.headers['Location']
+
+
+def test_index_post_with_new_file_generates_uuid(client):
+    """Test that uploading a new file generates and stores a UUID."""
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
+        f.write("Trade Name,Entry Date,Exit Date,P/L\nTest Trade,2023-01-01,2023-01-02,100\n")
+        temp_file = f.name
+    
+    try:
+        with open(temp_file, 'rb') as f:
+            data = {
+                'csv_file': f,
+                'initial_balance': '100000',
+                'num_simulations': '100',
+                'num_trades': '60',
+                'option_commission': '0.50',
+                'position_sizing_mode': 'dynamic-percent',
+                'simulation_mode': 'iid',
+                'block_size': '5'
+            }
+            response = client.post('/', data=data, content_type='multipart/form-data')
+            
+            assert response.status_code == 302
+            
+            # Verify session has UUID
+            with client.session_transaction() as sess:
+                assert 'csv_file_uuid' in sess
+                assert sess['csv_file_uuid'] is not None
+                assert len(sess['csv_file_uuid']) > 0
+                
+                # Verify file was saved with UUID as name
+                assert sess['csv_file_uuid'] in sess['csv_filepath']
+    finally:
+        os.unlink(temp_file)
+
+
+def test_index_get_with_file_uuid_marks_upload_optional(client):
+    """Test that GET with file_uuid parameter marks file upload as optional."""
+    # Create a temporary CSV file with known UUID
+    test_uuid = 'test-uuid-optional'
+    uploads_dir = 'uploads'
+    os.makedirs(uploads_dir, exist_ok=True)
+    test_filepath = os.path.join(uploads_dir, f'{test_uuid}.csv')
+    
+    with open(test_filepath, 'w') as f:
+        f.write("Trade Name,Entry Date,Exit Date,P/L\nTest Trade,2023-01-01,2023-01-02,100\n")
+    
+    try:
+        response = client.get(f'/?file_uuid={test_uuid}&initial_balance=10000')
+        
+        assert response.status_code == 200
+        html = response.data.decode('utf-8')
+        
+        # Verify file upload is marked as optional
+        assert 'already uploaded - optional' in html
+        
+        # Verify hidden file_uuid field is present
+        assert f'name="file_uuid" value="{test_uuid}"' in html
+    finally:
+        if os.path.exists(test_filepath):
+            os.unlink(test_filepath)
+
+
+@patch('app.simulator.run_monte_carlo_simulation')
+@patch('app.trade_parser.parse_trade_csv')
+def test_results_page_includes_file_uuid_in_link(mock_parse, mock_simulate, client):
+    """Test that results page includes file_uuid in the 'new tab' link."""
+    test_uuid = 'test-uuid-link'
+    
+    # Mock the parsing
+    mock_parse.return_value = {
+        'num_trades': 1,
+        'pnl_distribution': [100],
+        'per_trade_theoretical_risk': [300],
+        'per_trade_theoretical_reward': [500],
+        'per_trade_dates': ['2023-01-01'],
+        'name': 'Test Trade',
+        'win_rate': 1.0,
+        'avg_win': 100,
+        'avg_loss': 0,
+        'max_win': 100,
+        'max_loss': 0,
+        'max_theoretical_loss': 300,
+        'conservative_theoretical_max_loss': 300,
+        'max_theoretical_gain': 500,
+        'conservative_realized_max_reward': 100,
+        'risked': 300,
+        'total_return': 100,
+        'pct_return': 33.33,
+        'avg_pct_return': 33.33,
+        'commissions': 0,
+        'wins': 1,
+        'losses': 0,
+        'avg_pct_win': 33.33,
+        'avg_pct_loss': 0,
+        'gross_gain': 100,
+        'gross_loss': 0,
+        'median_loss': 0,
+        'median_risk_per_spread': 300
+    }
+    
+    # Mock the simulation
+    mock_simulate.return_value = [{
+        'trade_name': 'Test Trade',
+        'summary': {
+            'total_return': 100,
+            'risked': 300,
+            'pct_return': 33.33,
+            'avg_pct_return': 33.33,
+            'commissions': 0,
+            'win_rate': 1.0,
+            'wins': 1,
+            'losses': 0,
+            'avg_win': 100,
+            'avg_loss': 0,
+            'avg_pct_win': 33.33,
+            'avg_pct_loss': 0,
+            'gross_gain': 100,
+            'gross_loss': 0,
+            'conservative_theoretical_max_loss': 300,
+            'max_theoretical_loss': 300,
+            'historical_max_losing_streak': 0
+        },
+        'table_rows': [],
+        'pnl_preview': ['100']
+    }]
+    
+    # Set session with file UUID
+    with client.session_transaction() as sess:
+        sess['csv_filepath'] = f'uploads/{test_uuid}.csv'
+        sess['csv_file_uuid'] = test_uuid
+        sess['original_filename'] = 'test.csv'
+        sess['params'] = {
+            'initial_balance': 10000,
+            'num_simulations': 100,
+            'num_trades': 60,
+            'option_commission': 0.50,
+            'position_sizing': 'percent',
+            'dynamic_risk_sizing': True,
+            'simulation_mode': 'iid',
+            'block_size': 5,
+            'position_sizing_display': 'dynamic-percent',
+            'risk_calculation_method': 'conservative_theoretical',
+            'reward_calculation_method': 'no_cap',
+            'allow_exceed_target_risk': False
+        }
+    
+    response = client.get('/results')
+    assert response.status_code == 200
+    html = response.data.decode('utf-8')
+    
+    # Verify the link includes file_uuid
+    assert f'file_uuid={test_uuid}' in html
+    assert 'target="_blank"' in html  # Opens in new tab
+
+
+def test_index_post_without_file_or_uuid_shows_error(client):
+    """Test POST without csv_file or file_uuid shows error."""
+    data = {
+        'initial_balance': '100000',
+        'num_simulations': '100',
+        'num_trades': '60',
+        'option_commission': '0.50',
+        'position_sizing_mode': 'dynamic-percent',
+        'simulation_mode': 'iid',
+        'block_size': '5'
+        # No csv_file and no file_uuid
+    }
+    response = client.post('/', data=data, content_type='multipart/form-data')
+    
+    # Should redirect back to index
+    assert response.status_code == 302
+    assert '/' in response.headers['Location']

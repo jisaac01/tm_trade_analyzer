@@ -4,7 +4,19 @@
 
 {% block content %}
 <section class="hero">
-    <h1>Monte Carlo Trade Sizing Report</h1>
+    <h1>
+        <a href="/?file_uuid={{ csv_file_uuid }}&initial_balance={{ initial_balance|int }}&num_simulations={{ num_simulations }}&num_trades={{ num_trades }}&option_commission={{ option_commission }}&position_sizing_mode={{ position_sizing_display }}&simulation_mode={{ simulation_mode }}&block_size={{ block_size }}&risk_calculation_method={{ risk_calculation_method }}&reward_calculation_method={{ reward_calculation_method }}{% if allow_exceed_target_risk %}&allow_exceed_target_risk=true{% endif %}" 
+           target="_blank" 
+           style="color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 8px;"
+           title="Open new tab with same parameters for side-by-side comparison">
+            Monte Carlo Trade Sizing Report
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity: 0.6;">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <line x1="10" y1="14" x2="21" y2="3"></line>
+            </svg>
+        </a>
+    </h1>
     <p class="meta">Initial Balance: <strong>${{ "{:,.0f}".format(initial_balance) }}</strong></p>
     {% if not show_error_only %}
     <p class="meta">Position Sizing: <strong>{{ position_sizing_display_text }}</strong> • Simulation Mode: <strong>{{ simulation_mode|escape }}</strong> {% if simulation_mode == 'moving-block-bootstrap' %}• Block Size: {{ block_size }}{% endif %}</p>

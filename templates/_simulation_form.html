@@ -1,6 +1,9 @@
+        {% if file_uuid %}
+        <input type="hidden" name="file_uuid" value="{{ file_uuid }}">
+        {% endif %}
         <div class="form-group">
-            <label for="csv_file" title="{{ csv_file_title }}">Trade Data CSV{% if original_filename %} (current: {{ original_filename }}){% endif %}:</label>
-            <input type="file" id="csv_file" name="csv_file" accept=".csv"{% if not original_filename %} required{% endif %}>
+            <label for="csv_file" title="{{ csv_file_title }}">Trade Data CSV{% if original_filename %} (current: {{ original_filename }}){% endif %}{% if has_file %} (already uploaded - optional){% endif %}:</label>
+            <input type="file" id="csv_file" name="csv_file" accept=".csv"{% if not original_filename and not has_file %} required{% endif %}>
         </div>
         <div class="form-row">
             <div class="form-group">

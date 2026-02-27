@@ -32,18 +32,35 @@ def format_currency_whole(value):
 @app.route('/', methods=['GET', 'POST'])
 def index():
     if request.method == 'POST':
-        # Handle file upload
+        # Get file_uuid from form (if reusing existing file) or URL
+        file_uuid = request.form.get('file_uuid') or request.args.get('file_uuid')
+        
+        # Handle file upload (optional if file_uuid is provided)
         csv_file = request.files.get('csv_file')
-        if not csv_file or not csv_file.filename.endswith('.csv'):
-            flash('Please upload a valid CSV file.', 'error')
+        if csv_file and csv_file.filename:
+            if not csv_file.filename.endswith('.csv'):
+                flash('Please upload a valid CSV file.', 'error')
+                return redirect(url_for('index'))
+            # Save new file
+            file_uuid = str(uuid.uuid4())
+            filename = file_uuid + '.csv'
+            filepath = os.path.join(UPLOAD_FOLDER, filename)
+            csv_file.save(filepath)
+            session['csv_filepath'] = filepath
+            session['csv_file_uuid'] = file_uuid
+            session['original_filename'] = csv_file.filename
+        elif file_uuid:
+            # Reuse existing file
+            filepath = os.path.join(UPLOAD_FOLDER, file_uuid + '.csv')
+            if not os.path.exists(filepath):
+                flash('The specified file no longer exists. Please upload a new CSV file.', 'error')
+                return redirect(url_for('index'))
+            session['csv_filepath'] = filepath
+            session['csv_file_uuid'] = file_uuid
+            # Keep original filename if it exists in session
+        else:
+            flash('Please upload a CSV file.', 'error')
             return redirect(url_for('index'))
-
-        # Save file
-        filename = str(uuid.uuid4()) + '.csv'
-        filepath = os.path.join(UPLOAD_FOLDER, filename)
-        csv_file.save(filepath)
-        session['csv_filepath'] = filepath
-        session['original_filename'] = csv_file.filename
 
         # Get parameters
         initial_balance = float(request.form.get('initial_balance', 10000))
@@ -76,8 +93,37 @@ def index():
         return redirect(url_for('results'))
 
     # GET: render form
-    # Pass session data if available for form defaults
-    params = session.get('params', {})
+    # Populate form from URL parameters (for "open in new tab" feature)
+    params = {}
+    
+    # Check URL parameters first, then fall back to session
+    if request.args:
+        params = {
+            'initial_balance': float(request.args.get('initial_balance', 10000)),
+            'num_simulations': int(request.args.get('num_simulations', 1000)),
+            'num_trades': int(request.args.get('num_trades', 60)),
+            'option_commission': float(request.args.get('option_commission', 0.50)),
+            'position_sizing_display': request.args.get('position_sizing_mode', 'dynamic-percent'),
+            'simulation_mode': request.args.get('simulation_mode', 'iid'),
+            'block_size': int(request.args.get('block_size', 5)),
+            'risk_calculation_method': request.args.get('risk_calculation_method', 'conservative_theoretical'),
+            'reward_calculation_method': request.args.get('reward_calculation_method', 'no_cap'),
+            'allow_exceed_target_risk': request.args.get('allow_exceed_target_risk') == 'true'
+        }
+        # Handle file_uuid from URL
+        file_uuid = request.args.get('file_uuid')
+        if file_uuid:
+            filepath = os.path.join(UPLOAD_FOLDER, file_uuid + '.csv')
+            if os.path.exists(filepath):
+                # Store in session so form knows file is available
+                params['file_uuid'] = file_uuid
+                params['has_file'] = True
+    else:
+        params = session.get('params', {})
+        if 'csv_file_uuid' in session:
+            params['file_uuid'] = session['csv_file_uuid']
+            params['has_file'] = True
+    
     return render_template('index.html', 
                           original_filename=session.get('original_filename'),
                           **params)
@@ -94,10 +140,12 @@ def results():
             if not csv_file.filename.endswith('.csv'):
                 flash('Please upload a valid CSV file.', 'error')
                 return redirect(url_for('results'))
-            filename = str(uuid.uuid4()) + '.csv'
+            file_uuid = str(uuid.uuid4())
+            filename = file_uuid + '.csv'
             filepath = os.path.join(UPLOAD_FOLDER, filename)
             csv_file.save(filepath)
             session['csv_filepath'] = filepath
+            session['csv_file_uuid'] = file_uuid
             session['original_filename'] = csv_file.filename
 
         # Update params from form
@@ -346,6 +394,7 @@ def results():
                            replay_details_data=replay_details_data,
                            raw_trade_data=trade_stats.get('raw_trade_data', []),
                            original_filename=session['original_filename'],
+                           csv_file_uuid=session.get('csv_file_uuid', ''),
                            num_trades_per_simulation=num_trades_per_simulation,
                            position_sizing_display_text=position_sizing_display_text,
                            **params)
