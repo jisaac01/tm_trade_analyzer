@@ -67,6 +67,7 @@
 ### Verification
 - Run focused tests first (for changed functions), then broader tests if needed.
 - Keep test coverage close to numerical logic, argument parsing, and edge cases.
+- **Investigate with Tests, Not Scripts:** When investigating bugs, write a test instead of a standalone script - tests run without permissions and often become useful regression tests.
 - **Test Real Values, Not Just Structure:** Tests must verify actual calculated values (specific P/L, percentages, dates), not just lengths and types.
 - **Use Real Data in Tests:** Use actual CSV files from production to expose edge cases that synthetic data misses (alphabetical vs chronological ordering, date formats, missing data patterns).
 - **Known-Value Verification:** Include tests that verify specific known trades have expected values (golden file approach).
