@@ -700,6 +700,7 @@ def simulate_trades(
         max_drawdown = 0
         current_losing_streak = 0
         max_losing_streak = 0
+        max_risk_pct = 0.0  # Track the maximum risk % taken during simulation
         for trade_idx in range(num_trades):
             contracts = position_size
             if dynamic_risk_sizing and target_risk_pct is not None:
@@ -753,7 +754,11 @@ def simulate_trades(
             if contracts == 0:
                 # Cannot take any contracts without exceeding target risk - stop trading
                 break
+# Track the actual risk percentage for this trade (before balance changes)
+            current_risk_pct = (position_sizing_risk * contracts / balance) * 100
+            max_risk_pct = max(max_risk_pct, current_risk_pct)
 
+            
             max_risk = max_risk_per_spread * contracts
             avg_risk = min(avg_risk_per_spread * contracts, max_risk)
             avg_reward = avg_reward_per_spread * contracts
@@ -801,7 +806,12 @@ def simulate_trades(
                 balance = 0  # Set to 0 to indicate bankruptcy
                 break
 
-        results.append({'final_balance': balance, 'max_drawdown': max_drawdown, 'max_losing_streak': max_losing_streak})
+        results.append({
+            'final_balance': balance,
+            'max_drawdown': max_drawdown,
+            'max_losing_streak': max_losing_streak,
+            'max_risk_pct': max_risk_pct
+        })
     return results
 
 
@@ -918,6 +928,7 @@ def run_monte_carlo_simulation(
         final_balances = [r['final_balance'] for r in sim_results]
         drawdowns = [r['max_drawdown'] for r in sim_results]
         losing_streaks = [r['max_losing_streak'] for r in sim_results]
+        max_risk_pcts = [r['max_risk_pct'] for r in sim_results]
 
         avg_final_balance = np.mean(final_balances)
         bankrupt_prob = sum(1 for b in final_balances if b == 0) / num_simulations
@@ -925,12 +936,14 @@ def run_monte_carlo_simulation(
         avg_max_losing_streak = np.mean(losing_streaks)
         max_drawdown = np.max(drawdowns)
         max_losing_streak = np.max(losing_streaks)
+        # Maximum risk % taken across all simulations
+        max_risk_pct_across_sims = np.max(max_risk_pcts) if max_risk_pcts else 0.0
 
         data.append({
             'Contracts': ps,
             'Target Risk %': f"{row['target_risk_pct']:.2f}%",
             'Starting Risk %': f"{row['starting_risk_pct']:.2f}%",
-            'Max Risk %': f"{row['max_risk_pct']:.2f}%",
+            'Max Risk %': f"{max_risk_pct_across_sims:.2f}%",
             'Avg Final $': f"${avg_final_balance:,.0f}",
             'Bankruptcy Prob': f"{bankrupt_prob:.0%}",
             'Avg Max Drawdown': f"${avg_max_drawdown:,.0f}",

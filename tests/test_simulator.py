@@ -1458,3 +1458,90 @@ class TestTargetRiskEnforcement:
             assert starting_risk <= 15.0, \
                 f"Expected starting risk <= 15%, got {starting_risk}%"
 
+    def test_max_risk_pct_tracks_dynamic_changes_during_simulation(self):
+        """
+        Max Risk % should track the actual maximum risk taken during simulation,
+        not just the initial risk percentage.
+        
+        When using dynamic risk sizing, as the account grows, more contracts can be
+        taken while staying under the risk ceiling. The max_risk_pct should reflect
+        the highest risk % actually taken during any trade in the simulation.
+        
+        Example: Start with $1000 balance, $180 risk per spread (conservative), 10% ceiling:
+        - Initially can afford 1 contract: 180/1000 = 18% > ceiling, so 0 contracts (or capped)
+        
+        Better example: Start with $2000, $180 risk, 10% ceiling:
+        - Initially: 1 contract = 180/2000 = 9% risk
+        - After winning and reaching $4000: 2 contracts = 360/4000 = 9% risk
+        - Max Risk % should be 9% (or higher if we hit the ceiling with growth)
+        
+        This test verifies that max_risk_pct reflects actual simulation behavior,
+        not just starting conditions.
+        """
+        np.random.seed(42)
+        
+        trade_stats = {
+            'num_trades': 20,
+            'win_rate': 0.7,  # High win rate to grow account
+            'avg_win': 80,
+            'avg_loss': -180,
+            'max_win': 150,
+            'median_risk_per_spread': 180,
+            'conservative_theoretical_max_loss': 180,
+            'max_theoretical_loss': 220,
+            'pnl_distribution': [80, -180] * 10  # Alternating to ensure data
+        }
+        
+        # Start with balance where 1 contract = ~7% risk
+        # Risk per spread = 180, so 180/2500 = 7.2%
+        initial_balance = 2500
+        risk_ceiling = 10.0  # 10% target risk
+        
+        reports = simulator.run_monte_carlo_simulation(
+            trade_stats=trade_stats,
+            initial_balance=initial_balance,
+            num_simulations=100,
+            num_trades=20,
+            position_sizing='percent',
+            dynamic_risk_sizing=True,
+            simulation_mode='iid',
+            risk_calculation_method='conservative_theoretical',
+            allow_exceed_target_risk=False
+        )
+        
+        assert len(reports) == 1
+        report = reports[0]
+        
+        # Find the row closest to our 10% risk ceiling
+        target_row = None
+        for row in report['table_rows']:
+            target_pct_str = row['Target Risk %'].replace('%', '')
+            target_pct = float(target_pct_str)
+            if abs(target_pct - risk_ceiling) < 0.1:
+                target_row = row
+                break
+        
+        assert target_row is not None, "Should have a row near 10% target risk"
+        
+        # Extract risk percentages
+        starting_risk_str = target_row['Starting Risk %'].replace('%', '')
+        starting_risk = float(starting_risk_str)
+        max_risk_str = target_row['Max Risk %'].replace('%', '')
+        max_risk = float(max_risk_str)
+        
+        # Starting risk should be ~7.2% (1 contract × 180 / 2500)
+        assert 7.0 <= starting_risk <= 7.5, \
+            f"Expected starting risk ~7.2% (1 contract), got {starting_risk}%"
+        
+        # CRITICAL: Max risk should be HIGHER than starting risk because:
+        # - Account grows with 70% win rate
+        # - When balance reaches ~3600, can afford 2 contracts at 10% risk (360/3600)
+        # - Max Risk % should reflect this higher risk taken during simulation
+        # 
+        # This is currently FAILING because the simulator calculates max_risk_pct
+        # only once at the start, not tracking actual risk during simulation.
+        assert max_risk > starting_risk, \
+            f"Max Risk % ({max_risk}%) should exceed Starting Risk % ({starting_risk}%) " \
+            f"when account grows and takes more contracts. Currently displaying same value, " \
+            f"indicating max_risk_pct is calculated only at start, not tracked during simulation."
+
