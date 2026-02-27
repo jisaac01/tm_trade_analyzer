@@ -225,7 +225,8 @@ def results():
             initial_balance=params['initial_balance'],
             position_sizing=params['position_sizing'],
             risk_calculation_method=params['risk_calculation_method'],
-            allow_exceed_target_risk=params['allow_exceed_target_risk']
+            allow_exceed_target_risk=params['allow_exceed_target_risk'],
+            mode='replay'  # Replay requires first trade's actual risk to match details
         )
         
         replay_data = []

@@ -366,10 +366,11 @@ def build_position_size_plan(
     initial_balance,
     position_sizing,
     risk_calculation_method='conservative_theoretical',
-    allow_exceed_target_risk=False
+    allow_exceed_target_risk=False,
+    mode='simulation'
 ):
     """
-    Generate a plan of position sizes for Monte Carlo simulation testing.
+    Generate a plan of position sizes for Monte Carlo simulation testing and trade replay.
     
     Creates a list of position sizes (contract counts) with their corresponding
     target and actual risk percentages. Supports both fixed contract sizing
@@ -394,16 +395,18 @@ def build_position_size_plan(
     - allow_exceed_target_risk (bool): If False (default), enforces strict target risk ceiling.
         Starting risk % will never exceed target risk %. If True, allows the old behavior
         where starting risk % can exceed target risk % due to rounding.
+    - mode (str): 'simulation' (default) or 'replay'.
+        - 'simulation': Uses aggregate risk from risk_calculation_method for starting risk
+          and affordability. Suitable for Monte Carlo planning.
+        - 'replay': Uses the first trade's actual theoretical risk for starting risk
+          and affordability. This ensures the plan matches the actual execution of the
+          first trade in the replay table. Requires 'per_trade_theoretical_risk'.
     
     Returns:
-    - list[dict]: List of position size configurations, each containing:
-        - 'contracts' (int): Number of contracts to trade (capped to affordability by position_sizing_risk)
-        - 'target_risk_pct' (float): Target risk percentage (for percent sizing)
-        - 'starting_risk_pct' (float): Risk % at start based on simulation risk method (actual expected loss per trade)
-        - 'max_risk_pct' (float): Maximum possible risk % based on position sizing risk method (caps to ensure safety)
+    - list[dict]: List of position size configurations.
     
-    For 'contracts' sizing, uses predefined contract counts: [1, 2, 5, 10, 15, 20]
-    For 'percent' sizing, uses predefined risk percentages: [1, 2, 3, 5, 10, 15, 25, 50, 75, 100]%
+    Raises:
+    - ValueError: If mode='replay' but per_trade_theoretical_risk is missing or empty.
     """
     # Position sizing constraint uses risk_calculation_method to ensure consistency
     # If user chooses max_theoretical, position sizing must also use max_theoretical
@@ -411,9 +414,29 @@ def build_position_size_plan(
     
     # Loss simulation uses the selected risk calculation method
     simulation_risk = get_max_risk_per_spread(trade, risk_calculation_method)
+    
+    # DETERMINE RISKS BASED ON MODE
+    if mode == 'replay':
+        # REPLAY MODE: Use first trade's actual theoretical risk to match first detail row
+        # REQUIRED: per_trade_theoretical_risk must exist - fail fast if missing
+        per_trade_risks = trade.get('per_trade_theoretical_risk', [])
+        if not per_trade_risks:
+            raise ValueError(
+                "mode='replay' requires 'per_trade_theoretical_risk' in trade dict. "
+                "This mode is intended for replay with actual historical trade data. "
+                "For Monte Carlo simulation planning with synthetic data, use mode='simulation'."
+            )
+        # Use first trade specific risk for both starting risk calculation AND affordability
+        first_trade_risk = per_trade_risks[0]
+        affordability_risk = first_trade_risk
+    else:
+        # SIMULATION MODE: Use aggregate risk from risk_calculation_method
+        # This is suitable for Monte Carlo planning and works with synthetic test data
+        first_trade_risk = simulation_risk
+        affordability_risk = position_sizing_risk
 
     if position_sizing == 'contracts':
-        max_affordable = int(initial_balance / position_sizing_risk)
+        max_affordable = int(initial_balance / affordability_risk)
         if max_affordable == 0:
             # Can't afford any contracts at all - return empty plan
             return []
@@ -422,7 +445,7 @@ def build_position_size_plan(
             {
                 'contracts': contracts,
                 'target_risk_pct': (position_sizing_risk * contracts / initial_balance) * 100,
-                'starting_risk_pct': (simulation_risk * min(contracts, max_affordable) / initial_balance) * 100,
+                'starting_risk_pct': (first_trade_risk * min(contracts, max_affordable) / initial_balance) * 100,
                 'max_risk_pct': (position_sizing_risk * min(contracts, max_affordable) / initial_balance) * 100
             }
             for contracts in DEFAULT_POSITION_SIZES
@@ -431,13 +454,15 @@ def build_position_size_plan(
 
     sizing_plan = []
     for target_risk_pct in DEFAULT_RISK_PCTS:
+        # Use first trade's risk (not aggregate) for determining initial contract count
         contracts = choose_contract_count_for_risk_pct(
-            max_risk_per_spread=simulation_risk,
+            max_risk_per_spread=first_trade_risk,
             account_balance=initial_balance,
             target_risk_pct=target_risk_pct
         )
+        
         # Apply position sizing constraint (broker margin requirement)
-        max_affordable_contracts = int(initial_balance / position_sizing_risk)
+        max_affordable_contracts = int(initial_balance / affordability_risk)
         if max_affordable_contracts == 0:
             # Can't afford to trade - skip this risk level
             continue
@@ -445,9 +470,10 @@ def build_position_size_plan(
         
         # CRITICAL: When strict target risk enforcement is enabled,
         # cap contracts so starting risk never exceeds target risk %
+        # Use first_trade_risk (not aggregate) to match actual first trade execution
         capped_contracts = cap_contracts_to_target_risk(
             contracts=capped_contracts,
-            risk_per_spread=position_sizing_risk,
+            risk_per_spread=first_trade_risk,
             account_balance=initial_balance,
             target_risk_pct=target_risk_pct,
             allow_exceed_target_risk=allow_exceed_target_risk,
@@ -458,7 +484,7 @@ def build_position_size_plan(
             # Cannot take any contracts without exceeding target risk - skip this risk level
             continue
         
-        starting_risk_pct = (simulation_risk * capped_contracts / initial_balance) * 100
+        starting_risk_pct = (first_trade_risk * capped_contracts / initial_balance) * 100
         max_risk_pct = (position_sizing_risk * capped_contracts / initial_balance) * 100
         sizing_plan.append(
             {
@@ -878,7 +904,8 @@ def run_monte_carlo_simulation(
         initial_balance=initial_balance,
         position_sizing=position_sizing,
         risk_calculation_method=risk_calculation_method,
-        allow_exceed_target_risk=allow_exceed_target_risk
+        allow_exceed_target_risk=allow_exceed_target_risk,
+        mode='simulation'  # Monte Carlo uses aggregate risk (suitable for sampled/synthetic scenarios)
     )
     
     # Validate that we can afford to trade
