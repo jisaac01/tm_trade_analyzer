@@ -333,7 +333,8 @@ class TestReplayActualTrades:
             position_sizing='percent',
             target_risk_pct=2.0,
             dynamic_risk_sizing=True,
-            risk_calculation_method='conservative_theoretical'
+            risk_calculation_method='conservative_theoretical',
+            allow_exceed_target_risk=True  # Allow trades that exceed target risk for this test
         )
         
         assert result['final_balance'] == 10350
@@ -847,3 +848,210 @@ class TestReplayRiskPercentageCalculation:
         expected_risk_pct_2 = (240 / 1150) * 100
         assert abs(trade2['risk_pct'] - expected_risk_pct_2) < 0.01, \
             f"Expected risk_pct={expected_risk_pct_2:.2f} (240/1150*100), got {trade2['risk_pct']}"
+
+
+class TestTargetRiskEnforcementReplay:
+    """Tests for enforcing strict target risk % limits in replay."""
+    
+    def test_replay_skips_trades_exceeding_target_risk_by_default(self):
+        """When allow_exceed_target_risk=False (default), no trades should be taken if 1 contract exceeds target risk %."""
+        trade_stats = {
+            'num_trades': 5,
+            'win_rate': 0.6,
+            'avg_win': 100,
+            'avg_loss': -50,
+            'max_win': 200,
+            'max_loss': -100,
+            'max_theoretical_loss': 200,
+            'conservative_theoretical_max_loss': 200,  # Risk per contract
+            'pnl_distribution': [50, 75, 100, 60, 80],
+            'per_trade_theoretical_risk': [200, 200, 200, 200, 200],
+            'per_trade_theoretical_reward': [100, 100, 100, 100, 100],
+            'per_trade_dates': ['2023-01-01', '2023-02-01', '2023-03-01', '2023-04-01', '2023-05-01']
+        }
+        
+        # Initial balance $1000, target risk 2%
+        # 2% of $1000 = $20
+        # But 1 contract requires $200 risk, which is 20% (exceeds 2%)
+        # With allow_exceed_target_risk=False, no trades should be taken
+        result = replay.replay_actual_trades(
+            trade_stats=trade_stats,
+            initial_balance=1000,
+            position_sizing='percent',
+            target_risk_pct=2.0,
+            dynamic_risk_sizing=True,
+            risk_calculation_method='conservative_theoretical',
+            allow_exceed_target_risk=False  # Default: strict enforcement
+        )
+        
+        # Should have stopped immediately (no trades taken)
+        assert result['final_balance'] == 1000, f"Expected $1000 (no trades), got ${result['final_balance']}"
+        assert len(result['trade_details']) == 0, f"Expected 0 trades, got {len(result['trade_details'])}"
+        assert result['max_drawdown'] == 0
+        assert result['max_losing_streak'] == 0
+    
+    def test_replay_allows_trades_exceeding_target_risk_when_enabled(self):
+        """When allow_exceed_target_risk=True, trades CAN be taken even if they exceed target risk %."""
+        trade_stats = {
+            'num_trades': 5,
+            'win_rate': 0.6,
+            'avg_win': 100,
+            'avg_loss': -50,
+            'max_win': 200,
+            'max_loss': -100,
+            'max_theoretical_loss': 200,
+            'conservative_theoretical_max_loss': 200,
+            'pnl_distribution': [50, 75, 100, 60, 80],
+            'per_trade_theoretical_risk': [200, 200, 200, 200, 200],
+            'per_trade_theoretical_reward': [100, 100, 100, 100, 100],
+            'per_trade_dates': ['2023-01-01', '2023-02-01', '2023-03-01', '2023-04-01', '2023-05-01']
+        }
+        
+        # Same scenario but with allow_exceed_target_risk=True
+        result = replay.replay_actual_trades(
+            trade_stats=trade_stats,
+            initial_balance=1000,
+            position_sizing='percent',
+            target_risk_pct=2.0,
+            dynamic_risk_sizing=True,
+            risk_calculation_method='conservative_theoretical',
+            allow_exceed_target_risk=True  # Allow exceeding
+        )
+        
+        # Should take trades (at least 1 contract per trade)
+        assert len(result['trade_details']) > 0, "Expected trades to be executed"
+        # With all wins, final balance should be higher than initial
+        assert result['final_balance'] > 1000, f"Expected profit, got ${result['final_balance']}"
+    
+    def test_replay_stops_trading_when_balance_drops_and_exceeds_target_risk(self):
+        """When balance drops during replay, should stop if next trade would exceed target risk %."""
+        trade_stats = {
+            'num_trades': 10,
+            'win_rate': 0.2,
+            'avg_win': 50,
+            'avg_loss': -100,
+            'max_win': 100,
+            'max_loss': -200,
+            'max_theoretical_loss': 200,
+            'conservative_theoretical_max_loss': 200,
+            # Start with big losses to drop balance significantly
+            'pnl_distribution': [-150, -150, -150, -150, 50, 50, 50, 50, 50, 50],
+            'per_trade_theoretical_risk': [200, 200, 200, 200, 200, 200, 200, 200, 200, 200],
+            'per_trade_theoretical_reward': [100, 100, 100, 100, 100, 100, 100, 100, 100, 100],
+            'per_trade_dates': [
+                '2023-01-01', '2023-02-01', '2023-03-01', '2023-04-01', '2023-05-01',
+                '2023-06-01', '2023-07-01', '2023-08-01', '2023-09-01', '2023-10-01'
+            ]
+        }
+        
+        # Start with $5,000, target risk 5%
+        # 5% of $5,000 = $250
+        # $250 / $200 = 1.25 contracts, so start with 1 contract
+        # After 4 losses of -150 each with 1 contract = -600 total
+        # Balance = $5000 - $600 = $4400
+        # Then for 5th trade: 5% of $4400 = $220, which still allows 1 contract ($200)
+        # After 5th trade loss: $4400 - $150 = $4250
+        # Then we need balance to drop below $4000 (where 1 contract = $200 exceeds 5%)
+        # Let's use starting balance of $1000 to trigger this faster
+        result = replay.replay_actual_trades(
+            trade_stats=trade_stats,
+            initial_balance=1000,
+            position_sizing='percent',
+            target_risk_pct=5.0,
+            dynamic_risk_sizing=True,
+            risk_calculation_method='conservative_theoretical',
+            allow_exceed_target_risk=False
+        )
+        
+        # With $1000 initial, 5% = $50
+        # $50 / $200 = 0.25 contracts, which rounds to 0
+        # So no trades should be taken at all!
+        assert len(result['trade_details']) == 0, \
+            f"Expected 0 trades (1 contract exceeds 5% target risk), got {len(result['trade_details'])} trades"
+        
+        # Should not go bankrupt (balance should remain at initial)
+        assert result['final_balance'] == 1000, \
+            f"Expected to stop trading immediately with balance $1000, got ${result['final_balance']}"
+    
+    def test_replay_with_fixed_contracts_ignores_target_risk_enforcement(self):
+        """When using fixed contracts, target risk enforcement should not apply (no target risk %)."""
+        trade_stats = {
+            'num_trades': 5,
+            'win_rate': 0.6,
+            'avg_win': 100,
+            'avg_loss': -50,
+            'max_win': 200,
+            'max_loss': -100,
+            'max_theoretical_loss': 500,  # Very high risk per contract
+            'conservative_theoretical_max_loss': 500,
+            'pnl_distribution': [50, 75, 100, 60, 80],
+            'per_trade_theoretical_risk': [500, 500, 500, 500, 500],  # High risk
+            'per_trade_theoretical_reward': [100, 100, 100, 100, 100],
+            'per_trade_dates': ['2023-01-01', '2023-02-01', '2023-03-01', '2023-04-01', '2023-05-01']
+        }
+        
+        # With fixed contracts, should always trade if balance allows
+        # Even with allow_exceed_target_risk=False
+        result = replay.replay_actual_trades(
+            trade_stats=trade_stats,
+            initial_balance=1000,
+            position_sizing='contracts',
+            position_size=1,
+            dynamic_risk_sizing=False,
+            risk_calculation_method='conservative_theoretical',
+            allow_exceed_target_risk=False  # Should not matter for contracts mode
+        )
+        
+        # Should take 2 trades (balance=1000, can afford 1000/500=2 trades with 1 contract each)
+        # Trade 1: 1000 + 50 = 1050
+        # Trade 2: 1050 + 75 = 1125
+        # Trade 3: 1125 + 100 = 1225
+        # All trades can afford 1 contract (1000/500=2, 1050/500=2, 1125/500=2, etc.)
+        assert len(result['trade_details']) == 5, \
+            f"Expected all 5 trades with contracts mode, got {len(result['trade_details'])}"
+    
+    def test_replay_enforces_total_risk_ceiling_not_just_one_contract(self):
+        """When allow_exceed_target_risk=False, TOTAL risk from all contracts must not exceed target."""
+        trade_stats = {
+            'num_trades': 5,
+            'win_rate': 0.6,
+            'avg_win': 100,
+            'avg_loss': -50,
+            'max_win': 200,
+            'max_loss': -100,
+            'max_theoretical_loss': 100,
+            'conservative_theoretical_max_loss': 100,  # Risk per contract
+            'pnl_distribution': [50, 75, 100, 60, 80],
+            'per_trade_theoretical_risk': [100, 100, 100, 100, 100],
+            'per_trade_theoretical_reward': [50, 50, 50, 50, 50],
+            'per_trade_dates': ['2023-01-01', '2023-02-01', '2023-03-01', '2023-04-01', '2023-05-01']
+        }
+        
+        # Initial balance $10,000, target risk 15%
+        # 15% of $10,000 = $1,500
+        # Risk per contract = $100
+        # Could fit 15 contracts ($1,500 / $100 = 15.0), exactly at ceiling
+        # With allow_exceed_target_risk=False, should take exactly 15 contracts (not 16)
+        result = replay.replay_actual_trades(
+            trade_stats=trade_stats,
+            initial_balance=10000,
+            position_sizing='percent',
+            target_risk_pct=15.0,
+            dynamic_risk_sizing=True,
+            risk_calculation_method='conservative_theoretical',
+            allow_exceed_target_risk=False
+        )
+        
+        # First trade should take exactly 15 contracts (floor(15% * 10000 / 100) = 15)
+        # Total risk = 15 * $100 = $1,500 = 15.00%
+        assert len(result['trade_details']) > 0, "Should have executed trades"
+        first_trade = result['trade_details'][0]
+        assert first_trade['contracts'] == 15, \
+            f"Expected exactly 15 contracts (15% ceiling), got {first_trade['contracts']}"
+        
+        # Verify risk % is exactly 15% or slightly below due to rounding
+        risk_pct = first_trade['risk_pct']
+        assert risk_pct <= 15.0, \
+            f"Expected risk <= 15%, got {risk_pct}%"
+        assert 14.9 <= risk_pct <= 15.0, \
+            f"Expected risk very close to 15%, got {risk_pct}%"

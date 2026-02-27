@@ -262,11 +262,111 @@ def choose_contract_count_for_risk_pct(max_risk_per_spread, account_balance, tar
     return lower if lower_diff <= upper_diff else upper
 
 
+def should_allow_trade_with_target_risk(
+    risk_per_spread,
+    account_balance,
+    target_risk_pct=None,
+    allow_exceed_target_risk=False,
+    position_sizing='percent'
+):
+    """
+    Determine if a trade should be allowed based on target risk % constraints.
+    
+    This function enforces strict target risk limits when allow_exceed_target_risk=False.
+    In that mode, no trade is taken if even 1 contract would exceed the target risk %.
+    This prevents forced trades that violate risk management rules.
+    
+    Parameters:
+    - risk_per_spread (float): Risk amount per spread/contract in dollars.
+    - account_balance (float): Current account balance in dollars.
+    - target_risk_pct (float, optional): Target risk as a percentage of account balance (0-100).
+        Only applies when position_sizing='percent'.
+    - allow_exceed_target_risk (bool): If True, allows taking 1 contract even if it exceeds
+        target risk %. If False (default), enforces strict target risk limits.
+    - position_sizing (str): 'percent' for risk-based sizing or 'contracts' for fixed sizing.
+        Target risk enforcement only applies to 'percent' mode.
+    
+    Returns:
+    - bool: True if trade should be allowed, False if it violates target risk constraints.
+    
+    Notes:
+    - Target risk enforcement only applies when position_sizing='percent' and target_risk_pct is set
+    - For 'contracts' mode, always returns True (no target risk to enforce)
+    - When allow_exceed_target_risk=True, always returns True (old behavior)
+    - When allow_exceed_target_risk=False (default), enforces strict target risk limits
+    """
+    # Target risk enforcement only applies to percent-based sizing
+    if position_sizing != 'percent' or target_risk_pct is None:
+        return True
+    
+    # If exceeding is allowed, always proceed (old behavior)
+    if allow_exceed_target_risk:
+        return True
+    
+    # Calculate risk % for 1 contract
+    if account_balance <= 0:
+        return False
+    
+    one_contract_risk_pct = (risk_per_spread / account_balance) * 100
+    
+    # Allow trade only if 1 contract doesn't exceed target risk %
+    return one_contract_risk_pct <= target_risk_pct
+
+
+def cap_contracts_to_target_risk(
+    contracts,
+    risk_per_spread,
+    account_balance,
+    target_risk_pct,
+    allow_exceed_target_risk=False,
+    position_sizing='percent'
+):
+    """
+    Cap number of contracts so total risk doesn't exceed target risk %.
+    
+    This function ensures that when strict target risk enforcement is enabled,
+    the total risk from all contracts never exceeds the target risk percentage.
+    This enforces a hard risk ceiling on position sizing.
+    
+    Parameters:
+    - contracts (int): Desired number of contracts.
+    - risk_per_spread (float): Risk amount per spread/contract in dollars.
+    - account_balance (float): Current account balance in dollars.
+    - target_risk_pct (float): Target risk as a percentage of account balance (0-100).
+    - allow_exceed_target_risk (bool): If False (default), enforces strict ceiling.
+        If True, returns contracts unchanged (old behavior).
+    - position_sizing (str): 'percent' for risk-based sizing or 'contracts' for fixed sizing.
+        Target risk enforcement only applies to 'percent' mode.
+    
+    Returns:
+    - int: Capped number of contracts (0 or more) that respects target risk ceiling.
+    
+    Notes:
+    - Returns 0 if no contracts can be taken without exceeding target risk %
+    - Target risk enforcement only applies when position_sizing='percent'
+    - When allow_exceed_target_risk=True, returns original contracts unchanged
+    """
+    # Target risk enforcement only applies to percent-based sizing
+    if position_sizing != 'percent' or target_risk_pct is None:
+        return contracts
+    
+    # If exceeding is allowed, return unchanged (old behavior)
+    if allow_exceed_target_risk:
+        return contracts
+    
+    # Calculate how many contracts we can take without exceeding target risk %
+    target_risk_dollars = account_balance * (target_risk_pct / 100)
+    max_contracts_for_target = int(target_risk_dollars / risk_per_spread)
+    
+    return min(contracts, max_contracts_for_target)
+
+
 def build_position_size_plan(
     trade,
     initial_balance,
     position_sizing,
-    risk_calculation_method='conservative_theoretical'
+    risk_calculation_method='conservative_theoretical',
+    allow_exceed_target_risk=False
 ):
     """
     Generate a plan of position sizes for Monte Carlo simulation testing.
@@ -280,6 +380,9 @@ def build_position_size_plan(
     If the user chooses max_theoretical, position sizing will also use max_theoretical
     to prevent trades that would exceed account balance on max loss.
     
+    When allow_exceed_target_risk=False (default), enforces strict target risk ceiling:
+    the starting_risk_pct will never exceed target_risk_pct.
+    
     Parameters:
     - trade (dict): Trade statistics dictionary containing risk metrics.
     - initial_balance (float): Starting account balance in dollars.
@@ -288,6 +391,9 @@ def build_position_size_plan(
         position sizing constraints and loss simulation. If 'max_theoretical' or
         'fixed_theoretical_max', uses max_theoretical_loss. Otherwise uses
         conservative_theoretical_max_loss (p95, default safe behavior).
+    - allow_exceed_target_risk (bool): If False (default), enforces strict target risk ceiling.
+        Starting risk % will never exceed target risk %. If True, allows the old behavior
+        where starting risk % can exceed target risk % due to rounding.
     
     Returns:
     - list[dict]: List of position size configurations, each containing:
@@ -336,6 +442,22 @@ def build_position_size_plan(
             # Can't afford to trade - skip this risk level
             continue
         capped_contracts = min(contracts, max_affordable_contracts)
+        
+        # CRITICAL: When strict target risk enforcement is enabled,
+        # cap contracts so starting risk never exceeds target risk %
+        capped_contracts = cap_contracts_to_target_risk(
+            contracts=capped_contracts,
+            risk_per_spread=position_sizing_risk,
+            account_balance=initial_balance,
+            target_risk_pct=target_risk_pct,
+            allow_exceed_target_risk=allow_exceed_target_risk,
+            position_sizing=position_sizing
+        )
+        
+        if capped_contracts == 0:
+            # Cannot take any contracts without exceeding target risk - skip this risk level
+            continue
+        
         starting_risk_pct = (simulation_risk * capped_contracts / initial_balance) * 100
         max_risk_pct = (position_sizing_risk * capped_contracts / initial_balance) * 100
         sizing_plan.append(
@@ -499,7 +621,9 @@ def simulate_trades(
     simulation_mode='iid',
     block_size=5,
     risk_calculation_method='conservative_theoretical',
-    reward_calculation_method='no_cap'
+    reward_calculation_method='no_cap',
+    allow_exceed_target_risk=False,
+    position_sizing='percent'
 ):
     """
     Run a single Monte Carlo simulation path for a given position size.
@@ -528,6 +652,9 @@ def simulate_trades(
         - 'no_cap': No capping (default)
         - 'cap_XXpct_METRIC': Cap at XX% of METRIC (e.g., 'cap_50pct_conservative_theoretical_max')
         Note: Reward capping only applies to IID mode, not bootstrap mode (historical P/L used as-is).
+    - allow_exceed_target_risk (bool): If False (default), stops trading if 1 contract would exceed
+        target risk %. If True, allows taking 1 contract even if it exceeds target (old behavior).
+    - position_sizing (str): 'percent' for risk-based sizing or 'contracts' for fixed sizing.
     
     Returns:
     - list[dict]: Simulation results for each path, each containing:
@@ -540,6 +667,7 @@ def simulate_trades(
     - In IID mode, generates variable risk/reward amounts using statistical distributions
     - Dynamic sizing recalculates contract count each trade based on current balance
     - Simulation stops if balance reaches zero (bankruptcy)
+    - When allow_exceed_target_risk=False, simulation stops if next trade would exceed target risk %
     """
     avg_risk_per_spread = abs(trade['avg_loss'])
     # Position sizing uses risk_calculation_method to ensure consistency
@@ -590,13 +718,41 @@ def simulate_trades(
                 balance = 0
                 break
             
+            # Check if trade would violate target risk % constraint
+            if not should_allow_trade_with_target_risk(
+                risk_per_spread=position_sizing_risk,
+                account_balance=balance,
+                target_risk_pct=target_risk_pct,
+                allow_exceed_target_risk=allow_exceed_target_risk,
+                position_sizing=position_sizing
+            ):
+                # Stop trading - would exceed target risk %
+                break
+            
             max_affordable_contracts = int(balance / position_sizing_risk)
             if max_affordable_contracts == 0:
                 # Not enough balance to afford even 1 contract
                 # (balance < position_sizing_risk)
+                # This should be caught by should_allow_trade_with_target_risk above,
+                # but keep as safety check
                 balance = 0
                 break
             contracts = min(contracts, max_affordable_contracts)
+            
+            # CRITICAL: When strict target risk enforcement is enabled,
+            # cap contracts so total risk never exceeds target risk %
+            contracts = cap_contracts_to_target_risk(
+                contracts=contracts,
+                risk_per_spread=position_sizing_risk,
+                account_balance=balance,
+                target_risk_pct=target_risk_pct,
+                allow_exceed_target_risk=allow_exceed_target_risk,
+                position_sizing=position_sizing
+            )
+            
+            if contracts == 0:
+                # Cannot take any contracts without exceeding target risk - stop trading
+                break
 
             max_risk = max_risk_per_spread * contracts
             avg_risk = min(avg_risk_per_spread * contracts, max_risk)
@@ -660,7 +816,8 @@ def run_monte_carlo_simulation(
     commission_per_contract=OPTION_COMMISSION_PER_CONTRACT,
     num_trades=60,
     risk_calculation_method='conservative_theoretical',
-    reward_calculation_method='no_cap'
+    reward_calculation_method='no_cap',
+    allow_exceed_target_risk=False
 ):
     """
     Execute a complete Monte Carlo simulation for trade position sizing analysis.
@@ -681,6 +838,8 @@ def run_monte_carlo_simulation(
     - num_trades (int): Number of trades per simulation. Must be at least the number of historical trades.
     - risk_calculation_method (str): Method for calculating risk amount per trade.
     - reward_calculation_method (str): Method for calculating reward caps. 'no_cap' for no capping (default).
+    - allow_exceed_target_risk (bool): If False (default), stops trading if 1 contract would exceed
+        target risk %. If True, allows taking 1 contract even if it exceeds target (old behavior).
     
     Returns:
     - list[dict]: List containing one trade report dictionary with:
@@ -708,7 +867,8 @@ def run_monte_carlo_simulation(
         trade=trade,
         initial_balance=initial_balance,
         position_sizing=position_sizing,
-        risk_calculation_method=risk_calculation_method
+        risk_calculation_method=risk_calculation_method,
+        allow_exceed_target_risk=allow_exceed_target_risk
     )
     
     # Validate that we can afford to trade
@@ -735,7 +895,9 @@ def run_monte_carlo_simulation(
                 simulation_mode=simulation_mode,
                 block_size=block_size,
                 risk_calculation_method=risk_calculation_method,
-                reward_calculation_method=reward_calculation_method
+                reward_calculation_method=reward_calculation_method,
+                allow_exceed_target_risk=allow_exceed_target_risk,
+                position_sizing=position_sizing
             )
         else:
             sim_results = simulate_trades(
@@ -749,7 +911,9 @@ def run_monte_carlo_simulation(
                 simulation_mode=simulation_mode,
                 block_size=block_size,
                 risk_calculation_method=risk_calculation_method,
-                reward_calculation_method=reward_calculation_method
+                reward_calculation_method=reward_calculation_method,
+                allow_exceed_target_risk=allow_exceed_target_risk,
+                position_sizing=position_sizing
             )
         final_balances = [r['final_balance'] for r in sim_results]
         drawdowns = [r['max_drawdown'] for r in sim_results]

@@ -1279,3 +1279,182 @@ class TestSimulateTrades:
                 expected_final_balance = initial_balance
                 assert results[0]['final_balance'] == expected_final_balance
 
+
+class TestTargetRiskEnforcement:
+    """Tests for enforcing strict target risk % limits."""
+    
+    def test_simulator_skips_trades_exceeding_target_risk_by_default(self):
+        """When allow_exceed_target_risk=False (default), no trades should be taken if 1 contract exceeds target risk %."""
+        trade_stats = {
+            'num_trades': 10,
+            'win_rate': 0.6,
+            'avg_win': 100,
+            'avg_loss': -50,
+            'max_win': 200,
+            'max_loss': -100,
+            'max_theoretical_loss': 200,
+            'conservative_theoretical_max_loss': 200,  # Risk per contract
+            'pnl_distribution': [50, -50, 50, -50, 50, -50, 50, -50, 50, -50]
+        }
+        
+        # Initial balance $1000, target risk 2%
+        # 2% of $1000 = $20
+        # But 1 contract requires $200 risk, which is 20% (exceeds 2%)
+        # With allow_exceed_target_risk=False, no trades should be taken
+        reports = simulator.run_monte_carlo_simulation(
+            trade_stats=trade_stats,
+            initial_balance=1000,
+            num_simulations=10,
+            position_sizing='percent',
+            dynamic_risk_sizing=True,
+            simulation_mode='iid',
+            block_size=5,
+            allow_exceed_target_risk=False  # Default: strict enforcement
+        )
+        
+        # Should have results but with very specific behavior
+        # The simulation should show 0 contracts for the 2% risk level
+        # Or alternatively, final balance should equal initial balance (no trades taken)
+        report = reports[0]
+        # Find the 2% risk row
+        two_pct_rows = [row for row in report['table_rows'] if '2.00%' in row['Target Risk %']]
+        if two_pct_rows:
+            row = two_pct_rows[0]
+            # Should have 0 contracts or no trades executed (final balance = initial)
+            # Check if final balance is close to initial (allowing for rounding)
+            final_balance_str = row['Avg Final $'].replace('$', '').replace(',', '')
+            final_balance = float(final_balance_str)
+            assert abs(final_balance - 1000) < 10, f"Expected no trades (balance ~$1000), got ${final_balance}"
+    
+    def test_simulator_allows_trades_exceeding_target_risk_when_enabled(self):
+        """When allow_exceed_target_risk=True, trades CAN be taken even if they exceed target risk %."""
+        trade_stats = {
+            'num_trades': 10,
+            'win_rate': 0.6,
+            'avg_win': 100,
+            'avg_loss': -50,
+            'max_win': 200,
+            'max_loss': -100,
+            'max_theoretical_loss': 200,
+            'conservative_theoretical_max_loss': 200,
+            'pnl_distribution': [50, -50, 50, -50, 50, -50, 50, -50, 50, -50]
+        }
+        
+        # Same scenario but with allow_exceed_target_risk=True
+        reports = simulator.run_monte_carlo_simulation(
+            trade_stats=trade_stats,
+            initial_balance=1000,
+            num_simulations=10,
+            position_sizing='percent',
+            dynamic_risk_sizing=True,
+            simulation_mode='iid',
+            block_size=5,
+            allow_exceed_target_risk=True  # Allow exceeding
+        )
+        
+        report = reports[0]
+        # Find the 2% risk row
+        two_pct_rows = [row for row in report['table_rows'] if '2.00%' in row['Target Risk %']]
+        if two_pct_rows:
+            row = two_pct_rows[0]
+            # Should take 1 contract (even though it exceeds 2% target)
+            assert row['Contracts'] >= 1, "Should allow at least 1 contract when allow_exceed_target_risk=True"
+            # Final balance should be different from initial (trades were executed)
+            final_balance_str = row['Avg Final $'].replace('$', '').replace(',', '')
+            final_balance = float(final_balance_str)
+            # With positive win rate, balance should likely be higher, but at minimum should be different
+            assert abs(final_balance - 1000) > 50, f"Expected trades to execute, but balance is ~$1000 (got ${final_balance})"
+    
+    def test_simulator_stops_trading_when_balance_drops_and_exceeds_target_risk(self):
+        """When balance drops during simulation, should stop if next trade would exceed target risk %."""
+        trade_stats = {
+            'num_trades': 20,
+            'win_rate': 0.3,  # More losses
+            'avg_win': 50,
+            'avg_loss': -100,
+            'max_win': 100,
+            'max_loss': -150,
+            'max_theoretical_loss': 150,
+            'conservative_theoretical_max_loss': 150,
+            'pnl_distribution': [-100] * 20  # All losses
+        }
+        
+        # Start with $10,000, target risk 5%
+        # 5% of $10,000 = $500
+        # $500 / $150 = 3.33 contracts, so start with 3 contracts
+        # After losses, balance drops. If balance drops to $400, next trade needs 1 contract = $150
+        # $150 / $400 = 37.5% which exceeds 5% target
+        # With allow_exceed_target_risk=False, should stop trading
+        reports = simulator.run_monte_carlo_simulation(
+            trade_stats=trade_stats,
+            initial_balance=10000,
+            num_simulations=5,
+            position_sizing='percent',
+            dynamic_risk_sizing=True,
+            simulation_mode='iid',
+            block_size=5,
+            allow_exceed_target_risk=False
+        )
+        
+        report = reports[0]
+        # Find the 5% risk row
+        five_pct_rows = [row for row in report['table_rows'] if '5.00%' in row['Target Risk %']]
+        if five_pct_rows:
+            row = five_pct_rows[0]
+            # Should not go to 0 (bankruptcy) because we stop before taking unaffordable trades
+            # Final balance should be > 0
+            final_balance_str = row['Avg Final $'].replace('$', '').replace(',', '')
+            final_balance = float(final_balance_str)
+            # Check bankruptcy probability
+            bankruptcy_prob_str = row['Bankruptcy Prob'].replace('%', '')
+            bankruptcy_prob = float(bankruptcy_prob_str) / 100
+            # With strict enforcement, bankruptcy should be 0% or very low
+            assert bankruptcy_prob < 0.5, f"Expected low bankruptcy with strict enforcement, got {bankruptcy_prob:.0%}"
+    
+    def test_simulator_enforces_total_risk_ceiling_not_just_one_contract(self):
+        """When allow_exceed_target_risk=False, TOTAL risk from all contracts must not exceed target, not just 1 contract."""
+        trade_stats = {
+            'num_trades': 20,
+            'win_rate': 0.6,
+            'avg_win': 100,
+            'avg_loss': -50,
+            'max_win': 200,
+            'max_loss': -100,
+            'max_theoretical_loss': 100,
+            'conservative_theoretical_max_loss': 100,  # Risk per contract
+            'pnl_distribution': [50, -50] * 10  # Alternate wins/losses
+        }
+        
+        # Initial balance $10,000, target risk 15%
+        # 15% of $10,000 = $1,500
+        # Risk per contract = $100
+        # Could fit 15 contracts ($1,500 / $100 = 15.0), exactly at ceiling
+        # With allow_exceed_target_risk=False, should take at most 15 contracts
+        # Total risk = 15 * $100 = $1,500 = 15.00% (exactly at ceiling)
+        reports = simulator.run_monte_carlo_simulation(
+            trade_stats=trade_stats,
+            initial_balance=10000,
+            num_simulations=10,
+            position_sizing='percent',
+            dynamic_risk_sizing=True,
+            simulation_mode='iid',
+            block_size=5,
+            allow_exceed_target_risk=False  # Strict enforcement
+        )
+        
+        report = reports[0]
+        # Find the 15% risk row
+        fifteen_pct_rows = [row for row in report['table_rows'] if '15.00%' in row['Target Risk %']]
+        if fifteen_pct_rows:
+            row = fifteen_pct_rows[0]
+            # Should have exactly 15 contracts (floor(15% * 10000 / 100) = 15)
+            # NOT 16 or more contracts that would exceed 15%
+            assert row['Contracts'] == 15, \
+                f"Expected exactly 15 contracts (15% ceiling), got {row['Contracts']}"
+            
+            # Starting Risk % should be exactly 15% or less
+            starting_risk_str = row['Starting Risk %'].replace('%', '')
+            starting_risk = float(starting_risk_str)
+            assert starting_risk <= 15.0, \
+                f"Expected starting risk <= 15%, got {starting_risk}%"
+

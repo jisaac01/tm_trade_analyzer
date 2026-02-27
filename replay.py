@@ -10,7 +10,9 @@ in their original order without sampling or randomization.
 from simulator import (
     get_position_sizing_risk_per_spread,
     get_max_risk_per_spread,
-    choose_contract_count_for_risk_pct
+    choose_contract_count_for_risk_pct,
+    should_allow_trade_with_target_risk,
+    cap_contracts_to_target_risk
 )
 
 
@@ -21,7 +23,8 @@ def replay_actual_trades(
     position_size=None,
     target_risk_pct=None,
     dynamic_risk_sizing=True,
-    risk_calculation_method='conservative_theoretical'
+    risk_calculation_method='conservative_theoretical',
+    allow_exceed_target_risk=False
 ):
     """
     Replay historical trades with specified position sizing rules.
@@ -44,6 +47,8 @@ def replay_actual_trades(
         (only applies when position_sizing='percent').
     - risk_calculation_method (str): Method for calculating risk amount per trade AND
         position sizing constraints (same as Monte Carlo simulator).
+    - allow_exceed_target_risk (bool): If False (default), stops trading if 1 contract would exceed
+        target risk %. If True, allows taking 1 contract even if it exceeds target (old behavior).
     
     Returns:
     - dict: Replay results containing:
@@ -69,6 +74,7 @@ def replay_actual_trades(
     - For 'percent' sizing, target_risk_pct must be provided
     - Replay stops if balance reaches zero (bankruptcy)
     - Uses the same position sizing logic as Monte Carlo simulator for consistency
+    - When allow_exceed_target_risk=False, replay stops if next trade would exceed target risk %
     """
     pnl_distribution = trade_stats.get('pnl_distribution', [])
     if not pnl_distribution:
@@ -141,10 +147,23 @@ def replay_actual_trades(
         if balance <= 0:
             break
         
+        # Check if trade would violate target risk % constraint
+        if not should_allow_trade_with_target_risk(
+            risk_per_spread=trade_theoretical_risk,
+            account_balance=balance,
+            target_risk_pct=target_risk_pct,
+            allow_exceed_target_risk=allow_exceed_target_risk,
+            position_sizing=position_sizing
+        ):
+            # Stop trading - would exceed target risk %
+            break
+        
         # Calculate max affordable contracts (theoretical risk is guaranteed positive from validation)
         max_affordable_contracts = int(balance / trade_theoretical_risk)
         if max_affordable_contracts == 0:
             # Not enough balance to afford even 1 contract - stop trading
+            # This should be caught by should_allow_trade_with_target_risk above,
+            # but keep as safety check
             # Don't modify balance, just stop
             break
         
@@ -170,6 +189,21 @@ def replay_actual_trades(
         
         # CRITICAL: Cap contracts based on this trade's actual theoretical max loss
         contracts = min(contracts, max_affordable_contracts)
+        
+        # CRITICAL: When strict target risk enforcement is enabled,
+        # cap contracts so total risk never exceeds target risk %
+        contracts = cap_contracts_to_target_risk(
+            contracts=contracts,
+            risk_per_spread=trade_theoretical_risk,
+            account_balance=balance,
+            target_risk_pct=target_risk_pct,
+            allow_exceed_target_risk=allow_exceed_target_risk,
+            position_sizing=position_sizing
+        )
+        
+        if contracts == 0:
+            # Cannot take any contracts without exceeding target risk - stop trading
+            break
         
         # Save balance before trade
         balance_before = balance

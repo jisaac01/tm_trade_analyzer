@@ -69,7 +69,8 @@ def index():
             'block_size': block_size,
             'risk_calculation_method': risk_calculation_method,
             'reward_calculation_method': reward_calculation_method,
-            'position_sizing_display': position_sizing_raw  # For display
+            'position_sizing_display': position_sizing_raw,  # For display
+            'allow_exceed_target_risk': 'allow_exceed_target_risk' in request.form  # Checkbox
         }
 
         return redirect(url_for('results'))
@@ -114,7 +115,8 @@ def results():
             'block_size': int(request.form.get('block_size', params.get('block_size', 1))),
             'position_sizing_display': position_sizing_raw,
             'risk_calculation_method': request.form.get('risk_calculation_method', params.get('risk_calculation_method', 'conservative_theoretical')),
-            'reward_calculation_method': request.form.get('reward_calculation_method', params.get('reward_calculation_method', 'no_cap'))
+            'reward_calculation_method': request.form.get('reward_calculation_method', params.get('reward_calculation_method', 'no_cap')),
+            'allow_exceed_target_risk': 'allow_exceed_target_risk' in request.form  # Checkbox
         })
         session['params'] = params
         return redirect(url_for('results'))
@@ -131,7 +133,8 @@ def results():
         'block_size': 5,
         'position_sizing_display': 'dynamic-percent',
         'risk_calculation_method': 'conservative_theoretical',
-        'reward_calculation_method': 'no_cap'
+        'reward_calculation_method': 'no_cap',
+        'allow_exceed_target_risk': False  # Default: strict enforcement
     }
     params = session.get('params', default_params)
     params = {**default_params, **params}  # Ensure all defaults are present
@@ -164,7 +167,8 @@ def results():
             commission_per_contract=params['option_commission'],
             num_trades=params['num_trades'],
             risk_calculation_method=params['risk_calculation_method'],
-            reward_calculation_method=params['reward_calculation_method']
+            reward_calculation_method=params['reward_calculation_method'],
+            allow_exceed_target_risk=params['allow_exceed_target_risk']
         )
         
         # Run historical replay with same position sizing settings
@@ -172,7 +176,8 @@ def results():
             trade=trade_stats,
             initial_balance=params['initial_balance'],
             position_sizing=params['position_sizing'],
-            risk_calculation_method=params['risk_calculation_method']
+            risk_calculation_method=params['risk_calculation_method'],
+            allow_exceed_target_risk=params['allow_exceed_target_risk']
         )
         
         replay_data = []
@@ -186,7 +191,8 @@ def results():
                     position_sizing='percent',
                     target_risk_pct=row['target_risk_pct'],
                     dynamic_risk_sizing=params['dynamic_risk_sizing'],
-                    risk_calculation_method=params['risk_calculation_method']
+                    risk_calculation_method=params['risk_calculation_method'],
+                    allow_exceed_target_risk=params['allow_exceed_target_risk']
                 )
             else:
                 replay_result = replay.replay_actual_trades(
@@ -195,14 +201,15 @@ def results():
                     position_sizing='contracts',
                     position_size=ps,
                     dynamic_risk_sizing=False,
-                    risk_calculation_method=params['risk_calculation_method']
+                    risk_calculation_method=params['risk_calculation_method'],
+                    allow_exceed_target_risk=params['allow_exceed_target_risk']
                 )
             
             replay_data.append({
                 'Contracts': ps,
                 'Target Risk %': f"{row['target_risk_pct']:.2f}%",
                 'Starting Risk %': f"{row['starting_risk_pct']:.2f}%",
-                'Max Risk %': f"{row['max_risk_pct']:.2f}%",
+                'Max Risk %': f"{row['max_risk_pct']:.2f}%" if len(replay_result['trade_details']) == 0 else f"{max(td['risk_pct'] for td in replay_result['trade_details']):.2f}%",
                 'Final Balance': f"${replay_result['final_balance']:,.0f}",
                 'Max Drawdown': f"${replay_result['max_drawdown']:,.0f}",
                 'Max Losing Streak': f"{replay_result['max_losing_streak']:.0f}",
@@ -243,15 +250,26 @@ def results():
         report['gross_loss_formatted'] = format_currency_whole(summary['gross_loss'])
         table_df = pd.DataFrame(report['table_rows'])
         position_sizing = params['position_sizing']
+        allow_exceed = params.get('allow_exceed_target_risk', False)
+        
+        # Rename Target Risk % to Risk Ceiling % when strict enforcement is enabled
+        if position_sizing == 'percent' and not allow_exceed:
+            table_df = table_df.rename(columns={'Target Risk %': 'Risk Ceiling %'})
+        
         if position_sizing == 'contracts':
             # For contracts mode, rename Actual Risk % to Initial Risk % and drop Target Risk %
             table_df = table_df.rename(columns={'Actual Risk %': 'Initial Risk %'})
-            table_df = table_df.drop(columns=['Target Risk %'], errors='ignore')
+            table_df = table_df.drop(columns=['Target Risk %', 'Risk Ceiling %'], errors='ignore')
         report['table_html'] = table_df.to_html(index=False, classes='sim-table', border=0, escape=False)
         # Add tooltips to table headers, conditional on position_sizing
         if position_sizing == 'percent':
             contracts_title = "Initial number of contracts per trade for this risk percentage scenario. This starting count may be adjusted dynamically per trade based on current account balance and Dynamic Risk Sizing setting."
-            target_risk_title = "The intended percentage of account balance to risk per trade. Used when Dynamic Risk Sizing is enabled to adjust contract count accordingly."
+            if allow_exceed:
+                target_risk_title = "The intended percentage of account balance to risk per trade. Used when Dynamic Risk Sizing is enabled to adjust contract count accordingly. Total risk may exceed this target."
+                risk_col_name = 'Target Risk %'
+            else:
+                target_risk_title = "The maximum percentage of account balance that can be risked per trade (hard ceiling). No trades will be taken if they would exceed this limit. Used with Dynamic Risk Sizing to adjust contract count."
+                risk_col_name = 'Risk Ceiling %'
             actual_risk_title = "The actual average risk percentage per trade across all simulations, accounting for dynamic adjustments and commissions. May differ from target due to rounding and fees."
         else:
             contracts_title = "Fixed number of contracts per trade. Higher values increase both potential gains and losses proportionally."
@@ -267,7 +285,7 @@ def results():
         ]
         if position_sizing == 'percent':
             replacements.extend([
-                ('<th>Target Risk %</th>', f'<th title="{target_risk_title}">Target Risk %</th>'),
+                (f'<th>{risk_col_name}</th>', f'<th title="{target_risk_title}">{risk_col_name}</th>'),
                 ('<th>Actual Risk %</th>', f'<th title="{actual_risk_title}">Actual Risk %</th>')
             ])
         else:
@@ -277,10 +295,15 @@ def results():
 
     # Prepare replay data table
     replay_df = pd.DataFrame(replay_data)
+    
+    # Rename Target Risk % to Risk Ceiling % when strict enforcement is enabled
+    if params['position_sizing'] == 'percent' and not allow_exceed:
+        replay_df = replay_df.rename(columns={'Target Risk %': 'Risk Ceiling %'})
+    
     if params['position_sizing'] == 'contracts':
         # For contracts mode, rename and drop columns similar to Monte Carlo table
         replay_df = replay_df.rename(columns={'Starting Risk %': 'Initial Risk %'})
-        replay_df = replay_df.drop(columns=['Target Risk %'], errors='ignore')
+        replay_df = replay_df.drop(columns=['Target Risk %', 'Risk Ceiling %'], errors='ignore')
     replay_table_html = replay_df.to_html(index=False, classes='sim-table', border=0, escape=False)
     
     # Add tooltips to replay table headers
@@ -292,13 +315,21 @@ def results():
         ('<th>Num Trades</th>', '<th title="Number of trades completed before stopping (may be less than total if bankruptcy occurred).">Num Trades</th>')
     ]
     if params['position_sizing'] == 'percent':
+        if allow_exceed:
+            risk_title = "Target risk percentage used for historical replay. Total risk may exceed this target."
+            risk_col = 'Target Risk %'
+            starting_risk_title = "Risk percentage of the first trade (as % of initial balance). May exceed target due to rounding or if target risk enforcement is disabled."
+        else:
+            risk_title = "Maximum risk percentage allowed per trade (hard ceiling). No trades executed if they would exceed this limit."
+            risk_col = 'Risk Ceiling %'
+            starting_risk_title = "Risk percentage of the first trade (as % of initial balance). Never exceeds the risk ceiling when strict enforcement is enabled."
         replay_replacements.extend([
-            ('<th>Target Risk %</th>', '<th title="Target risk percentage used for historical replay.">Target Risk %</th>'),
-            ('<th>Starting Risk %</th>', '<th title="Starting risk percentage used for historical replay.">Starting Risk %</th>')
+            (f'<th>{risk_col}</th>', f'<th title="{risk_title}">{risk_col}</th>'),
+            ('<th>Starting Risk %</th>', f'<th title="{starting_risk_title}">Starting Risk %</th>')
         ])
     else:
         replay_replacements.append(('<th>Initial Risk %</th>', '<th title="Initial risk percentage for this contract count.">Initial Risk %</th>'))
-    replay_replacements.append(('<th>Max Risk %</th>', '<th title="Maximum risk percentage based on position sizing constraints.">Max Risk %</th>'))
+    replay_replacements.append(('<th>Max Risk %</th>', '<th title="Maximum risk percentage actually taken during any trade in the historical replay (measured as risk/balance at time of trade). Shows 0% if no trades were executed.">Max Risk %</th>'))
     for old, new in replay_replacements:
         replay_table_html = replay_table_html.replace(old, new)
 

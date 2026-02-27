@@ -93,6 +93,14 @@
                     </select>
                 </div>
             </div>
+            <div class="form-row">
+                <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
+                    <input type="checkbox" id="allow_exceed_target_risk" name="allow_exceed_target_risk" {% if allow_exceed_target_risk %}checked{% endif %} style="width: auto; margin: 0;">
+                    <label for="allow_exceed_target_risk" style="margin: 0; cursor: pointer;" title="When unchecked (default): The Target Risk % becomes a hard Risk Ceiling - no trades will be taken if they would cause total risk to exceed this percentage. This enforces strict risk management. When checked: Allows taking contracts even if total risk exceeds the Target Risk %, matching the previous behavior. Only applies to percentage-based position sizing.">
+                        Allow trades that exceed Target Risk %
+                    </label>
+                </div>
+            </div>
         </details>
 
         <button type="submit">{{ submit_button_text|default('Run Simulation') }}</button>
