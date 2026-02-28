@@ -434,6 +434,111 @@ Fixed P/L/date misalignment caused by alphabetical sorting in trade_parser.py. A
 - [ ] Documentation explains how to handle missing/suspicious data
 - [ ] Test coverage includes real-data validation (not just synthetic test data)
 - [ ] No regressions in existing functionality
+## Phase 13: Investigate Bootstrap vs Replay Discrepancy
+**Goal:** Understand and quantify why bootstrap simulation results (averaged over 1000 runs) are order-of-magnitude larger than historical replay results, despite both using the same per-trade risks and P/L values.
+
+**Context:** After fixing the bootstrap position sizing bug (using per-trade risks instead of aggregate p95), we now observe:
+- Historical replay at 75% risk: $4.8M final balance (bankrupts at 100%)
+- Bootstrap simulation at 75% risk: $36B average final balance (0% bankruptcy at 100%)
+
+With 1000 simulations, we expect to see the average/typical case, not just lucky outliers. This massive difference suggests either:
+1. The historical trade sequence is statistically unusual (unlucky ordering)
+2. There's still a subtle bug in how bootstrap applies position sizing
+3. The moving-blocks sampling is creating unrealistically favorable sequences
+4. Dynamic risk sizing compounds differently than expected with reordering
+
+### Investigation Steps
+
+- [ ] **Step 13.1:** Analyze historical trade sequence characteristics
+  - Calculate sequential metrics: cumulative P/L at each step, drawdown periods, win/loss clustering
+  - Measure "sequence quality score": ratio of early wins to early losses (compound effect)
+  - Identify if historical sequence had unlucky early losses that limited compounding
+  - Compare: What % of 1000 bootstrap runs have worse sequence scores than historical?
+
+- [ ] **Step 13.2:** Quantify the impact of trade reordering
+  - Create "best case" replay: Sort historical trades by risk (low first) and P/L (wins first)
+  - Create "worst case" replay: Sort by risk (high first) and P/L (losses first)
+  - Create "random case" replay: Shuffle trades randomly (no moving blocks), run 100 times
+  - Compare final balances: worst < historical < random < bootstrap < best
+  - This bounds the "reordering effect" magnitude
+
+- [ ] **Step 13.3:** Validate position sizing parity between replay and bootstrap
+  - For the exact historical sequence, verify contract counts match:
+    - Run replay with historical sequence
+    - Run bootstrap with block_size = len(trades) (forces exact historical sequence)
+    - Compare: Do they produce identical contract counts and final balance?
+  - If not identical, there's still a position sizing bug
+  - If identical, the difference is purely from reordering
+
+- [ ] **Step 13.4:** Analyze moving-blocks bootstrap sampling bias
+  - Measure: Are low-risk winners more likely to be sampled than high-risk losers?
+  - With block_size=5, certain subsequences may be oversampled
+  - Compare sampling frequency: Does bootstrap favor certain trades?
+  - Test with block_size=1 (pure random sampling): Does discrepancy reduce?
+
+- [ ] **Step 13.5:** Examine compounding effect magnitude
+  - Track: At what trade number do bootstrap and replay diverge significantly?
+  - Calculate: If balance is 10x higher at trade 20, how much larger is it at trade 40?
+  - Identify: Is the discrepancy stable or exponentially growing?
+  - This reveals if it's early-phase advantage or continuous compounding
+
+- [ ] **Step 13.6:** Create statistical comparison metrics
+  - For bootstrap distribution across 1000 runs, calculate:
+    - Percentiles: p5, p25, p50, p75, p95 of final balance
+    - Bankruptcy rate by percentile
+    - Mean vs median (detect outlier skew)
+  - Rank historical replay result against 1000 bootstrap runs
+  - Answer: "Historical is worse than X% of bootstrap runs"
+  - Determine if historical is in bottom 1% (unlucky) or closer to median
+
+- [ ] **Step 13.7:** Test alternative sampling methods
+  - Compare moving-blocks (current) vs IID sampling (ignores streaks)
+  - Compare block_size=5 vs block_size=1 vs block_size=10
+  - Measure: Does block size significantly affect final balance distribution?
+  - This isolates impact of streak preservation vs pure reordering
+
+- [ ] **Step 13.8:** Validate position sizing calculation directly
+  - Write test that logs every contract count decision for both replay and bootstrap
+  - For first 10 trades of historical sequence:
+    - Replay: Log balance, risk, contracts, P/L
+    - Bootstrap (forced historical): Log same
+  - Verify: Are contract counts and balance updates identical?
+  - If differences emerge, trace exact divergence point
+
+- [ ] **Step 13.9:** Document findings and recommendations
+  - Write summary report explaining the discrepancy
+  - If historical sequence is simply unlucky: Document percentile rank
+  - If bootstrap has favorable bias: Recommend mitigation (e.g., use median not mean)
+  - If bug found: Fix and retest
+  - Update UI to show: "Historical replay is X% percentile of bootstrap distribution"
+
+- [ ] **Step 13.10:** Implement "sequence quality" metric in UI (optional)
+  - Add calculation: Measure how favorable/unfavorable a trade sequence is
+  - Display in results: "Your historical sequence is in the bottom 15% of simulated outcomes"
+  - Help users understand: "Simulation shows you were unlucky" vs "Simulation is overoptimistic"
+  - Add context: "If you had experienced an average sequence ordering, expected result: $X"
+
+### Key Questions to Answer
+1. **Is the historical sequence statistically unusual?** (Percentile rank among bootstrap runs)
+2. **Do replay and bootstrap use identical position sizing for same sequence?** (Validation test)
+3. **How much of the gap is due to reordering vs compounding?** (Best/worst case bounds)
+4. **Is moving-blocks sampling introducing bias?** (Compare to IID sampling)
+5. **Should we show median instead of mean in UI?** (If distribution is highly skewed)
+6. **Should we confidence-bound the results?** ("With 90% confidence, expect $X to $Y")
+
+### Expected Outcomes
+- [ ] Quantified explanation: "Historical is in bottom 5% of bootstrap outcomes due to unlucky early losses"
+- [ ] Or: "Bug found in X, fixed, results now align within 2x"
+- [ ] Or: "Bootstrap overestimates due to Y, recommend using median instead of mean"
+- [ ] Improved UI showing context: "Historical vs Expected Range"
+- [ ] User confidence in simulation realism
+
+### Success Criteria
+- [ ] Can definitively explain the order-of-magnitude difference
+- [ ] Users understand whether historical performance was lucky/unlucky/typical
+- [ ] Simulation results are properly calibrated and contextualized
+- [ ] Any remaining bugs are identified and fixed
+- [ ] UI communicates uncertainty and ranges, not just point estimates
 
 ## Additional Completed Tasks
 - [X] **Testing:** Added comprehensive test suite including unit tests for web app functionality and end-to-end integration test with real data.
