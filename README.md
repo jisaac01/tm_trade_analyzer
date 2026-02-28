@@ -164,6 +164,20 @@ The application will start and be available at `http://127.0.0.1:5001/`
 - **IID**: Assumes each trade is independent with no streak patterns
 - **Bootstrap**: Uses historical trade sequences to maintain realistic patterns
 
+## Interactive Visualizations
+
+The results page includes three interactive charts showing how account balance evolves:
+
+1. **Comparison Chart**: Median trajectories for all risk thresholds. Click a line to see its full distribution.
+
+2. **Detail Chart**: Percentile bands (p5-p95, p25-p75, p50) for the selected threshold showing range of outcomes. Light bands show extremes, dark bands show typical range.
+
+3. **Replay Chart**: Actual historical performance. Compare this to Monte Carlo percentiles to see if your sequence was typical, lucky, or unlucky.
+
+**Key Insight**: If the table's "Avg Final $" differs significantly from the chart's median (p50), your distribution is skewed by outliers. The **median is more representative** than the mean in highly variable outcomes. Many simulations may bankrupt while a few lucky runs achieve massive growth, pulling the average up.
+
+**Interactions**: Click chart lines or table rows to select thresholds. Hover for exact values. Use "Hide Charts" to focus on tables.
+
 ## Development
 
 ### Running Tests

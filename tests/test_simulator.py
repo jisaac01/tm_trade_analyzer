@@ -45,6 +45,15 @@ class TestSimulator:
         row = report['table_rows'][0]
         assert 'Contracts' in row
         assert 'Avg Final $' in row
+        assert 'Median Final $' in row
+        
+        # Verify median is formatted correctly and is a reasonable value
+        median_str = row['Median Final $']
+        assert median_str.startswith('$')
+        assert ',' in median_str  # Should have thousands separator
+        # Extract numeric value
+        median_value = float(median_str.replace('$', '').replace(',', ''))
+        assert median_value > 0  # Median should be positive for typical runs
 
 
 class TestTrajectoryAggregation:

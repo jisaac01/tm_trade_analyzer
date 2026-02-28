@@ -1138,6 +1138,7 @@ def run_monte_carlo_simulation(
         max_risk_pcts = [r['max_risk_pct'] for r in sim_results]
 
         avg_final_balance = np.mean(final_balances)
+        median_final_balance = np.median(final_balances)
         bankrupt_prob = sum(1 for b in final_balances if b == 0) / num_simulations
         avg_max_drawdown = np.mean(drawdowns)
         avg_max_losing_streak = np.mean(losing_streaks)
@@ -1152,6 +1153,7 @@ def run_monte_carlo_simulation(
             'Starting Risk %': f"{row['starting_risk_pct']:.2f}%",
             'Max Risk %': f"{max_risk_pct_across_sims:.2f}%",
             'Avg Final $': f"${avg_final_balance:,.0f}",
+            'Median Final $': f"${median_final_balance:,.0f}",
             'Bankruptcy Prob': f"{bankrupt_prob:.0%}",
             'Avg Max Drawdown': f"${avg_max_drawdown:,.0f}",
             'Max Drawdown': f"${max_drawdown:,.0f}",

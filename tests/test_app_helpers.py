@@ -198,6 +198,41 @@ class TestFormatMonteCarloTable:
         assert 'Probability of account balance reaching zero' in html
         assert 'maximum drawdown' in html
         assert 'losing streak' in html
+    
+    def test_median_column_present(self):
+        """Test that Median Final $ column appears in the table."""
+        from app import format_monte_carlo_table
+        
+        report = {
+            'table_rows': [
+                {
+                    'Contracts': 1, 
+                    'Target Risk %': '10.00%', 
+                    'Starting Risk %': '9.95%', 
+                    'Max Risk %': '10.00%',
+                    'Avg Final $': '$25,000',
+                    'Median Final $': '$18,500',  # Median lower than avg = skewed distribution
+                    'Bankruptcy Prob': '5.0%',
+                    'Avg Max Drawdown': '$500',
+                    'Max Drawdown': '$1000',
+                    'Avg Max Losing Streak': '2.5',
+                    'Max Losing Streak': '5'
+                }
+            ]
+        }
+        
+        html = format_monte_carlo_table(report, position_sizing='percent', allow_exceed=False)
+        
+        # Verify median column appears in HTML
+        assert 'Median Final $' in html
+        assert '$18,500' in html
+        
+        # Verify it appears after Avg Final $ (check ordering in HTML)
+        avg_pos = html.find('Avg Final $')
+        median_pos = html.find('Median Final $')
+        assert avg_pos > 0, "Avg Final $ column not found"
+        assert median_pos > 0, "Median Final $ column not found"
+        assert median_pos > avg_pos, "Median Final $ should appear after Avg Final $ in table"
 
 
 class TestFormatReplayTable:
@@ -285,7 +320,7 @@ class TestPrepareChartData:
         
         trade_reports = [{
             'trajectory_data': {
-                'scenario_1': {
+                '10.00%': {
                     'p50': [10000, 10500, 11000],
                     'p95': [10000, 11000, 12000]
                 }
@@ -295,11 +330,13 @@ class TestPrepareChartData:
         replay_details_data = [
             {
                 'scenario_id': 'scenario_0',
+                'target_risk_pct': 10.00,
+                'contracts': 1,
                 'trade_history': [10000, 10200, 10400]
             }
         ]
         
-        result_json = prepare_chart_data(trade_reports, replay_details_data)
+        result_json = prepare_chart_data(trade_reports, replay_details_data, position_sizing='percent')
         result = json.loads(result_json)
         
         # Check structure
@@ -308,12 +345,12 @@ class TestPrepareChartData:
         assert 'trade_numbers' in result
         
         # Check Monte Carlo data
-        assert 'scenario_1' in result['monte_carlo']
-        assert result['monte_carlo']['scenario_1']['p50'] == [10000, 10500, 11000]
+        assert '10.00%' in result['monte_carlo']
+        assert result['monte_carlo']['10.00%']['p50'] == [10000, 10500, 11000]
         
-        # Check replay data
-        assert 'scenario_0' in result['replay']
-        assert result['replay']['scenario_0'] == [10000, 10200, 10400]
+        # Check replay data - should use same key format as Monte Carlo
+        assert '10.00%' in result['replay']
+        assert result['replay']['10.00%'] == [10000, 10200, 10400]
         
         # Check trade numbers
         assert result['trade_numbers'] == [0, 1, 2]
@@ -323,7 +360,7 @@ class TestPrepareChartData:
         import json
         from app import prepare_chart_data
         
-        result_json = prepare_chart_data([], [])
+        result_json = prepare_chart_data([], [], position_sizing='percent')
         result = json.loads(result_json)
         
         assert result['monte_carlo'] == {}
@@ -338,7 +375,7 @@ class TestPrepareChartData:
         
         trade_reports = [{
             'trajectory_data': {
-                'scenario_1': {
+                '50.00%': {
                     'p50': [np.float64(10000), np.float64(10500)],
                 }
             }
@@ -347,16 +384,18 @@ class TestPrepareChartData:
         replay_details_data = [
             {
                 'scenario_id': 'scenario_0',
+                'target_risk_pct': 50.00,
+                'contracts': 5,
                 'trade_history': [np.float64(10000), np.float64(10200)]
             }
         ]
         
-        result_json = prepare_chart_data(trade_reports, replay_details_data)
+        result_json = prepare_chart_data(trade_reports, replay_details_data, position_sizing='percent')
         result = json.loads(result_json)
         
         # Should be clean Python floats, not numpy
-        assert isinstance(result['monte_carlo']['scenario_1']['p50'][0], (int, float))
-        assert isinstance(result['replay']['scenario_0'][0], (int, float))
+        assert isinstance(result['monte_carlo']['50.00%']['p50'][0], (int, float))
+        assert isinstance(result['replay']['50.00%'][0], (int, float))
     
     def test_prepare_chart_data_multiple_scenarios(self):
         """Test chart data with multiple replay scenarios."""
@@ -365,24 +404,26 @@ class TestPrepareChartData:
         
         trade_reports = [{
             'trajectory_data': {
-                'scenario_1': {'p50': [10000, 10500]}
+                '10.00%': {'p50': [10000, 10500]},
+                '25.00%': {'p50': [10000, 11000]},
+                '50.00%': {'p50': [10000, 12000]}
             }
         }]
         
         replay_details_data = [
-            {'scenario_id': 'scenario_0', 'trade_history': [10000, 10200]},
-            {'scenario_id': 'scenario_1', 'trade_history': [10000, 10300]},
-            {'scenario_id': 'scenario_2', 'trade_history': [10000, 10100]}
+            {'scenario_id': 'scenario_0', 'target_risk_pct': 10.00, 'contracts': 1, 'trade_history': [10000, 10200]},
+            {'scenario_id': 'scenario_1', 'target_risk_pct': 25.00, 'contracts': 3, 'trade_history': [10000, 10300]},
+            {'scenario_id': 'scenario_2', 'target_risk_pct': 50.00, 'contracts': 5, 'trade_history': [10000, 10100]}
         ]
         
-        result_json = prepare_chart_data(trade_reports, replay_details_data)
+        result_json = prepare_chart_data(trade_reports, replay_details_data, position_sizing='percent')
         result = json.loads(result_json)
         
-        # Should have all replay scenarios
+        # Should have all replay scenarios with same keys as Monte Carlo
         assert len(result['replay']) == 3
-        assert 'scenario_0' in result['replay']
-        assert 'scenario_1' in result['replay']
-        assert 'scenario_2' in result['replay']
+        assert '10.00%' in result['replay']
+        assert '25.00%' in result['replay']
+        assert '50.00%' in result['replay']
 
 
 class TestRunAllReplayScenarios:

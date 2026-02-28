@@ -157,13 +157,14 @@ def format_replay_table(replay_data, position_sizing, allow_exceed):
     return html
 
 
-def prepare_chart_data(trade_reports, replay_details_data):
+def prepare_chart_data(trade_reports, replay_details_data, position_sizing='percent'):
     """
     Prepare chart data for trajectory visualization.
     
     Args:
         trade_reports: list of simulation reports with trajectory_data
         replay_details_data: list of replay details with trade_history
+        position_sizing: 'percent' or 'contracts' - determines label format
         
     Returns:
         JSON string with cleaned chart data for Monte Carlo and replay trajectories
@@ -181,11 +182,18 @@ def prepare_chart_data(trade_reports, replay_details_data):
         chart_data['monte_carlo'] = clean_for_json(trajectory_data)
     
     # Extract replay trajectory data (trade_history) from each scenario
+    # Use same key format as Monte Carlo for consistency
     for replay_details in replay_details_data:
-        scenario_id = replay_details['scenario_id']
         # Get trade_history directly from replay_details (now stored there)
         trade_history = replay_details.get('trade_history', [])
-        chart_data['replay'][scenario_id] = clean_for_json(trade_history)
+        
+        # Generate key in same format as Monte Carlo
+        if position_sizing == 'percent':
+            key = f"{replay_details['target_risk_pct']:.2f}%"
+        else:
+            key = str(replay_details['contracts'])
+        
+        chart_data['replay'][key] = clean_for_json(trade_history)
     
     # Generate trade_numbers array [0, 1, 2, ..., num_trades]
     # Use the length of the first trajectory to determine max trades
@@ -518,7 +526,7 @@ def results():
     }.get(params['position_sizing'], params['position_sizing'])
 
     # Prepare chart data for trajectory visualization using helper function
-    chart_data_json = prepare_chart_data(trade_reports, replay_details_data)
+    chart_data_json = prepare_chart_data(trade_reports, replay_details_data, params['position_sizing'])
 
     return render_template('results.html',
                            trade_reports=trade_reports,

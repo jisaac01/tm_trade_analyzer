@@ -37,12 +37,87 @@ function initializeCharts() {
         // Auto-select first threshold for detail view
         const firstThreshold = Object.keys(monte_carlo)[0];
         selectThreshold(firstThreshold);
+        
+        // Add click handlers to simulation table rows
+        addTableRowClickHandlers(monte_carlo);
     }
     
     // Create replay chart
     if (replay && Object.keys(replay).length > 0) {
         createReplayChart(replay, trade_numbers);
     }
+    
+    // Setup chart controls
+    setupChartControls();
+}
+
+/**
+ * Setup chart control buttons and interactions
+ */
+function setupChartControls() {
+    // Toggle charts visibility
+    const toggleBtn = document.getElementById('toggle-charts-btn');
+    if (toggleBtn) {
+        toggleBtn.addEventListener('click', function() {
+            const chartsContainer = document.getElementById('charts-container');
+            const chartSections = document.querySelectorAll('.chart-section');
+            
+            const isVisible = chartsContainer.style.display !== 'none';
+            
+            if (isVisible) {
+                chartsContainer.style.display = 'none';
+                chartSections.forEach(section => section.style.display = 'none');
+                this.textContent = 'Show Charts';
+            } else {
+                chartsContainer.style.display = 'block';
+                chartSections.forEach(section => section.style.display = 'block');
+                this.textContent = 'Hide Charts';
+            }
+        });
+    }
+}
+
+/**
+ * Add click handlers to Monte Carlo simulation table rows
+ */
+function addTableRowClickHandlers(monteCarloData) {
+    // Wait a bit for the DOM to be fully rendered
+    setTimeout(() => {
+        const tables = document.querySelectorAll('.sim-table');
+        tables.forEach(table => {
+            const rows = table.querySelectorAll('tbody tr');
+            const thresholds = Object.keys(monteCarloData);
+            
+            rows.forEach((row, index) => {
+                if (index < thresholds.length) {
+                    const threshold = thresholds[index];
+                    // Make row clickable
+                    row.style.cursor = 'pointer';
+                    row.dataset.threshold = threshold;
+                    
+                    // Add hover effect
+                    row.addEventListener('mouseenter', function() {
+                        this.style.backgroundColor = '#1f2937';
+                    });
+                    row.addEventListener('mouseleave', function() {
+                        this.style.backgroundColor = '';
+                    });
+                    
+                    // Add click handler
+                    row.addEventListener('click', function() {
+                        const selectedThreshold = this.dataset.threshold;
+                        selectThreshold(selectedThreshold);
+                        
+                        // Scroll to detail chart
+                        const detailChart = document.getElementById('detailChart');
+                        if (detailChart) {
+                            detailChart.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }
+                    });
+                }
+            });
+        });
+    }, 100);
 }
 
 /**
@@ -72,6 +147,9 @@ function createComparisonChart(monteCarloData, tradeNumbers) {
         });
     });
     
+    // Reverse datasets for tooltip ordering (highest to lowest)
+    datasets.reverse();
+    
     comparisonChart = new Chart(ctx, {
         type: 'line',
         data: {
@@ -94,6 +172,7 @@ function createComparisonChart(monteCarloData, tradeNumbers) {
                 },
                 legend: {
                     display: true,
+                    reverse: true,
                     labels: {
                         color: '#e5e7eb',
                         usePointStyle: true,
@@ -172,8 +251,8 @@ function createDetailChart(thresholdData, tradeNumbers, thresholdLabel) {
         {
             label: '5th-95th Percentile',
             data: thresholdData.p95,
-            borderColor: '#60a5fa40',
-            backgroundColor: '#60a5fa20',
+            borderColor: '#3b82f680',
+            backgroundColor: '#3b82f630',
             borderWidth: 1,
             pointRadius: 0,
             fill: '+1',  // Fill to next dataset
@@ -183,8 +262,8 @@ function createDetailChart(thresholdData, tradeNumbers, thresholdLabel) {
         {
             label: 'P5',
             data: thresholdData.p5,
-            borderColor: '#60a5fa40',
-            backgroundColor: '#60a5fa20',
+            borderColor: '#3b82f680',
+            backgroundColor: '#3b82f630',
             borderWidth: 1,
             pointRadius: 0,
             fill: false,
@@ -195,8 +274,8 @@ function createDetailChart(thresholdData, tradeNumbers, thresholdLabel) {
         {
             label: '25th-75th Percentile',
             data: thresholdData.p75,
-            borderColor: '#60a5fa60',
-            backgroundColor: '#60a5fa40',
+            borderColor: '#3b82f6',
+            backgroundColor: '#3b82f660',
             borderWidth: 1,
             pointRadius: 0,
             fill: '+1',  // Fill to next dataset
@@ -206,8 +285,8 @@ function createDetailChart(thresholdData, tradeNumbers, thresholdLabel) {
         {
             label: 'P25',
             data: thresholdData.p25,
-            borderColor: '#60a5fa60',
-            backgroundColor: '#60a5fa40',
+            borderColor: '#3b82f6',
+            backgroundColor: '#3b82f660',
             borderWidth: 1,
             pointRadius: 0,
             fill: false,
@@ -324,16 +403,19 @@ function createReplayChart(replayData, tradeNumbers) {
         if (!trajectory || trajectory.length === 0) return;
         
         datasets.push({
-            label: scenarioId.replace('scenario_', 'Scenario '),
+            label: scenarioId,  // Use the same key format as Monte Carlo (e.g., "10.00%" or "5")
             data: trajectory,
-            borderColor: '#34d399',
-            backgroundColor: '#34d39940',
+            borderColor: COLORS[index % COLORS.length],
+            backgroundColor: COLORS[index % COLORS.length] + '40',
             borderWidth: 2,
             pointRadius: 0,
             pointHoverRadius: 5,
             tension: 0.1
         });
     });
+    
+    // Reverse datasets for tooltip ordering (highest to lowest)
+    datasets.reverse();
     
     replayChart = new Chart(ctx, {
         type: 'line',
@@ -357,6 +439,7 @@ function createReplayChart(replayData, tradeNumbers) {
                 },
                 legend: {
                     display: scenarios.length > 1,
+                    reverse: true,
                     labels: {
                         color: '#e5e7eb',
                         usePointStyle: true,
@@ -434,6 +517,21 @@ function selectThreshold(threshold) {
         });
         comparisonChart.update('none');  // Update without animation
     }
+    
+    // Highlight selected row in simulation table
+    const tables = document.querySelectorAll('.sim-table');
+    tables.forEach(table => {
+        const rows = table.querySelectorAll('tbody tr');
+        rows.forEach(row => {
+            if (row.dataset.threshold === threshold) {
+                row.style.backgroundColor = '#1e40af40';
+                row.style.borderLeft = '4px solid #60a5fa';
+            } else {
+                row.style.backgroundColor = '';
+                row.style.borderLeft = '';
+            }
+        });
+    });
     
     // Update detail chart with selected threshold
     const thresholdData = chart_data.monte_carlo[threshold];
