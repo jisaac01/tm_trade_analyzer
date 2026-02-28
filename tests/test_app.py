@@ -702,3 +702,191 @@ def test_index_post_without_file_or_uuid_shows_error(client):
     # Should redirect back to index
     assert response.status_code == 302
     assert '/' in response.headers['Location']
+
+
+@patch('app.simulator.run_monte_carlo_simulation')
+@patch('app.trade_parser.parse_trade_csv')
+def test_replay_trajectory_data_structure_for_charting(mock_parse, mock_simulate, client):
+    """Test that replay results include trade_history for trajectory charting."""
+    # Mock parse_trade_csv return value - include all fields expected by template
+    mock_parse.return_value = {
+        'num_trades': 5,
+        'win_rate': 0.6,
+        'avg_win': 100,
+        'avg_loss': -50,
+        'median_loss': -50,
+        'median_risk_per_spread': 100,
+        'max_win': 200,
+        'max_loss': -100,
+        'max_theoretical_loss': 100,
+        'conservative_theoretical_max_loss': 80,
+        'max_theoretical_gain': 100,
+        'conservative_theoretical_max_reward': 80,
+        'conservative_realized_max_reward': 200,
+        'risked': 100,
+        'total_return': 125,
+        'pct_return': 12.5,
+        'avg_pct_return': 2.5,
+        'commissions': 10,
+        'wins': 3,
+        'losses': 2,
+        'avg_pct_win': 25.0,
+        'avg_pct_loss': -12.5,
+        'gross_gain': 225,
+        'gross_loss': -100,
+        'pnl_distribution': [50, -50, 100, -50, 75],
+        'per_trade_theoretical_risk': [100, 100, 100, 100, 100],
+        'per_trade_theoretical_reward': [50, 50, 50, 50, 50],
+        'per_trade_dates': ['2023-01-01', '2023-02-01', '2023-03-01', '2023-04-01', '2023-05-01'],
+        'raw_trade_data': [],
+        'min_date': '2023-01-01',
+        'max_date': '2023-05-01'
+    }
+    
+    # Mock Monte Carlo simulation return value
+    mock_simulate.return_value = [{
+        'trade_name': 'Test Trade',
+        'summary': mock_parse.return_value,
+        'table_rows': [
+            {'Contracts': 1, 'Target Risk %': '1.00%', 'Avg Final $': '$10,000'},
+            {'Contracts': 2, 'Target Risk %': '2.00%', 'Avg Final $': '$11,000'}
+        ],
+        'pnl_preview': ['50', '-50', '100'],
+        'historical_max_losing_streak': 1,
+        'trajectory_data': {
+            '1.00%': {'p5': [10000, 9900], 'p50': [10000, 10050], 'p95': [10000, 10200]},
+            '2.00%': {'p5': [10000, 9800], 'p50': [10000, 10100], 'p95': [10000, 10400]}
+        }
+    }]
+    
+    # Submit form to upload file
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
+        f.write("Trade Name,Entry Date,Exit Date,P/L\nTest,2023-01-01,2023-01-02,100\n")
+        temp_file = f.name
+    
+    try:
+        with open(temp_file, 'rb') as f:
+            data = {
+                'csv_file': f,
+                'initial_balance': '10000',
+                'num_simulations': '10',
+                'num_trades': '5',
+                'option_commission': '0.50',
+                'position_sizing_mode': 'percent',
+                'dynamic_risk_sizing': 'on',
+                'simulation_mode': 'iid',
+                'block_size': '5'
+            }
+            response = client.post('/', data=data, content_type='multipart/form-data', follow_redirects=False)
+            assert response.status_code == 302
+        
+        # Now GET /results to see rendered output
+        response = client.get('/results')
+        assert response.status_code == 200
+        
+        # The response should have rendered the results page
+        # Check that replay data structures would be available
+        # (In a future step, we'll verify replay_trajectory_data is passed to template)
+        html = response.data.decode('utf-8')
+        assert 'Historical Replay' in html or 'Replay' in html
+        
+    finally:
+        os.unlink(temp_file)
+
+
+@patch('app.trade_parser.parse_trade_csv')
+def test_replay_collects_trade_history_per_scenario(mock_parse, client):
+    """Test that each replay scenario has its trade_history for charting."""
+    from unittest.mock import Mock
+    import replay
+    
+    # Mock parse_trade_csv - include all fields expected by template
+    trade_stats = {
+        'num_trades': 3,
+        'win_rate': 0.67,
+        'avg_win': 100,
+        'avg_loss': -50,
+        'median_loss': -50,
+        'median_risk_per_spread': 100,
+        'max_win': 150,
+        'max_loss': -75,
+        'max_theoretical_loss': 100,
+        'conservative_theoretical_max_loss': 80,
+        'max_theoretical_gain': 100,
+        'conservative_theoretical_max_reward': 80,
+        'conservative_realized_max_reward': 150,
+        'risked': 100,
+        'total_return': 125,
+        'pct_return': 12.5,
+        'avg_pct_return': 4.17,
+        'commissions': 10,
+        'wins': 2,
+        'losses': 1,
+        'avg_pct_win': 37.5,
+        'avg_pct_loss': -12.5,
+        'gross_gain': 175,
+        'gross_loss': -50,
+        'pnl_distribution': [100, -50, 75],
+        'per_trade_theoretical_risk': [100, 100, 100],
+        'per_trade_theoretical_reward': [50, 50, 50],
+        'per_trade_dates': ['2023-01-01', '2023-02-01', '2023-03-01'],
+        'raw_trade_data': [],
+        'min_date': '2023-01-01',
+        'max_date': '2023-03-01'
+    }
+    mock_parse.return_value = trade_stats
+    
+    # Patch replay to track its calls
+    original_replay = replay.replay_actual_trades
+    call_count = {'count': 0}
+    collected_histories = []
+    
+    def mock_replay_func(**kwargs):
+        call_count['count'] += 1
+        result = original_replay(**kwargs)
+        # Verify trade_history exists and has correct structure
+        assert 'trade_history' in result, "replay result should have trade_history"
+        assert isinstance(result['trade_history'], list), "trade_history should be a list"
+        assert len(result['trade_history']) > 0, "trade_history should not be empty"
+        assert result['trade_history'][0] == kwargs['initial_balance'], "First element should be initial_balance"
+        collected_histories.append(result['trade_history'])
+        return result
+    
+    with patch('app.replay.replay_actual_trades', side_effect=mock_replay_func):
+        # Submit form
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
+            f.write("Trade Name,Entry Date,Exit Date,P/L\nTest,2023-01-01,2023-01-02,100\n")
+            temp_file = f.name
+        
+        try:
+            with open(temp_file, 'rb') as f:
+                data = {
+                    'csv_file': f,
+                    'initial_balance': '10000',
+                    'num_simulations': '10',
+                    'num_trades': '3',
+                    'option_commission': '0.50',
+                    'position_sizing_mode': 'percent',
+                    'dynamic_risk_sizing': 'on',
+                    'simulation_mode': 'iid',
+                    'block_size': '5'
+                }
+                response = client.post('/', data=data, content_type='multipart/form-data', follow_redirects=False)
+                assert response.status_code == 302
+            
+            # Get results
+            response = client.get('/results')
+            assert response.status_code == 200
+            
+            # Verify replay was called multiple times (once per scenario/threshold)
+            # Percent mode typically tests 10 thresholds: 1%, 2%, 3%, 5%, 10%, 15%, 25%, 50%, 75%, 100%
+            assert call_count['count'] > 1, "replay should be called multiple times for different scenarios"
+            
+            # Verify all collected histories have the expected structure
+            for history in collected_histories:
+                assert len(history) == 4, f"Expected 4 elements (initial + 3 trades), got {len(history)}"
+                # First element is initial balance
+                assert history[0] == 10000
+        
+        finally:
+            os.unlink(temp_file)

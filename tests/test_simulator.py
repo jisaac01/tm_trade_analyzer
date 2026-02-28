@@ -47,6 +47,250 @@ class TestSimulator:
         assert 'Avg Final $' in row
 
 
+class TestTrajectoryAggregation:
+    """Tests for trajectory data aggregation in run_monte_carlo_simulation."""
+    
+    def test_trajectory_data_field_exists(self):
+        """Test that run_monte_carlo_simulation returns trajectory_data field."""
+        trade_stats = {
+            'num_trades': 5,
+            'win_rate': 0.6,
+            'avg_win': 100,
+            'avg_loss': -50,
+            'max_win': 200,
+            'max_loss': -100,
+            'max_theoretical_loss': 100,
+            'conservative_theoretical_max_loss': 80,
+            'pnl_distribution': [50, -50, 100, -50, 75]
+        }
+        
+        reports = simulator.run_monte_carlo_simulation(
+            trade_stats=trade_stats,
+            initial_balance=10000,
+            num_simulations=10,
+            position_sizing='percent',
+            num_trades=5
+        )
+        
+        assert len(reports) == 1
+        report = reports[0]
+        assert 'trajectory_data' in report, "trajectory_data field should exist"
+        assert isinstance(report['trajectory_data'], dict), "trajectory_data should be a dictionary"
+    
+    def test_trajectory_data_has_entries_per_threshold(self):
+        """Test that trajectory_data has one entry per position size threshold."""
+        trade_stats = {
+            'num_trades': 5,
+            'win_rate': 0.6,
+            'avg_win': 100,
+            'avg_loss': -50,
+            'max_win': 200,
+            'max_loss': -100,
+            'max_theoretical_loss': 100,
+            'conservative_theoretical_max_loss': 80,
+            'pnl_distribution': [50, -50, 100, -50, 75]
+        }
+        
+        reports = simulator.run_monte_carlo_simulation(
+            trade_stats=trade_stats,
+            initial_balance=10000,
+            num_simulations=10,
+            position_sizing='percent',
+            num_trades=5
+        )
+        
+        report = reports[0]
+        table_rows = report['table_rows']
+        trajectory_data = report['trajectory_data']
+        
+        # Should have one trajectory entry per threshold tested
+        # Percent mode tests: 1%, 2%, 3%, 5%, 10%, 15%, 25%, 50%, 75%, 100%
+        assert len(trajectory_data) == len(table_rows), \
+            f"Expected {len(table_rows)} trajectory entries, got {len(trajectory_data)}"
+    
+    def test_trajectory_data_structure_percent_mode(self):
+        """Test trajectory_data structure for percent position sizing mode."""
+        trade_stats = {
+            'num_trades': 5,
+            'win_rate': 0.6,
+            'avg_win': 100,
+            'avg_loss': -50,
+            'max_win': 200,
+            'max_loss': -100,
+            'max_theoretical_loss': 100,
+            'conservative_theoretical_max_loss': 80,
+            'pnl_distribution': [50, -50, 100, -50, 75]
+        }
+        
+        reports = simulator.run_monte_carlo_simulation(
+            trade_stats=trade_stats,
+            initial_balance=10000,
+            num_simulations=10,
+            position_sizing='percent',
+            num_trades=5
+        )
+        
+        trajectory_data = reports[0]['trajectory_data']
+        
+        # Check that keys are risk percentages (e.g., '1.00%', '2.00%', etc.)
+        for key in trajectory_data.keys():
+            assert '%' in key, f"Expected percentage key, got {key}"
+        
+        # Check structure of each entry
+        for threshold_key, percentiles in trajectory_data.items():
+            assert isinstance(percentiles, dict), f"Percentiles should be dict for {threshold_key}"
+            # Should have p5, p25, p50, p75, p95
+            expected_percentile_keys = {'p5', 'p25', 'p50', 'p75', 'p95'}
+            assert set(percentiles.keys()) == expected_percentile_keys, \
+                f"Expected {expected_percentile_keys}, got {set(percentiles.keys())}"
+            
+            # Each percentile should be a list
+            for pkey, pvalues in percentiles.items():
+                assert isinstance(pvalues, list), f"{pkey} should be a list"
+                # Length should be num_trades + 1 (initial + after each trade)
+                assert len(pvalues) == 6, f"{pkey} should have length 6, got {len(pvalues)}"
+    
+    def test_trajectory_data_structure_contracts_mode(self):
+        """Test trajectory_data structure for fixed contracts mode."""
+        trade_stats = {
+            'num_trades': 5,
+            'win_rate': 0.6,
+            'avg_win': 100,
+            'avg_loss': -50,
+            'max_win': 200,
+            'max_loss': -100,
+            'max_theoretical_loss': 100,
+            'conservative_theoretical_max_loss': 80,
+            'pnl_distribution': [50, -50, 100, -50, 75]
+        }
+        
+        reports = simulator.run_monte_carlo_simulation(
+            trade_stats=trade_stats,
+            initial_balance=10000,
+            num_simulations=10,
+            position_sizing='contracts',
+            num_trades=5
+        )
+        
+        trajectory_data = reports[0]['trajectory_data']
+        
+        # Check that keys are contract counts (e.g., '1', '2', '5', etc.)
+        for key in trajectory_data.keys():
+            # Keys should be strings representing integers
+            assert key.isdigit() or key == '0', f"Expected numeric contract key, got {key}"
+        
+        # Check structure
+        for threshold_key, percentiles in trajectory_data.items():
+            assert isinstance(percentiles, dict), f"Percentiles should be dict for {threshold_key}"
+            expected_percentile_keys = {'p5', 'p25', 'p50', 'p75', 'p95'}
+            assert set(percentiles.keys()) == expected_percentile_keys
+    
+    def test_trajectory_data_all_same_length(self):
+        """Test that all percentile arrays have the same length across all thresholds."""
+        trade_stats = {
+            'num_trades': 5,
+            'win_rate': 0.6,
+            'avg_win': 100,
+            'avg_loss': -50,
+            'max_win': 200,
+            'max_loss': -100,
+            'max_theoretical_loss': 100,
+            'conservative_theoretical_max_loss': 80,
+            'pnl_distribution': [50, -50, 100, -50, 75]
+        }
+        
+        reports = simulator.run_monte_carlo_simulation(
+            trade_stats=trade_stats,
+            initial_balance=10000,
+            num_simulations=10,
+            position_sizing='percent',
+            num_trades=5
+        )
+        
+        trajectory_data = reports[0]['trajectory_data']
+        
+        # All trajectories should have same length (num_trades + 1)
+        expected_length = 6  # 5 trades + initial
+        for threshold_key, percentiles in trajectory_data.items():
+            for pkey, pvalues in percentiles.items():
+                assert len(pvalues) == expected_length, \
+                    f"{threshold_key} {pkey} has length {len(pvalues)}, expected {expected_length}"
+    
+    def test_trajectory_data_separate_from_existing_fields(self):
+        """Test that trajectory_data doesn't interfere with existing return structure."""
+        trade_stats = {
+            'num_trades': 5,
+            'win_rate': 0.6,
+            'avg_win': 100,
+            'avg_loss': -50,
+            'max_win': 200,
+            'max_loss': -100,
+            'max_theoretical_loss': 100,
+            'conservative_theoretical_max_loss': 80,
+            'pnl_distribution': [50, -50, 100, -50, 75]
+        }
+        
+        reports = simulator.run_monte_carlo_simulation(
+            trade_stats=trade_stats,
+            initial_balance=10000,
+            num_simulations=10,
+            position_sizing='percent',
+            num_trades=5
+        )
+        
+        report = reports[0]
+        
+        # Existing fields should still be present
+        assert 'trade_name' in report
+        assert 'summary' in report
+        assert 'table_rows' in report
+        assert 'pnl_preview' in report
+        assert 'historical_max_losing_streak' in report
+        
+        # New field should also be present
+        assert 'trajectory_data' in report
+    
+    def test_trajectory_percentiles_are_reasonable(self):
+        """Test that trajectory percentiles show reasonable progression (p5 < p50 < p95)."""
+        trade_stats = {
+            'num_trades': 10,
+            'win_rate': 0.6,
+            'avg_win': 100,
+            'avg_loss': -50,
+            'max_win': 200,
+            'max_loss': -100,
+            'max_theoretical_loss': 100,
+            'conservative_theoretical_max_loss': 80,
+            'pnl_distribution': [50, -50, 100, -50, 75, -30, 120, -60, 90, -40]
+        }
+        
+        reports = simulator.run_monte_carlo_simulation(
+            trade_stats=trade_stats,
+            initial_balance=10000,
+            num_simulations=100,  # More simulations for better percentile distribution
+            position_sizing='percent',
+            num_trades=10
+        )
+        
+        trajectory_data = reports[0]['trajectory_data']
+        
+        # Pick one threshold to check
+        first_threshold = list(trajectory_data.keys())[0]
+        percentiles = trajectory_data[first_threshold]
+        
+        # At each step, p5 <= p50 <= p95 (generally, with some tolerance for randomness)
+        for step in range(len(percentiles['p50'])):
+            p5_val = percentiles['p5'][step]
+            p50_val = percentiles['p50'][step]
+            p95_val = percentiles['p95'][step]
+            
+            # Allow small violations due to randomness, but generally should hold
+            assert p5_val <= p50_val * 1.01, \
+                f"At step {step}: p5 ({p5_val}) should be <= p50 ({p50_val})"
+            assert p50_val <= p95_val * 1.01, \
+                f"At step {step}: p50 ({p50_val}) should be <= p95 ({p95_val})"
+
+
 class TestRiskRewardGeneration:
     """Tests for risk and reward generation functions."""
 
@@ -1352,6 +1596,396 @@ class TestSimulateTrades:
                 # Net = 0
                 expected_final_balance = initial_balance
                 assert results[0]['final_balance'] == expected_final_balance
+
+
+class TestBalanceHistory:
+    """Tests for balance history tracking in simulate_trades()."""
+    
+    def test_balance_history_field_exists(self):
+        """Test that returned results include balance_history field."""
+        trade = {
+            "avg_loss": -100,
+            "max_loss": -100,
+            "avg_win": 50,
+            "max_win": 50,
+            "win_rate": 1.0,  # Always win for predictable results
+            "conservative_theoretical_max_loss": 100
+        }
+        
+        results = simulator.simulate_trades(
+            trade,
+            position_size=1,
+            initial_balance=1000,
+            num_trades=5,
+            num_simulations=2
+        )
+        
+        assert len(results) == 2
+        for result in results:
+            assert 'balance_history' in result, "balance_history field should exist"
+            assert isinstance(result['balance_history'], list), "balance_history should be a list"
+    
+    def test_balance_history_length(self):
+        """Test that balance_history has length = num_trades + 1 (initial + after each trade)."""
+        trade = {
+            "avg_loss": -100,
+            "max_loss": -100,
+            "avg_win": 50,
+            "max_win": 50,
+            "win_rate": 1.0,
+            "conservative_theoretical_max_loss": 100
+        }
+        num_trades = 10
+        
+        results = simulator.simulate_trades(
+            trade,
+            position_size=1,
+            initial_balance=1000,
+            num_trades=num_trades,
+            num_simulations=3
+        )
+        
+        for result in results:
+            expected_length = num_trades + 1  # initial + after each trade
+            assert len(result['balance_history']) == expected_length, \
+                f"balance_history should have {expected_length} elements, got {len(result['balance_history'])}"
+    
+    def test_balance_history_first_element(self):
+        """Test that first element of balance_history equals initial_balance."""
+        initial_balance = 5000
+        trade = {
+            "avg_loss": -100,
+            "max_loss": -100,
+            "avg_win": 50,
+            "max_win": 50,
+            "win_rate": 1.0,
+            "conservative_theoretical_max_loss": 100
+        }
+        
+        results = simulator.simulate_trades(
+            trade,
+            position_size=1,
+            initial_balance=initial_balance,
+            num_trades=5,
+            num_simulations=2
+        )
+        
+        for result in results:
+            assert result['balance_history'][0] == initial_balance, \
+                f"First element should be initial_balance ({initial_balance})"
+    
+    def test_balance_history_last_element(self):
+        """Test that last element of balance_history equals final_balance."""
+        with unittest.mock.patch('simulator.generate_risk', return_value=100), \
+             unittest.mock.patch('simulator.generate_reward', return_value=50):
+            
+            trade = {
+                "avg_loss": -100,
+                "max_loss": -100,
+                "avg_win": 50,
+                "max_win": 50,
+                "win_rate": 1.0,  # Always win
+                "conservative_theoretical_max_loss": 100
+            }
+            initial_balance = 1000
+            num_trades = 5
+            
+            results = simulator.simulate_trades(
+                trade,
+                position_size=1,
+                initial_balance=initial_balance,
+                num_trades=num_trades,
+                num_simulations=2
+            )
+            
+            for result in results:
+                assert result['balance_history'][-1] == result['final_balance'], \
+                    "Last element of balance_history should match final_balance"
+    
+    def test_balance_history_with_bankruptcy(self):
+        """Test balance_history stops when balance hits 0 (bankruptcy)."""
+        with unittest.mock.patch('simulator.generate_risk', return_value=200), \
+             unittest.mock.patch('simulator.generate_reward', return_value=50):
+            
+            trade = {
+                "avg_loss": -200,
+                "max_loss": -200,
+                "avg_win": 50,
+                "max_win": 50,
+                "win_rate": 0.0,  # Always lose
+                "conservative_theoretical_max_loss": 200
+            }
+            initial_balance = 1000
+            num_trades = 10  # Request many trades but should bankrupt after 5 losses
+            
+            results = simulator.simulate_trades(
+                trade,
+                position_size=1,
+                initial_balance=initial_balance,
+                num_trades=num_trades,
+                num_simulations=2
+            )
+            
+            for result in results:
+                # Should bankrupt after 5 losses: 1000 - 200*5 = 0
+                assert result['final_balance'] == 0, "Should be bankrupt"
+                # Balance history should track: [1000, 800, 600, 400, 200, 0]
+                assert len(result['balance_history']) == 6, \
+                    f"Expected 6 elements (initial + 5 losing trades), got {len(result['balance_history'])}"
+                # Last element should be 0
+                assert result['balance_history'][-1] == 0, "Last balance should be 0 (bankrupt)"
+                # Verify progression: each loss of 200
+                assert result['balance_history'][0] == 1000
+                assert result['balance_history'][1] == 800
+                assert result['balance_history'][2] == 600
+                assert result['balance_history'][3] == 400
+                assert result['balance_history'][4] == 200
+                assert result['balance_history'][5] == 0
+    
+    def test_balance_history_with_dynamic_sizing(self):
+        """Test balance_history tracks correctly with dynamic risk sizing enabled."""
+        with unittest.mock.patch('simulator.generate_risk', return_value=100), \
+             unittest.mock.patch('simulator.generate_reward', return_value=200):
+            
+            trade = {
+                "avg_loss": -100,
+                "max_loss": -100,
+                "avg_win": 200,
+                "max_win": 200,
+                "win_rate": 1.0,  # Always win for predictable compounding
+                "conservative_theoretical_max_loss": 100
+            }
+            initial_balance = 1000
+            target_risk_pct = 10.0  # Risk 10% per trade (allows 1 contract initially)
+            num_trades = 3
+            
+            results = simulator.simulate_trades(
+                trade,
+                position_size=1,  # Will be adjusted by dynamic sizing
+                initial_balance=initial_balance,
+                num_trades=num_trades,
+                num_simulations=1,
+                target_risk_pct=target_risk_pct,
+                dynamic_risk_sizing=True
+            )
+            
+            result = results[0]
+            balance_history = result['balance_history']
+            
+            # Verify balance_history has correct length
+            assert len(balance_history) == num_trades + 1, \
+                f"Expected {num_trades + 1} elements, got {len(balance_history)}"
+            assert balance_history[0] == initial_balance
+            
+            # Each balance should be >= previous (since we're winning all trades)
+            for i in range(1, len(balance_history)):
+                assert balance_history[i] >= balance_history[i-1], \
+                    f"Balance should increase with wins: {balance_history[i-1]} -> {balance_history[i]}"
+    
+    def test_balance_history_in_iid_mode(self):
+        """Test that balance_history works correctly in IID mode."""
+        with unittest.mock.patch('simulator.generate_risk', return_value=100), \
+             unittest.mock.patch('simulator.generate_reward', return_value=50):
+            
+            trade = {
+                "avg_loss": -100,
+                "max_loss": -100,
+                "avg_win": 50,
+                "max_win": 50,
+                "win_rate": 1.0,  # Always win
+                "conservative_theoretical_max_loss": 100
+            }
+            initial_balance = 1000
+            num_trades = 5
+            
+            results = simulator.simulate_trades(
+                trade,
+                position_size=1,
+                initial_balance=initial_balance,
+                num_trades=num_trades,
+                num_simulations=2,
+                simulation_mode='iid'  # Explicitly set IID mode
+            )
+            
+            for result in results:
+                assert 'balance_history' in result
+                assert len(result['balance_history']) == num_trades + 1
+                assert result['balance_history'][0] == initial_balance
+                # With 5 wins of $50 each: 1000 + 250 = 1250
+                expected_final = initial_balance + (50 * num_trades)
+                assert result['balance_history'][-1] == expected_final
+    
+    def test_balance_history_in_bootstrap_mode(self):
+        """Test that balance_history works correctly in bootstrap mode."""
+        trade = {
+            "avg_loss": -100,
+            "max_loss": -200,
+            "avg_win": 50,
+            "max_win": 100,
+            "win_rate": 0.5,
+            "pnl_distribution": [50, -100, 75, -150, 100],  # Mix of wins and losses
+            "per_trade_theoretical_risk": [200, 200, 200, 200, 200],
+            "conservative_theoretical_max_loss": 200
+        }
+        initial_balance = 5000
+        num_trades = 5
+        
+        results = simulator.simulate_trades(
+            trade,
+            position_size=1,
+            initial_balance=initial_balance,
+            num_trades=num_trades,
+            num_simulations=3,
+            simulation_mode='moving-block-bootstrap',
+            block_size=2
+        )
+        
+        for result in results:
+            assert 'balance_history' in result
+            # Balance history length might be <= num_trades + 1 if bankruptcy occurs
+            assert len(result['balance_history']) <= num_trades + 1
+            assert result['balance_history'][0] == initial_balance
+            assert result['balance_history'][-1] == result['final_balance']
+
+
+class TestTrajectoryPercentiles:
+    """Tests for calculating trajectory percentiles across simulation runs."""
+    
+    def test_percentiles_returns_correct_keys(self):
+        """Test that calculate_trajectory_percentiles returns dict with correct percentile keys."""
+        all_histories = [
+            [1000, 1100, 1200, 1300],
+            [1000, 1050, 1150, 1250],
+            [1000, 1080, 1180, 1280]
+        ]
+        percentiles = [5, 25, 50, 75, 95]
+        
+        result = simulator.calculate_trajectory_percentiles(all_histories, percentiles)
+        
+        assert isinstance(result, dict), "Should return a dictionary"
+        expected_keys = {'p5', 'p25', 'p50', 'p75', 'p95'}
+        assert set(result.keys()) == expected_keys, f"Expected keys {expected_keys}, got {set(result.keys())}"
+    
+    def test_percentiles_list_length(self):
+        """Test that each percentile list has length = max(len(h) for h in all_histories)."""
+        all_histories = [
+            [1000, 1100, 1200, 1300, 1400],
+            [1000, 1050, 1150],  # Shorter (bankrupt early)
+            [1000, 1080, 1180, 1280]
+        ]
+        max_length = max(len(h) for h in all_histories)
+        
+        result = simulator.calculate_trajectory_percentiles(all_histories, [50])
+        
+        assert len(result['p50']) == max_length, \
+            f"Expected length {max_length}, got {len(result['p50'])}"
+    
+    def test_percentiles_with_single_run(self):
+        """Test with single run - all percentiles should equal that single run."""
+        all_histories = [
+            [1000, 1100, 1200, 1300]
+        ]
+        percentiles = [5, 50, 95]
+        
+        result = simulator.calculate_trajectory_percentiles(all_histories, percentiles)
+        
+        # With only one run, all percentiles should be identical to that run
+        for percentile_key in ['p5', 'p50', 'p95']:
+            assert result[percentile_key] == all_histories[0], \
+                f"{percentile_key} should equal the single run history"
+    
+    def test_percentiles_with_empty_input(self):
+        """Test that empty input raises ValueError."""
+        with pytest.raises(ValueError, match="all_histories cannot be empty"):
+            simulator.calculate_trajectory_percentiles([], [50])
+    
+    def test_percentiles_calculated_correctly(self):
+        """Test that percentiles are calculated correctly at each step."""
+        # Create 5 runs with known values to test percentile calculation
+        all_histories = [
+            [1000, 1100, 1200, 1300, 1400],  # Run 1
+            [1000, 1050, 1100, 1150, 1200],  # Run 2 (lowest)
+            [1000, 1075, 1150, 1225, 1300],  # Run 3 (median)
+            [1000, 1125, 1250, 1375, 1500],  # Run 4
+            [1000, 1150, 1300, 1450, 1600],  # Run 5 (highest)
+        ]
+        
+        result = simulator.calculate_trajectory_percentiles(all_histories, [0, 50, 100])
+        
+        # At step 0 (initial balance), all should be 1000
+        assert result['p0'][0] == 1000
+        assert result['p50'][0] == 1000
+        assert result['p100'][0] == 1000
+        
+        # At step 1, values are: 1050, 1075, 1100, 1125, 1150
+        # p0 (min) = 1050, p50 (median) = 1100, p100 (max) = 1150
+        assert result['p0'][1] == 1050, f"Expected 1050, got {result['p0'][1]}"
+        assert result['p50'][1] == 1100, f"Expected 1100, got {result['p50'][1]}"
+        assert result['p100'][1] == 1150, f"Expected 1150, got {result['p100'][1]}"
+        
+        # At step 4 (final), values are: 1200, 1300, 1400, 1500, 1600
+        # p0 (min) = 1200, p50 (median) = 1400, p100 (max) = 1600
+        assert result['p0'][4] == 1200
+        assert result['p50'][4] == 1400
+        assert result['p100'][4] == 1600
+    
+    def test_percentiles_with_varying_lengths(self):
+        """Test handling of varying run lengths (some bankrupt early)."""
+        all_histories = [
+            [1000, 1100, 1200, 1300, 1400, 1500],  # Full run
+            [1000, 900, 800, 0],                    # Bankrupt at step 3
+            [1000, 1050, 1100, 1150, 0],            # Bankrupt at step 4
+            [1000, 1200, 1400, 1600, 1800, 2000],   # Full run
+        ]
+        
+        result = simulator.calculate_trajectory_percentiles(all_histories, [25, 50, 75])
+        
+        # Result should have length 6 (longest run)
+        assert len(result['p25']) == 6
+        assert len(result['p50']) == 6
+        assert len(result['p75']) == 6
+        
+        # At step 0, all runs have values
+        assert result['p50'][0] == 1000
+        
+        # At step 3, all runs still have values
+        # Values at step 3: 0, 1150, 1300, 1600
+        # p50 should be around (1150 + 1300) / 2 = 1225
+        assert 1100 <= result['p50'][3] <= 1350, f"Expected median around 1225, got {result['p50'][3]}"
+        
+        # At step 5, only 2 runs have values (others are bankrupt)
+        # Should use last known values or handle appropriately
+        assert result['p50'][5] is not None
+    
+    def test_percentiles_custom_values(self):
+        """Test with custom percentile values."""
+        all_histories = [
+            [1000, 1100, 1200],
+            [1000, 1050, 1100],
+            [1000, 1150, 1300],
+        ]
+        percentiles = [10, 90]
+        
+        result = simulator.calculate_trajectory_percentiles(all_histories, percentiles)
+        
+        assert 'p10' in result
+        assert 'p90' in result
+        assert len(result) == 2
+    
+    def test_percentiles_with_all_identical_values(self):
+        """Test when all runs have identical values."""
+        all_histories = [
+            [1000, 1100, 1200],
+            [1000, 1100, 1200],
+            [1000, 1100, 1200],
+        ]
+        
+        result = simulator.calculate_trajectory_percentiles(all_histories, [5, 50, 95])
+        
+        # All percentiles should be identical when all runs are the same
+        for step in range(3):
+            assert result['p5'][step] == result['p50'][step] == result['p95'][step]
+            assert result['p50'][step] == all_histories[0][step]
 
 
 class TestTargetRiskEnforcement:

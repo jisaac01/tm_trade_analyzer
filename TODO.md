@@ -457,7 +457,7 @@ Fixed P/L/date misalignment caused by alphabetical sorting in trade_parser.py. A
 
 #### Part A: Simulator Changes - Track Balance Trajectories
 
-- [ ] **Step 12.1:** Write tests for balance history tracking in `simulate_trades()`
+- [X] **Step 12.1:** Write tests for balance history tracking in `simulate_trades()`
   - Test that returned results include `balance_history` field
   - Test that `balance_history` is list with length = num_trades + 1 (initial + after each trade)
   - Test that first element equals initial_balance
@@ -466,14 +466,14 @@ Fixed P/L/date misalignment caused by alphabetical sorting in trade_parser.py. A
   - Test with dynamic sizing (verify balance updates correctly)
   - Test that balance_history works in both IID and bootstrap modes
 
-- [ ] **Step 12.2:** Modify `simulate_trades()` to track and return balance history
+- [X] **Step 12.2:** Modify `simulate_trades()` to track and return balance history
   - Add `balance_history = [initial_balance]` at start of each simulation run
   - Append current balance after each trade: `balance_history.append(balance)`
   - Include `balance_history` in returned result dict for each run
   - Ensure minimal performance impact (simple list append)
   - Update docstring to document new return field
 
-- [ ] **Step 12.3:** Write tests for percentile calculation across runs
+- [X] **Step 12.3:** Write tests for percentile calculation across runs
   - Test `calculate_trajectory_percentiles(all_histories, percentiles=[5, 25, 50, 75, 95])`
   - Test that returns dict with keys: 'p5', 'p25', 'p50', 'p75', 'p95'
   - Test that each percentile is list of length = max(len(h) for h in all_histories)
@@ -482,7 +482,7 @@ Fixed P/L/date misalignment caused by alphabetical sorting in trade_parser.py. A
   - Test with empty input (should raise ValueError)
   - Test that percentiles are calculated correctly at each step
 
-- [ ] **Step 12.4:** Implement `calculate_trajectory_percentiles()` in `simulator.py`
+- [X] **Step 12.4:** Implement `calculate_trajectory_percentiles()` in `simulator.py`
   - Accept list of balance_history arrays and list of percentile values
   - For each trade step, gather all non-None balances at that step
   - Calculate requested percentiles using `np.percentile()`
@@ -490,14 +490,14 @@ Fixed P/L/date misalignment caused by alphabetical sorting in trade_parser.py. A
   - Return dict mapping percentile name (e.g., 'p50') to list of values
   - Document handling of bankruptcy/varying lengths
 
-- [ ] **Step 12.5:** Write tests for aggregating trajectories by threshold
+- [X] **Step 12.5:** Write tests for aggregating trajectories by threshold
   - Test that `run_monte_carlo_simulation()` returns trajectory data per threshold
   - Test structure: `trajectory_data[threshold] = {'p5': [...], 'p25': [...], ...}`
   - Test that all thresholds have same number of trade steps
   - Test with contracts and percent position sizing modes
   - Verify trajectory data is separate from existing summary stats
 
-- [ ] **Step 12.6:** Modify `run_monte_carlo_simulation()` to collect and aggregate trajectories
+- [X] **Step 12.6:** Modify `run_monte_carlo_simulation()` to collect and aggregate trajectories
   - For each threshold, collect all `balance_history` arrays from simulation runs
   - Call `calculate_trajectory_percentiles()` for each threshold
   - Add `trajectory_data` field to returned dictionary
@@ -507,13 +507,13 @@ Fixed P/L/date misalignment caused by alphabetical sorting in trade_parser.py. A
 
 #### Part B: Historical Replay Trajectory Data
 
-- [ ] **Step 12.7:** Verify replay already returns `trade_history`
+- [X] **Step 12.7:** Verify replay already returns `trade_history`
   - Check that `replay_actual_trades()` returns `trade_history` field
   - Verify `trade_history` contains balance at each step (initial + after each trade)
   - Write test if missing: verify replay trajectory matches manual calculation
   - Document that replay already has trajectory data ready for charting
 
-- [ ] **Step 12.8:** Write tests for replay trajectory per threshold
+- [X] **Step 12.8:** Write tests for replay trajectory per threshold
   - Test that app collects replay `trade_history` for each scenario
   - Test structure matches Monte Carlo: dict mapping threshold/scenario to balance array
   - Test with different position sizing modes (contracts vs percent)
@@ -521,32 +521,42 @@ Fixed P/L/date misalignment caused by alphabetical sorting in trade_parser.py. A
 
 #### Part C: Backend API - Pass Data to Frontend
 
-- [ ] **Step 12.9:** Write integration tests for trajectory data in template context
-  - Test that `render_template('results.html', ...)` receives `chart_data` parameter
-  - Test `chart_data` structure contains:
+- [X] **Step 12.9:** Write REAL integration tests for trajectory data in template context
+  - **DONE:** Added proper end-to-end integration test in test_integration.py
+  - Uses real CSV file (CML TM Trades Long 60 Delta, Short 30 Delta Call 20260223.csv)
+  - Seeds RNG for Monte Carlo determinism: `np.random.seed(42)`
+  - Tests that chart_data JavaScript variable exists in rendered HTML
+  - Verifies structure: monte_carlo, replay, trade_numbers keys
+  - Validates trajectory data structure: p5, p25, p50, p75, p95 percentiles
+  - Checks structural properties: p5 <= p50 <= p95 at each step
+  - Verifies replay scenarios have trade_history arrays
+  - No mocking - full end-to-end data flow verification
+  - **TODO:** Remove/refactor mocked tests from test_app.py added in 12.8
+
+- [X] **Step 12.10:** Modify `app.py` to prepare chart data
+  - Added json and math imports
+  - Created `clean_for_json()` helper to handle numpy types, NaN, Infinity
+  - Extract trajectory_data from `run_monte_carlo_simulation()` results
+  - Extract trade_history from replay_details_data (added to stored data)
+  - Create `chart_data` dictionary with:
     - `monte_carlo`: {threshold: {p5: [...], p25: [...], p50: [...], p75: [...], p95: [...]}}
-    - `replay`: {scenario: [balance_array]}
-    - `trade_numbers`: [0, 1, 2, ..., num_trades] (x-axis values)
-  - Test JSON serialization works (no NaN, Infinity issues)
-  - Test with multiple scenarios and thresholds
-
-- [ ] **Step 12.10:** Modify `app.py` to prepare chart data
-  - Extract trajectory data from `run_monte_carlo_simulation()` results
-  - Extract trade_history from each replay result
-  - Create `chart_data` dictionary with structure above
+    - `replay`: {scenario_id: [balance_array]}
+    - `trade_numbers`: [0, 1, 2, ..., num_trades]
   - Convert numpy arrays to Python lists (JSON serializable)
-  - Handle NaN/Infinity values (convert to null or drop)
-  - Pass `chart_data` to results template via `render_template()`
+  - Handle NaN/Infinity values (convert to null)
+  - Pass `chart_data_json` to results template via `render_template()`
+  - Added empty chart_data='{}' for error case
+  - Updated templates/results.html to include: `var chart_data = {{ chart_data_json|safe }};`
 
-- [ ] **Step 12.11:** Add JavaScript/charting library to templates
-  - Download Chart.js or Plotly.js to `static/js/` (or use CDN)
-  - Add script tags to `templates/base.html` or `templates/results.html`
-  - Create `static/js/charts.js` for custom chart rendering logic
-  - Add canvas/div containers to `templates/results.html` for three charts
+- [X] **Step 12.11:** Add JavaScript/charting library to templates
+  - Downloaded Chart.js CDN link to `templates/base.html`
+  - Created `static/js/charts.js` for custom chart rendering logic
+  - Added canvas containers to `templates/results.html` for three charts
+  - Added scripts block to include charts.js
 
 #### Part D: Frontend - Chart Rendering & Interactivity
 
-- [ ] **Step 12.12:** Implement Comparison Graph (all thresholds, median only)
+- [X] **Step 12.12:** Implement Comparison Graph (all thresholds, median only)
   - Parse `chart_data.monte_carlo` in JavaScript
   - Create line chart with one line per threshold (use p50/median)
   - X-axis: Trade number (0 to num_trades)
@@ -557,7 +567,7 @@ Fixed P/L/date misalignment caused by alphabetical sorting in trade_parser.py. A
   - Highlight selected threshold line (thicker, brighter)
   - Add title: "Monte Carlo Comparison - Median Trajectories"
 
-- [ ] **Step 12.13:** Implement Threshold Detail Graph (percentile bands)
+- [X] **Step 12.13:** Implement Threshold Detail Graph (percentile bands)
   - Show full percentile bands for currently selected threshold
   - Plot p5, p25, p50, p75, p95 as separate lines or shaded areas:
     - p5-p95 band: lightest fill
@@ -568,7 +578,7 @@ Fixed P/L/date misalignment caused by alphabetical sorting in trade_parser.py. A
   - Add title: "Threshold Detail - [selected threshold] - Risk Distribution"
   - Show bankruptcy zone (balance = 0) with visual indicator
 
-- [ ] **Step 12.14:** Implement Historical Replay Graph
+- [X] **Step 12.14:** Implement Historical Replay Graph
   - Plot actual balance trajectory from `chart_data.replay`
   - If multiple scenarios (percent mode), add dropdown to select scenario
   - X-axis: Trade number, Y-axis: Balance (same scale as Monte Carlo)
@@ -755,6 +765,74 @@ With 1000 simulations, we expect to see the average/typical case, not just lucky
 - [ ] Simulation results are properly calibrated and contextualized
 - [ ] Any remaining bugs are identified and fixed
 - [ ] UI communicates uncertainty and ranges, not just point estimates
+
+## Phase 14: Test Quality & Verification Infrastructure
+**Goal:** Improve test quality by discouraging mocking and auditing existing tests for value.
+
+### Part A: Mock Discouragement Infrastructure
+
+- [ ] **Step 14.1:** Create custom pytest fixture that warns on mock usage
+  - Create `conftest.py` with `pytest_configure` hook
+  - Patch `unittest.mock.patch` and `unittest.mock.Mock` to emit warnings
+  - Warning message: "⚠️  MOCKING DETECTED: Consider if this test could use real data instead. Integration tests with minimal mocking are preferred. See test_integration.py for examples."
+  - Make warning visible but non-blocking (don't fail tests)
+  - Add option to suppress for legitimate unit tests (decorator or comment marker)
+
+- [ ] **Step 14.2:** Add linting/code review checklist
+  - Create `.github/PULL_REQUEST_TEMPLATE.md` with checkpoint:
+    - "[ ] Any new mocked tests are justified (and documented with comment explaining why real data won't work)"
+  - Add developer guideline doc: `docs/TESTING_GUIDELINES.md`
+    - Prefer: Real CSVs from test_data/
+    - Prefer: Small num_simulations for speed (5-10 runs)
+    - Prefer: Seeded RNG for deterministic Monte Carlo tests
+    - Use mocks only for: External APIs, file I/O that's too slow, unavoidable randomness
+    - Every mock requires a comment explaining why it's necessary
+
+### Part B: Test Audit & Cleanup
+
+- [ ] **Step 14.3:** Audit test_app.py for shallow/mocked tests
+  - Review each test in test_app.py
+  - Identify tests that:
+    - Mock both parser AND simulator (heavy mocking)
+    - Only verify HTML strings exist (shallow assertions)
+    - Could be replaced by real integration tests
+  - Flag tests added in Phase 12.8 as candidates for replacement in 12.9
+  - Create list of tests to refactor or delete
+
+- [ ] **Step 14.4:** Audit test_simulator.py for overlapping coverage
+  - Identify tests that cover same behavior multiple times
+  - Look for tests with minimal assertions (just checking function doesn't crash)
+  - Consolidate where possible without losing edge case coverage
+  - Keep: Tests for critical position sizing constraints
+  - Keep: Tests for data validation (fail-fast behavior)
+  - Consider removing: Tests that are redundant with integration tests
+
+- [ ] **Step 14.5:** Audit test_replay.py and test_trade_parser.py
+  - Same criteria as above
+  - These tend to be better quality (less mocking)
+  - Focus on finding any shallow assertions
+  - Ensure tests verify actual calculated values, not just structure
+
+- [ ] **Step 14.6:** Document test quality metrics
+  - Count: Total tests, mocked tests, integration tests
+  - Calculate: "Mock ratio" = mocked tests / total tests (goal: <20%)
+  - Add to README.md: Test quality section
+  - Set target: "We aim for minimal mocking. Integration tests should outnumber mocked tests 4:1"
+
+- [ ] **Step 14.7:** Create example test templates
+  - Add `tests/EXAMPLES.md` with patterns:
+    - Good: Real integration test with seeded RNG
+    - Good: Unit test of pure function (no mocking needed)
+    - Acceptable: Mocked external API (with justification comment)
+    - Bad: Heavy mocking of internal functions
+  - Reference from testing guidelines
+
+### Success Criteria
+- [ ] Mocking warns during test runs (visible feedback loop)
+- [ ] Testing guidelines document exists and is referenced in PR template
+- [ ] Test audit complete with actionable refactoring list
+- [ ] Mock ratio calculated and tracked
+- [ ] Developers have clear examples of good vs bad tests
 
 ## Additional Completed Tasks
 - [X] **Testing:** Added comprehensive test suite including unit tests for web app functionality and end-to-end integration test with real data.

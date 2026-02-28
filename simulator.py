@@ -711,6 +711,73 @@ def generate_reward(avg_reward, max_reward):
     return min(scaled_reward, max_reward)
 
 
+def calculate_trajectory_percentiles(all_histories, percentiles):
+    """
+    Calculate percentiles of balance trajectories across multiple simulation runs.
+    
+    For each trade step, calculates specified percentiles (e.g., p5, p50, p95) across
+    all simulation runs at that step. This enables visualization of the distribution
+    of outcomes over time, showing both median performance and uncertainty bands.
+    
+    Parameters:
+    - all_histories (list[list[float]]): List of balance histories from simulation runs.
+        Each history is a list of balances [initial, after_trade_1, after_trade_2, ...].
+        Histories may have different lengths if some runs go bankrupt early.
+    - percentiles (list[int]): List of percentile values to calculate (e.g., [5, 25, 50, 75, 95]).
+    
+    Returns:
+    - dict: Dictionary mapping percentile names to lists of values.
+        Keys are formatted as 'p5', 'p25', 'p50', etc.
+        Each value is a list of length = max(len(h) for h in all_histories).
+        
+    Raises:
+    - ValueError: If all_histories is empty.
+    
+    Notes:
+    - When runs have varying lengths (bankruptcy), uses available values at each step.
+    - For steps where a run has ended, uses its last known balance (bankruptcy at 0).
+    - This ensures all percentile lists have the same length for consistent charting.
+    
+    Example:
+        all_histories = [
+            [1000, 1100, 1200],  # Run 1
+            [1000, 900, 0],       # Run 2 (bankrupt)
+            [1000, 1050, 1150]    # Run 3
+        ]
+        result = calculate_trajectory_percentiles(all_histories, [50, 95])
+        # Returns: {'p50': [1000, 1050, 1150], 'p95': [1000, 1100, 1200]}
+    """
+    if not all_histories:
+        raise ValueError("all_histories cannot be empty")
+    
+    # Find the maximum length across all histories
+    max_length = max(len(history) for history in all_histories)
+    
+    # Initialize result dictionary
+    result = {}
+    for percentile in percentiles:
+        result[f'p{percentile}'] = []
+    
+    # For each trade step, calculate percentiles across all runs
+    for step in range(max_length):
+        # Gather all balance values at this step
+        values_at_step = []
+        for history in all_histories:
+            if step < len(history):
+                # Use actual value if run still active
+                values_at_step.append(history[step])
+            else:
+                # Use last known balance (typically 0 for bankrupt runs)
+                values_at_step.append(history[-1])
+        
+        # Calculate each requested percentile for this step
+        for percentile in percentiles:
+            percentile_value = np.percentile(values_at_step, percentile)
+            result[f'p{percentile}'].append(percentile_value)
+    
+    return result
+
+
 def simulate_trades(
     trade,
     position_size,
@@ -762,6 +829,8 @@ def simulate_trades(
         - 'final_balance' (float): Account balance after all trades
         - 'max_drawdown' (float): Maximum drawdown experienced
         - 'max_losing_streak' (int): Longest losing streak in the path
+        - 'balance_history' (list[float]): Balance at each step, length = num_trades + 1
+            (initial balance + balance after each trade). Stops early if bankrupt.
     
     Notes:
     - In bootstrap mode, uses historical P/L distribution to sample realistic sequences
@@ -802,6 +871,7 @@ def simulate_trades(
                 )
 
         balance = initial_balance
+        balance_history = [initial_balance]  # Track balance at each step
         peak = initial_balance
         max_drawdown = 0
         current_losing_streak = 0
@@ -916,6 +986,7 @@ def simulate_trades(
 
             peak = max(peak, balance)
             max_drawdown = max(max_drawdown, peak - balance)
+            balance_history.append(balance)  # Record balance after each trade
             if balance <= 0:
                 balance = 0  # Set to 0 to indicate bankruptcy
                 break
@@ -924,7 +995,8 @@ def simulate_trades(
             'final_balance': balance,
             'max_drawdown': max_drawdown,
             'max_losing_streak': max_losing_streak,
-            'max_risk_pct': max_risk_pct
+            'max_risk_pct': max_risk_pct,
+            'balance_history': balance_history
         })
     return results
 
@@ -973,6 +1045,10 @@ def run_monte_carlo_simulation(
             - Contracts, Target Risk %, Starting Risk %, Max Risk %, Avg Final $, Bankruptcy Prob, etc.
         - 'pnl_preview' (list[str]): Formatted preview of first 10 P/L values
         - 'historical_max_losing_streak' (int): Longest losing streak in historical data
+        - 'trajectory_data' (dict): Balance trajectory percentiles for each threshold, with:
+            - Keys: threshold identifiers (e.g., '1.00%' for percent mode, '5' for contracts mode)
+            - Values: dict of percentile arrays {'p5': [...], 'p25': [...], 'p50': [...], 'p75': [...], 'p95': [...]}
+            - Each percentile array has length = num_trades + 1 (initial balance + after each trade)
     
     Notes:
     - For 'percent' sizing, tests risk levels: 1%, 2%, 3%, 5%, 10%, 15%, 25%, 50%, 75%, 100%
@@ -1006,6 +1082,8 @@ def run_monte_carlo_simulation(
         )
 
     data = []
+    trajectory_data = {}  # Store trajectory percentiles for each threshold
+    
     for row in position_size_plan:
         ps = row['contracts']
         if position_sizing == 'percent':
@@ -1040,6 +1118,20 @@ def run_monte_carlo_simulation(
                 allow_exceed_target_risk=allow_exceed_target_risk,
                 position_sizing=position_sizing
             )
+        
+        # Collect balance histories for trajectory visualization
+        all_balance_histories = [r['balance_history'] for r in sim_results]
+        
+        # Calculate trajectory percentiles for this threshold
+        percentiles = calculate_trajectory_percentiles(all_balance_histories, [5, 25, 50, 75, 95])
+        
+        # Store with appropriate key (risk % for percent mode, contract count for contracts mode)
+        if position_sizing == 'percent':
+            threshold_key = f"{row['target_risk_pct']:.2f}%"
+        else:
+            threshold_key = str(ps)
+        trajectory_data[threshold_key] = percentiles
+        
         final_balances = [r['final_balance'] for r in sim_results]
         drawdowns = [r['max_drawdown'] for r in sim_results]
         losing_streaks = [r['max_losing_streak'] for r in sim_results]
@@ -1081,7 +1173,8 @@ def run_monte_carlo_simulation(
         'summary': trade,
         'table_rows': data,
         'pnl_preview': [f"{round(x):,}" for x in trade['pnl_distribution'][:10]],
-        'historical_max_losing_streak': historical_max_losing_streak
+        'historical_max_losing_streak': historical_max_losing_streak,
+        'trajectory_data': trajectory_data
     }
     
     return [trade_report]
