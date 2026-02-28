@@ -528,6 +528,80 @@ class TestSampling:
         assert len(sampled) == num_trades
         assert all(x in [10, -5] for x in sampled)
 
+    def test_sample_trades_moving_blocks_preserves_alignment(self):
+        """
+        Test that sample_trades_moving_blocks samples P/L and risks together correctly.
+        
+        CRITICAL: This tests the fix for the bootstrap position sizing bug where P/L
+        was sampled but risks were not, causing mismatched position sizing.
+        """
+        # Create test data with distinct patterns to verify alignment
+        pnl_distribution = [100, 200, -300, 400, -500, 600]
+        per_trade_risks = [10, 20, 30, 40, 50, 60]
+        num_trades = 12
+        block_size = 2
+        
+        # Set seed for reproducibility
+        np.random.seed(42)
+        sampled_pnl, sampled_risks = simulator.sample_trades_moving_blocks(
+            pnl_distribution, per_trade_risks, num_trades, block_size
+        )
+        
+        # Basic length checks
+        assert len(sampled_pnl) == num_trades
+        assert len(sampled_risks) == num_trades
+        
+        # Verify all sampled values come from original distributions
+        assert all(p in pnl_distribution for p in sampled_pnl)
+        assert all(r in per_trade_risks for r in sampled_risks)
+        
+        # CRITICAL: Verify alignment - if we sampled P/L from index i,
+        # we must have sampled risk from index i as well
+        for pnl, risk in zip(sampled_pnl, sampled_risks):
+            pnl_idx = pnl_distribution.index(pnl)
+            risk_idx = per_trade_risks.index(risk)
+            assert pnl_idx == risk_idx, (
+                f"Misaligned sample: P/L={pnl} (index {pnl_idx}) "
+                f"paired with risk={risk} (index {risk_idx}). "
+                f"P/L and risks must be sampled from the same index!"
+            )
+        
+        # Verify block structure is preserved
+        # With block_size=2, consecutive samples might be from consecutive indices
+        # (though not guaranteed due to random block starting positions)
+        # At minimum, check that sampled data respects the distribution
+        assert min(sampled_pnl) >= min(pnl_distribution)
+        assert max(sampled_pnl) <= max(pnl_distribution)
+
+    def test_sample_trades_moving_blocks_handles_length_mismatch(self):
+        """Should raise ValueError if P/L and risks have different lengths."""
+        pnl_distribution = [100, 200, 300]
+        per_trade_risks = [10, 20]  # Different length!
+        
+        with pytest.raises(ValueError, match="must match"):
+            simulator.sample_trades_moving_blocks(
+                pnl_distribution, per_trade_risks, num_trades=5, block_size=2
+            )
+
+    def test_sample_trades_moving_blocks_handles_single_value(self):
+        """Should handle single-value distributions correctly."""
+        pnl_distribution = [100]
+        per_trade_risks = [50]
+        num_trades = 5
+        block_size = 2
+        
+        sampled_pnl, sampled_risks = simulator.sample_trades_moving_blocks(
+            pnl_distribution, per_trade_risks, num_trades, block_size
+        )
+        
+        assert sampled_pnl == [100] * num_trades
+        assert sampled_risks == [50] * num_trades
+
+    def test_sample_trades_moving_blocks_empty_distribution(self):
+        """Should raise ValueError with empty distributions."""
+        with pytest.raises(ValueError, match="must contain at least one value"):
+            simulator.sample_trades_moving_blocks([], [], num_trades=5, block_size=2)
+
 
 class TestSimulateTrades:
     """Comprehensive tests for the simulate_trades function."""

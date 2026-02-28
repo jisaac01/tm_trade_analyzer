@@ -498,8 +498,83 @@ def build_position_size_plan(
     return sizing_plan
 
 
+def sample_trades_moving_blocks(pnl_distribution, per_trade_risks, num_trades, block_size):
+    """
+    Sample realized trade P/L AND per-trade theoretical risks using moving blocks bootstrap.
+    
+    CRITICAL: This function samples BOTH P/L and corresponding per-trade risks together
+    to ensure position sizing in bootstrap mode matches replay behavior. When we sample
+    a trade's P/L, we must use THAT trade's theoretical risk for position sizing, not
+    an aggregate metric like p95.
+    
+    This method maintains the temporal dependencies and streak patterns from historical
+    trade data by sampling contiguous blocks of trades rather than individual trades.
+    This is more realistic for strategies where trade outcomes are not independent.
+    
+    Parameters:
+    - pnl_distribution (list[float]): Historical P/L values for each trade.
+    - per_trade_risks (list[float]): Theoretical risk for each trade (must match pnl_distribution length).
+    - num_trades (int): Number of trades to sample for the simulation.
+    - block_size (int): Size of contiguous blocks to sample from historical data.
+    
+    Returns:
+    - tuple: (list[float], list[float]) - Sampled P/L values and corresponding per-trade risks.
+    
+    Raises:
+    - ValueError: If block_size is not positive, distributions are empty, or lengths don't match.
+    
+    Notes:
+    - P/L and risks are always sampled together to maintain correct position sizing
+    - If distributions have only one value, returns that value repeated num_trades times
+    - Block size is automatically capped at the length of distributions
+    - Uses random block starting positions to create diverse but realistic sequences
+    """
+    if num_trades <= 0:
+        return [], []
+
+    if block_size <= 0:
+        raise ValueError('block_size must be positive.')
+
+    if not pnl_distribution:
+        raise ValueError('pnl_distribution must contain at least one value for moving-block bootstrap.')
+    
+    if not per_trade_risks:
+        raise ValueError('per_trade_risks must contain at least one value for moving-block bootstrap.')
+    
+    if len(pnl_distribution) != len(per_trade_risks):
+        raise ValueError(
+            f'pnl_distribution length ({len(pnl_distribution)}) must match '
+            f'per_trade_risks length ({len(per_trade_risks)})'
+        )
+
+    pnl_values = [float(value) for value in pnl_distribution]
+    risk_values = [float(value) for value in per_trade_risks]
+    n = len(pnl_values)
+    
+    if n == 1:
+        return [pnl_values[0]] * num_trades, [risk_values[0]] * num_trades
+
+    effective_block_size = min(block_size, n)
+    max_start = n - effective_block_size
+
+    sampled_pnl = []
+    sampled_risks = []
+    while len(sampled_pnl) < num_trades:
+        start_idx = int(np.random.randint(0, max_start + 1))
+        sampled_pnl.extend(pnl_values[start_idx:start_idx + effective_block_size])
+        sampled_risks.extend(risk_values[start_idx:start_idx + effective_block_size])
+
+    return sampled_pnl[:num_trades], sampled_risks[:num_trades]
+
+
 def sample_pnl_moving_blocks(pnl_distribution, num_trades, block_size):
     """
+    DEPRECATED: Use sample_trades_moving_blocks() instead for bootstrap simulations.
+    
+    This function only samples P/L values without corresponding per-trade risks,
+    which causes position sizing mismatches in bootstrap mode. It's kept for
+    backward compatibility with tests, but should not be used in production code.
+    
     Sample realized trade P/L values using moving blocks bootstrap to preserve streak structure.
     
     This method maintains the temporal dependencies and streak patterns from historical
@@ -712,11 +787,16 @@ def simulate_trades(
     results = []
     for _ in range(num_simulations):
         sampled_trade_pnl = None
+        sampled_trade_risks = None
         if simulation_mode == 'moving-block-bootstrap':
             pnl_distribution = trade.get('pnl_distribution', [])
-            if pnl_distribution:
-                sampled_trade_pnl = sample_pnl_moving_blocks(
+            per_trade_risks = trade.get('per_trade_theoretical_risk', [])
+            if pnl_distribution and per_trade_risks:
+                # CRITICAL FIX: Sample both P/L AND per-trade risks together
+                # This ensures position sizing in bootstrap mode matches replay behavior
+                sampled_trade_pnl, sampled_trade_risks = sample_trades_moving_blocks(
                     pnl_distribution=pnl_distribution,
+                    per_trade_risks=per_trade_risks,
                     num_trades=num_trades,
                     block_size=block_size
                 )
@@ -728,10 +808,18 @@ def simulate_trades(
         max_losing_streak = 0
         max_risk_pct = 0.0  # Track the maximum risk % taken during simulation
         for trade_idx in range(num_trades):
+            # CRITICAL: In bootstrap mode with per-trade risks, use the SAMPLED risk
+            # for this specific trade instead of the aggregate position_sizing_risk
+            if sampled_trade_risks is not None:
+                current_position_sizing_risk = sampled_trade_risks[trade_idx]
+            else:
+                current_position_sizing_risk = position_sizing_risk
+            
             contracts = position_size
             if dynamic_risk_sizing and target_risk_pct is not None:
+                # CRITICAL: Use the current trade's risk for sizing, not aggregate
                 contracts = choose_contract_count_for_risk_pct(
-                    max_risk_per_spread=max_risk_per_spread,
+                    max_risk_per_spread=current_position_sizing_risk,
                     account_balance=max(balance, 1),
                     target_risk_pct=target_risk_pct
                 )
@@ -739,7 +827,7 @@ def simulate_trades(
             # CRITICAL: Cap contracts to ensure theoretical max loss never exceeds balance
             # This simulates broker margin requirements: cannot open a position whose
             # theoretical max loss would make the account balance negative.
-            # Position sizing is based on conservative theoretical max, NOT risk_calculation_method.
+            # In bootstrap mode, use the sampled per-trade risk for this specific trade
             if balance <= 0:
                 # Account is broke, stop simulation
                 balance = 0
@@ -747,7 +835,7 @@ def simulate_trades(
             
             # Check if trade would violate target risk % constraint
             if not should_allow_trade_with_target_risk(
-                risk_per_spread=position_sizing_risk,
+                risk_per_spread=current_position_sizing_risk,
                 account_balance=balance,
                 target_risk_pct=target_risk_pct,
                 allow_exceed_target_risk=allow_exceed_target_risk,
@@ -756,10 +844,10 @@ def simulate_trades(
                 # Stop trading - would exceed target risk %
                 break
             
-            max_affordable_contracts = int(balance / position_sizing_risk)
+            max_affordable_contracts = int(balance / current_position_sizing_risk)
             if max_affordable_contracts == 0:
                 # Not enough balance to afford even 1 contract
-                # (balance < position_sizing_risk)
+                # (balance < current_position_sizing_risk)
                 # This should be caught by should_allow_trade_with_target_risk above,
                 # but keep as safety check
                 balance = 0
@@ -770,7 +858,7 @@ def simulate_trades(
             # cap contracts so total risk never exceeds target risk %
             contracts = cap_contracts_to_target_risk(
                 contracts=contracts,
-                risk_per_spread=position_sizing_risk,
+                risk_per_spread=current_position_sizing_risk,
                 account_balance=balance,
                 target_risk_pct=target_risk_pct,
                 allow_exceed_target_risk=allow_exceed_target_risk,
@@ -780,8 +868,8 @@ def simulate_trades(
             if contracts == 0:
                 # Cannot take any contracts without exceeding target risk - stop trading
                 break
-# Track the actual risk percentage for this trade (before balance changes)
-            current_risk_pct = (position_sizing_risk * contracts / balance) * 100
+            # Track the actual risk percentage for this trade (before balance changes)
+            current_risk_pct = (current_position_sizing_risk * contracts / balance) * 100
             max_risk_pct = max(max_risk_pct, current_risk_pct)
 
             
