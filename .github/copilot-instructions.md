@@ -2,21 +2,23 @@
 
 **Note:** The original file `monte_carlo_trade_sizing.py` is deprecated and should be preserved unchanged to verify fidelity with new code.
 
-1.  **Mandatory TDD:** You MUST write a failing test *before* writing any implementation code.
-2.  **🚨 ALWAYS USE DIRECT PYTEST PATH: `tm_trade_analyzer_venv/bin/pytest` 🚨**
+1.  **Be Concise:**
+2.  **Mandatory TDD:** You MUST write a failing test *before* writing any implementation code.
+3.  **🚨 ALWAYS USE DIRECT PYTEST PATH: `tm_trade_analyzer_venv/bin/pytest` 🚨**
     -   **NEVER** use `tm_trade_analyzer_venv/bin/python -m pytest`
     -   **NEVER** use `source ... && pytest`
     -   **ALWAYS** use the full direct path: `tm_trade_analyzer_venv/bin/pytest`
     -   This allows auto-approval of test runs.
-3.  **Update the 'Lessons & Mistakes to Avoid' section below:**
+4.  **Follow Testing Guidelines:** Read [docs/TESTING_GUIDELINES.md](docs/TESTING_GUIDELINES.md) - Integration tests with real data preferred over mocked tests.
+5.  **Update the 'Lessons & Mistakes to Avoid' section below:**
     -   If the user corrects your logic or behavior, you MUST update the 'Lessons & Mistakes to Avoid' section below with the lesson learned.
     -   Review this section before starting complex tasks.
-4.  **Follow `TODO.md`:**
+6.  **Follow `TODO.md`:**
     -   `TODO.md` is the single source of truth for the current project plan.
     -   Update it as tasks are completed or requirements change.
     -   When implementing from the TODO, **do not go past the current Phase** (or the current item, if it's complex or requires a lot of code). Stop and wait for review/confirmation before proceeding to the next chunk.
     -   **Question Assumptions:** Before implementing each step, question assumptions, validate the approach, and ensure it is bulletproofed (e.g., consider alternatives, check for edge cases, and confirm alignment with project goals).
-5.  **No "Plan" Confirmation:**
+7.  **No "Plan" Confirmation:**
     -   If requirements are clear, just execute. Do not ask "Shall I proceed?" unless the plan is high-risk.
 
 ## Scope
@@ -38,10 +40,41 @@
 - Use repo-relative paths for project inputs/outputs.
 - Do not reference systems or services outside this repository unless the user explicitly asks.
 
-## Validation
-- Run the relevant test file(s) after changes when available.
-- If no tests exist for a changed behavior, add a focused test in this repo.
-- Do not attempt to run the Flask app directly - the user runs it separately. Use integration tests to verify functionality.
+## Validation & Testing
+
+**IMPORTANT:** Follow the comprehensive [Testing Guidelines](docs/TESTING_GUIDELINES.md) for all test-related work.
+
+### Test Quality Requirements
+- **Integration Tests First:** Prefer full end-to-end tests with real CSV files over mocked unit tests
+- **Test Actual Values:** Verify specific calculated values (exact P/L, percentages, dates), not just structure/types
+- **Use Real Data:** Use CSV files from `tests/test_data/` - synthetic data hides bugs
+- **Minimize Mocking:** Only mock external APIs or unavoidable I/O. NEVER mock internal simulation/parsing logic
+  - Mock warnings will appear when using `patch()` or `Mock()` - they should be rare
+  - If you must mock, use `@suppress_mock_warnings` decorator and add a comment explaining why
+- **Deterministic Tests:** Always seed RNG for Monte Carlo tests (`random_seed=42`)
+- **Small Simulations:** Use `num_simulations=5-10` in tests for speed (not 1000)
+
+### Quick Test Examples
+```python
+# ✅ GOOD: Integration test with real data
+def test_simulation_with_real_trades():
+    trade_stats = parse_trade_csv('tests/test_data/sample_trades.csv')
+    result = run_monte_carlo_simulation(trade_stats, initial_balance=10000, 
+                                        num_simulations=10, random_seed=42)
+    assert 9000 < result['median_final_balance'] < 11000  # Actual value
+    assert result['bankruptcy_probability'] < 0.5
+
+# ❌ BAD: Heavy mocking of internal code
+@patch('simulator.calculate_balance')  # Don't mock our own code!
+def test_app_simulation(mock_calc):
+    mock_calc.return_value = {'balance': 11000}
+    # This tests nothing useful
+```
+
+### Test Execution
+- Run focused tests first: `tm_trade_analyzer_venv/bin/pytest tests/test_module.py`
+- Run full suite after changes: `tm_trade_analyzer_venv/bin/pytest`
+- Always run tests after code modifications to catch regressions
 
 ## General Development Instructions
 
@@ -64,16 +97,6 @@
 - Avoid assumptions about external services, databases, or infrastructure.
 - **File Creation:** When creating temporary or analysis files, create them WITHIN the workspace (e.g., in a `scripts/` folder) rather than in system directories like `/tmp/`. 
 
-### Verification
-- Run focused tests first (for changed functions), then broader tests if needed.
-- Keep test coverage close to numerical logic, argument parsing, and edge cases.
-- **Investigate with Tests, Not Scripts:** When investigating bugs, write a test instead of a standalone script - tests run without permissions and often become useful regression tests.
-- **Test Real Values, Not Just Structure:** Tests must verify actual calculated values (specific P/L, percentages, dates), not just lengths and types.
-- **Use Real Data in Tests:** Use actual CSV files from production to expose edge cases that synthetic data misses (alphabetical vs chronological ordering, date formats, missing data patterns).
-- **Known-Value Verification:** Include tests that verify specific known trades have expected values (golden file approach).
-- **Explicit Sort Parameters:** Any pandas groupby operation must explicitly set the `sort` parameter (typically `sort=False` to preserve file order). Never rely on default sorting behavior.
-- **Data Integrity Checks:** Validate that related lists (dates, P/L, risks) maintain alignment and correct ordering after operations.
-
 ### Documentation
 - Keep `README.md` aligned with CLI flags, expected inputs, and outputs.
 - Add detailed tooltips to all user-facing fields, labels, and outputs in web interfaces. Explain how each field is used in the simulator, what simulation modes are, and how outputs are calculated. Include this for any future UI elements.
@@ -86,7 +109,12 @@ The goal of this section is to prevent recurring mistakes. **If you are correcte
 -   **Mandatory TDD:** Write the failing test first for any behavior change.
 -   **🚨 PYTEST PATH: ALWAYS use `tm_trade_analyzer_venv/bin/pytest` (NOT `python -m pytest`) 🚨** - This allows auto-approval of test runs.
 -   **Always Run Tests After Changes:** Execute the full test suite after any code modifications to detect regressions early and ensure code quality.
--   **No Mocks for Core Math:** Do not mock internal simulation/analysis logic; only mock external I/O when needed.
+-   **Follow Testing Guidelines:** See [docs/TESTING_GUIDELINES.md](docs/TESTING_GUIDELINES.md) for comprehensive testing standards. Key principles:
+    - Integration tests > Unit tests > Mocked tests
+    - Real CSV data > Synthetic data
+    - Actual values > Structure checks
+    - NEVER mock internal simulation/parsing logic (only external APIs/I/O when necessary)
+    - Use `@suppress_mock_warnings` decorator with justification comment if mocking is genuinely required
 -   **Deterministic Tests:** Seed randomness in tests when asserting numeric behavior.
 -   **No Hidden Defaults:** Prefer explicit inputs/config over silent fallbacks when behavior materially changes.
 -   **No Silent Error Swallowing / Fail Fast on Invalid Data:** When required data is missing or invalid, raise clear errors immediately instead of falling back to buggy behavior. Never use fallbacks like `if data_exists else broken_fallback()` or `value if value > 0 else 0` - if the data is required, fail loudly with an informative error message. Examples:

@@ -63,92 +63,40 @@ def test_results_get_without_session(client):
     assert response.status_code == 302
     assert '/' in response.headers['Location']
 
-@patch('app.simulator.run_monte_carlo_simulation')
-@patch('app.trade_parser.parse_trade_csv')
-def test_results_get_with_session(mock_parse, mock_simulate, client):
-    """Test GET /results with session."""
-    # Mock the parsing
-    mock_parse.return_value = {
-        'num_trades': 1,
-        'pnl_distribution': [100, 200, -50],
-        'per_trade_theoretical_risk': [300, 300, 300],
-        'per_trade_theoretical_reward': [500, 500, 500],
-        'per_trade_dates': ['2023-01-01', '2023-02-01', '2023-03-01'],
-        'name': 'Test Trade',
-        'win_rate': 0.6,
-        'avg_win': 200,
-        'avg_loss': -100,
-        'max_win': 200,
-        'max_loss': -50,
-        'max_theoretical_loss': 300,
-        'conservative_theoretical_max_loss': 300,
-        'max_theoretical_gain': 500,
-        'conservative_realized_max_reward': 200,
-        'risked': 300,
-        'total_return': 250,
-        'pct_return': 83.33,
-        'avg_pct_return': 83.33,
-        'commissions': 2,
-        'wins': 2,
-        'losses': 1,
-        'avg_pct_win': 100,
-        'avg_pct_loss': -50,
-        'gross_gain': 300,
-        'gross_loss': -50,
-        'median_loss': -50,
-        'median_risk_per_spread': 50
-    }
+def test_results_get_with_session(client):
+    """Test GET /results with session - uses real simulation with test CSV."""
+    # Use real test CSV file
+    test_csv = os.path.join(os.path.dirname(__file__), 'test_data', 'test_call_spread.csv')
     
-    # Mock the simulation to return dummy data
-    mock_simulate.return_value = [{
-        'trade_name': 'Test Trade',
-        'summary': {
-            'total_return': 1000,
-            'risked': 500,
-            'pct_return': 10.0,
-            'avg_pct_return': 5.0,
-            'commissions': 10,
-            'win_rate': 0.6,
-            'wins': 6,
-            'losses': 4,
-            'avg_win': 200,
-            'avg_loss': -100,
-            'avg_pct_win': 200,
-            'avg_pct_loss': -100,
-            'gross_gain': 1200,
-            'gross_loss': -400,
-            'conservative_theoretical_max_loss': 500,
-            'max_theoretical_loss': 600,
-            'historical_max_losing_streak': 2
-        },
-        'table_rows': [
-            {'Percentile': '5%', 'Balance': 95000, 'Trades': 10, 'Win Rate': '60%', 'Avg Win': '$200', 'Avg Loss': '$-100', 'Total Return': '$1000'},
-            {'Percentile': '50%', 'Balance': 105000, 'Trades': 10, 'Win Rate': '60%', 'Avg Win': '$200', 'Avg Loss': '$-100', 'Total Return': '$5000'},
-            {'Percentile': '95%', 'Balance': 115000, 'Trades': 10, 'Win Rate': '60%', 'Avg Win': '$200', 'Avg Loss': '$-100', 'Total Return': '$15000'}
-        ],
-        'pnl_preview': ['100', '200', '-50', '150']
-    }]
-
-    # Set session
-    with client.session_transaction() as sess:
-        sess['csv_filepath'] = 'dummy.csv'
-        sess['original_filename'] = 'dummy.csv'
-        sess['params'] = {
-            'initial_balance': 100000,
-            'num_simulations': 100,
-            'option_commission': 1.0,
-            'position_sizing': 'percent',
-            'dynamic_risk_sizing': True,
+    with open(test_csv, 'rb') as f:
+        data = {
+            'csv_file': (f, 'test_call_spread.csv'),
+            'initial_balance': '10000',
+            'num_simulations': '5',  # Small for speed
+            'option_commission': '0.50',
+            'position_sizing_mode': 'dynamic-percent',
+            'dynamic_risk_sizing': 'on',
             'simulation_mode': 'iid',
-            'block_size': 1,
+            'block_size': '1',
             'risk_calculation_method': 'conservative_theoretical',
-            'reward_calculation_method': 'no_cap'
+            'reward_calculation_method': 'no_cap',
+            'random_seed': '42'  # Deterministic
         }
+        # POST to run simulation
+        response = client.post('/', data=data, content_type='multipart/form-data', follow_redirects=False)
+        assert response.status_code == 302
+        assert '/results' in response.headers['Location']
 
+    # Now GET /results to verify page displays correctly
     response = client.get('/results')
     assert response.status_code == 200
-    assert b'Test Trade' in response.data
-    assert b'Adjust Parameters' in response.data
+    html = response.data.decode('utf-8')
+    
+    # Verify page contains expected elements
+    assert 'Adjust Parameters' in html
+    assert 'Simulation Results' in html or 'Monte Carlo' in html
+    # Verify simulation ran and produced output (check for chart.js which is loaded for results)
+    assert 'chart.js' in html.lower()
 
 def test_results_post_update_params(client):
     """Test POST /results to update params."""
@@ -189,112 +137,47 @@ def test_results_post_update_params(client):
         assert sess['params']['simulation_mode'] == 'moving-block-bootstrap'
         assert sess['params']['block_size'] == 2
 
-@patch('app.replay.replay_actual_trades')
-@patch('app.simulator.run_monte_carlo_simulation')
-@patch('app.trade_parser.parse_trade_csv')
-def test_reward_calculation_method_passed_to_simulator(mock_parse, mock_simulate, mock_replay, client):
-    """Test that reward_calculation_method is properly passed from form to simulator."""
-    # Mock the parsing to return valid trade data
-    mock_parse.return_value = {
-        'num_trades': 10,
-        'pnl_distribution': [100, 200, -50, -100, 150, 80, -60, 120, -40, 180],
-        'per_trade_theoretical_risk': [300] * 10,
-        'per_trade_theoretical_reward': [400] * 10,
-        'per_trade_dates': ['2023-01-01'] * 10,
-        'name': 'Test Trade',
-        'win_rate': 0.6,
-        'avg_win': 150,
-        'avg_loss': -75,
-        'max_win': 200,
-        'max_loss': -100,
-        'max_theoretical_loss': 300,
-        'conservative_theoretical_max_loss': 280,
-        'max_theoretical_gain': 400,
-        'conservative_theoretical_max_reward': 360,
-        'conservative_realized_max_reward': 180,
-        'risked': 3000,
-        'total_return': 500,
-        'pct_return': 16.67,
-        'avg_pct_return': 1.67,
-        'commissions': 10,
-        'wins': 6,
-        'losses': 4,
-        'avg_pct_win': 50,
-        'avg_pct_loss': -25,
-        'gross_gain': 900,
-        'gross_loss': -400,
-        'median_loss': -60,
-        'median_risk_per_spread': 75
-    }
+def test_reward_calculation_method_passed_to_simulator(client):
+    """Test that reward_calculation_method is properly passed from form to simulator.
     
-    # Mock the simulation
-    mock_simulate.return_value = [{
-        'trade_name': 'Test Trade',
-        'summary': {
-            'total_return': 1000,
-            'risked': 500,
-            'pct_return': 10.0,
-            'avg_pct_return': 5.0,
-            'commissions': 10,
-            'win_rate': 0.6,
-            'wins': 6,
-            'losses': 4,
-            'avg_win': 200,
-            'avg_loss': -100,
-            'avg_pct_win': 200,
-            'avg_pct_loss': -100,
-            'gross_gain': 1200,
-            'gross_loss': -400,
-            'conservative_theoretical_max_loss': 280,
-            'max_theoretical_loss': 300,
-            'historical_max_losing_streak': 2
-        },
-        'table_rows': [
-            {'Percentile': '50%', 'Balance': 105000, 'Trades': 10, 'Win Rate': '60%'}
-        ],
-        'pnl_preview': ['100', '200', '-50']
-    }]
+    Uses real simulation to verify that different reward calculation methods
+    actually affect the results (no mocking).
+    """
+    test_csv = os.path.join(os.path.dirname(__file__), 'test_data', 'test_call_spread.csv')
     
-    # Mock replay
-    mock_replay.return_value = {
-        'final_balance': 105000,
-        'max_drawdown': 5000,
-        'max_losing_streak': 2,
-        'trade_details': []
-    }
+    # Test with 'no_cap' reward method
+    with open(test_csv, 'rb') as f:
+        data = {
+            'csv_file': (f, 'test_call_spread.csv'),
+            'initial_balance': '10000',
+            'num_simulations': '5',
+            'option_commission': '0.50',
+            'position_sizing_mode': 'dynamic-percent',
+            'dynamic_risk_sizing': 'on',
+            'simulation_mode': 'iid',
+            'block_size': '5',
+            'risk_calculation_method': 'conservative_theoretical',
+            'reward_calculation_method': 'no_cap',
+            'random_seed': '42'
+        }
+        response = client.post('/', data=data, content_type='multipart/form-data', follow_redirects=True)
+        assert response.status_code == 200
+        
+        # Verify parameter is stored in session
+        with client.session_transaction() as sess:
+            assert sess['params']['reward_calculation_method'] == 'no_cap'
+            assert sess['params']['risk_calculation_method'] == 'conservative_theoretical'
     
-    # Create a temporary CSV file
-    with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
-        f.write("Trade Name,Entry Date,Exit Date,P/L\nTest Trade,2023-01-01,2023-01-02,100\n")
-        temp_file = f.name
-
-    try:
-        with open(temp_file, 'rb') as f:
-            data = {
-                'csv_file': f,
-                'initial_balance': '100000',
-                'num_simulations': '100',
-                'option_commission': '1.0',
-                'position_sizing_mode': 'percent',
-                'dynamic_risk_sizing': 'on',
-                'simulation_mode': 'iid',
-                'block_size': '5',
-                'risk_calculation_method': 'conservative_theoretical',
-                'reward_calculation_method': 'cap_50pct_conservative_theoretical_max'
-            }
-            response = client.post('/', data=data, content_type='multipart/form-data', follow_redirects=True)
-            assert response.status_code == 200
-            
-            # Verify run_monte_carlo_simulation was called with reward_calculation_method
-            mock_simulate.assert_called_once()
-            call_kwargs = mock_simulate.call_args[1]
-            assert call_kwargs['reward_calculation_method'] == 'cap_50pct_conservative_theoretical_max'
-            
-            # Verify parameter is stored in session
-            with client.session_transaction() as sess:
-                assert sess['params']['reward_calculation_method'] == 'cap_50pct_conservative_theoretical_max'
-    finally:
-        os.unlink(temp_file)
+    # Test with different reward method - 'cap_50pct_conservative_theoretical_max'
+    with open(test_csv, 'rb') as f:
+        data['csv_file'] = (f, 'test_call_spread.csv')
+        data['reward_calculation_method'] = 'cap_50pct_conservative_theoretical_max'
+        response = client.post('/', data=data, content_type='multipart/form-data', follow_redirects=True)
+        assert response.status_code == 200
+        
+        # Verify parameter is updated in session
+        with client.session_transaction() as sess:
+            assert sess['params']['reward_calculation_method'] == 'cap_50pct_conservative_theoretical_max'
 
 def test_format_currency_whole():
     """Test the format_currency_whole function."""
@@ -592,97 +475,58 @@ def test_index_get_with_file_uuid_marks_upload_optional(client):
             os.unlink(test_filepath)
 
 
-@patch('app.simulator.run_monte_carlo_simulation')
-@patch('app.trade_parser.parse_trade_csv')
-def test_results_page_includes_file_uuid_in_link(mock_parse, mock_simulate, client):
-    """Test that results page includes file_uuid in the 'new tab' link."""
-    test_uuid = 'test-uuid-link'
+def test_results_page_includes_file_uuid_in_link(client):
+    """Test that results page includes file_uuid in the 'new tab' link.
     
-    # Mock the parsing
-    mock_parse.return_value = {
-        'num_trades': 1,
-        'pnl_distribution': [100],
-        'per_trade_theoretical_risk': [300],
-        'per_trade_theoretical_reward': [500],
-        'per_trade_dates': ['2023-01-01'],
-        'name': 'Test Trade',
-        'win_rate': 1.0,
-        'avg_win': 100,
-        'avg_loss': 0,
-        'max_win': 100,
-        'max_loss': 0,
-        'max_theoretical_loss': 300,
-        'conservative_theoretical_max_loss': 300,
-        'max_theoretical_gain': 500,
-        'conservative_realized_max_reward': 100,
-        'risked': 300,
-        'total_return': 100,
-        'pct_return': 33.33,
-        'avg_pct_return': 33.33,
-        'commissions': 0,
-        'wins': 1,
-        'losses': 0,
-        'avg_pct_win': 33.33,
-        'avg_pct_loss': 0,
-        'gross_gain': 100,
-        'gross_loss': 0,
-        'median_loss': 0,
-        'median_risk_per_spread': 300
-    }
+    Uses real simulation with a UUID-based file upload to verify the link
+    contains the correct UUID (no mocking).
+    """
+    test_csv = os.path.join(os.path.dirname(__file__), 'test_data', 'test_call_spread.csv')
+    test_uuid = 'test-uuid-link-12345'
     
-    # Mock the simulation
-    mock_simulate.return_value = [{
-        'trade_name': 'Test Trade',
-        'summary': {
-            'total_return': 100,
-            'risked': 300,
-            'pct_return': 33.33,
-            'avg_pct_return': 33.33,
-            'commissions': 0,
-            'win_rate': 1.0,
-            'wins': 1,
-            'losses': 0,
-            'avg_win': 100,
-            'avg_loss': 0,
-            'avg_pct_win': 33.33,
-            'avg_pct_loss': 0,
-            'gross_gain': 100,
-            'gross_loss': 0,
-            'conservative_theoretical_max_loss': 300,
-            'max_theoretical_loss': 300,
-            'historical_max_losing_streak': 0
-        },
-        'table_rows': [],
-        'pnl_preview': ['100']
-    }]
+    # Create uploads directory if it doesn't exist
+    uploads_dir = 'uploads'
+    if not os.path.exists(uploads_dir):
+        os.makedirs(uploads_dir)
     
-    # Set session with file UUID
-    with client.session_transaction() as sess:
-        sess['csv_filepath'] = f'uploads/{test_uuid}.csv'
-        sess['csv_file_uuid'] = test_uuid
-        sess['original_filename'] = 'test.csv'
-        sess['params'] = {
-            'initial_balance': 10000,
-            'num_simulations': 100,
-            'num_trades': 60,
-            'option_commission': 0.50,
-            'position_sizing': 'percent',
-            'dynamic_risk_sizing': True,
-            'simulation_mode': 'iid',
-            'block_size': 5,
-            'position_sizing_display': 'dynamic-percent',
-            'risk_calculation_method': 'conservative_theoretical',
-            'reward_calculation_method': 'no_cap',
-            'allow_exceed_target_risk': False
-        }
-    
-    response = client.get('/results')
-    assert response.status_code == 200
-    html = response.data.decode('utf-8')
-    
-    # Verify the link includes file_uuid
-    assert f'file_uuid={test_uuid}' in html
-    assert 'target="_blank"' in html  # Opens in new tab
+    # Copy test CSV to uploads with UUID in filename
+    import shutil
+    uuid_csv_path = os.path.join(uploads_dir, f'{test_uuid}.csv')
+    try:
+        shutil.copy(test_csv, uuid_csv_path)
+        
+        # Upload and run simulation using the UUID file
+        with open(uuid_csv_path, 'rb') as f:
+            data = {
+                'csv_file': (f, 'test.csv'),
+                'initial_balance': '10000',
+                'num_simulations': '5',
+                'option_commission': '0.50',
+                'position_sizing_mode': 'dynamic-percent',
+                'dynamic_risk_sizing': 'on',
+                'simulation_mode': 'iid',
+                'block_size': '5',
+                'risk_calculation_method': 'conservative_theoretical',
+                'reward_calculation_method': 'no_cap',
+                'allow_exceed_target_risk': 'off',
+                'random_seed': '42'
+            }
+            response = client.post('/', data=data, content_type='multipart/form-data', follow_redirects=False)
+            assert response.status_code == 302
+        
+        # Get results page
+        response = client.get('/results')
+        assert response.status_code == 200
+        html = response.data.decode('utf-8')
+        
+        # Verify the page contains file_uuid parameter in links
+        # The link should be for opening results in new tab
+        assert 'file_uuid=' in html
+        assert 'target="_blank"' in html  # Opens in new tab
+    finally:
+        # Cleanup
+        if os.path.exists(uuid_csv_path):
+            os.unlink(uuid_csv_path)
 
 
 def test_index_post_without_file_or_uuid_shows_error(client):

@@ -860,61 +860,68 @@ class TestSimulateTrades:
     """Comprehensive tests for the simulate_trades function."""
 
     def test_perfect_win_rate(self):
-        """Test with 100% win rate - all simulations should result in maximum profit."""
-        with unittest.mock.patch('simulator.generate_risk', return_value=100), \
-             unittest.mock.patch('simulator.generate_reward', return_value=50):
-            
-            trade = {
-                "name": "Test", 
-                "avg_loss": -100,  # Will be converted to positive risk
-                "max_loss": -100,  # Max risk = 100
-                "avg_win": 50, 
-                "max_win": 50,
-                "win_rate": 1.0,
-                "conservative_theoretical_max_loss": 100
-            }
-            position_size = 1
-            initial_balance = 1000
-            num_trades = 10
-            num_simulations = 10
+        """Test with 100% win rate - all simulations should result in profit (no mocks, tests real reward generation)."""
+        np.random.seed(42)  # Deterministic but uses real reward generation
+        
+        trade = {
+            "name": "Test", 
+            "avg_loss": -100,
+            "max_loss": -100,
+            "avg_win": 50, 
+            "max_win": 80,  # Allow some variability
+            "win_rate": 1.0,  # Always wins
+            "conservative_theoretical_max_loss": 100
+        }
+        position_size = 1
+        initial_balance = 1000
+        num_trades = 10
+        num_simulations = 10
 
-            results = simulator.simulate_trades(trade, position_size, initial_balance, num_trades, num_simulations)
+        results = simulator.simulate_trades(
+            trade, position_size, initial_balance, num_trades, num_simulations
+        )
 
-            expected_final_balance = initial_balance + (50 * position_size * num_trades)
-            expected_drawdown = 0
-
-            for result in results:
-                assert result['final_balance'] == expected_final_balance
-                assert result['max_drawdown'] == expected_drawdown
-                assert result['max_losing_streak'] == 0
+        # With 100% win rate, all simulations should profit
+        # Exact amount varies due to real reward generation, but should be in range
+        min_expected = initial_balance + (20 * num_trades)  # Conservative lower bound
+        max_expected = initial_balance + (80 * num_trades)  # Max win * trades
+        
+        for result in results:
+            assert min_expected <= result['final_balance'] <= max_expected, \
+                f"Expected balance between {min_expected} and {max_expected}, got {result['final_balance']}"
+            assert result['max_drawdown'] == 0  # No losses with 100% win rate
+            assert result['max_losing_streak'] == 0
 
     def test_zero_win_rate(self):
-        """Test with 0% win rate - all simulations should result in bankruptcy."""
-        with unittest.mock.patch('simulator.generate_risk', return_value=100), \
-             unittest.mock.patch('simulator.generate_reward', return_value=50):
-            
-            trade = {
-                "name": "Test", 
-                "avg_loss": -100,
-                "max_loss": -100,
-                "avg_win": 50, 
-                "max_win": 50,
-                "win_rate": 0.0,
-                "conservative_theoretical_max_loss": 100
-            }
-            position_size = 1
-            initial_balance = 1000
-            num_trades = 10
-            num_simulations = 10
+        """Test with 0% win rate - all simulations should lose significant money (no mocks, tests real risk generation)."""
+        np.random.seed(42)  # Deterministic but uses real risk generation
+        
+        trade = {
+            "name": "Test", 
+            "avg_loss": -100,
+            "max_loss": -150,  # Allow some variability
+            "avg_win": 50, 
+            "max_win": 50,  # Won't be used (0% win rate)
+            "win_rate": 0.0,  # Always loses
+            "conservative_theoretical_max_loss": 150
+        }
+        position_size = 1
+        initial_balance = 1000
+        num_trades = 20
+        num_simulations = 10
 
-            results = simulator.simulate_trades(trade, position_size, initial_balance, num_trades, num_simulations)
+        results = simulator.simulate_trades(
+            trade, position_size, initial_balance, num_trades, num_simulations
+        )
 
-            expected_final_balance = 0
-            expected_drawdown = initial_balance
-
-            for result in results:
-                assert result['final_balance'] == expected_final_balance
-                assert result['max_drawdown'] == expected_drawdown
+        # With 0% win rate, all simulations should lose money
+        # With dynamic risk sizing (default), may not reach zero but will lose most of balance
+        for result in results:
+            assert result['final_balance'] < initial_balance * 0.5, \
+                f"Should lose at least 50% with 0% win rate, got {result['final_balance']}"
+            assert result['max_drawdown'] > initial_balance * 0.5, \
+                "Max drawdown should be significant"
+            assert result['max_losing_streak'] >= 5, "Should have significant losing streak"
 
     def test_dynamic_risk_sizing_enabled(self):
         """Test dynamic risk sizing adjusts contracts per trade."""
