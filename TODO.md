@@ -434,6 +434,222 @@ Fixed P/L/date misalignment caused by alphabetical sorting in trade_parser.py. A
 - [ ] Documentation explains how to handle missing/suspicious data
 - [ ] Test coverage includes real-data validation (not just synthetic test data)
 - [ ] No regressions in existing functionality
+
+## Phase 12: Interactive Graph Visualizations
+**Goal:** Add interactive charts showing Monte Carlo trajectories and historical replay results over time. Use hybrid approach with three graphs: (1) comparison of all thresholds, (2) detailed view of selected threshold, (3) historical replay trajectory.
+
+### Architecture Overview
+
+**Charting Library:** Use [Chart.js](https://www.chartjs.org/) (lightweight, good for line charts with shaded bands) or [Plotly.js](https://plotly.com/javascript/) (more interactive, hover tooltips, zoom/pan).
+
+**Data Flow:**
+1. Simulator tracks `balance_history` for each run (list of balances at each trade step)
+2. Backend calculates percentiles (p5, p25, p50, p75, p95) across all runs at each step
+3. Pass trajectory data as JSON to template
+4. JavaScript renders charts client-side with interactivity
+
+**Three Interactive Graphs:**
+1. **Comparison Graph** (always visible): All thresholds as median lines only, click to select
+2. **Threshold Detail Graph** (shows selected): Full percentile bands for one threshold
+3. **Historical Replay Graph** (separate): Actual balance trajectory, optionally overlay Monte Carlo median
+
+### Implementation Steps
+
+#### Part A: Simulator Changes - Track Balance Trajectories
+
+- [ ] **Step 12.1:** Write tests for balance history tracking in `simulate_trades()`
+  - Test that returned results include `balance_history` field
+  - Test that `balance_history` is list with length = num_trades + 1 (initial + after each trade)
+  - Test that first element equals initial_balance
+  - Test that last element equals final_balance
+  - Test with bankruptcy scenario (balance_history stops when balance hits 0)
+  - Test with dynamic sizing (verify balance updates correctly)
+  - Test that balance_history works in both IID and bootstrap modes
+
+- [ ] **Step 12.2:** Modify `simulate_trades()` to track and return balance history
+  - Add `balance_history = [initial_balance]` at start of each simulation run
+  - Append current balance after each trade: `balance_history.append(balance)`
+  - Include `balance_history` in returned result dict for each run
+  - Ensure minimal performance impact (simple list append)
+  - Update docstring to document new return field
+
+- [ ] **Step 12.3:** Write tests for percentile calculation across runs
+  - Test `calculate_trajectory_percentiles(all_histories, percentiles=[5, 25, 50, 75, 95])`
+  - Test that returns dict with keys: 'p5', 'p25', 'p50', 'p75', 'p95'
+  - Test that each percentile is list of length = max(len(h) for h in all_histories)
+  - Test with varying run lengths (some bankrupt early)
+  - Test with single run (should return that run for all percentiles)
+  - Test with empty input (should raise ValueError)
+  - Test that percentiles are calculated correctly at each step
+
+- [ ] **Step 12.4:** Implement `calculate_trajectory_percentiles()` in `simulator.py`
+  - Accept list of balance_history arrays and list of percentile values
+  - For each trade step, gather all non-None balances at that step
+  - Calculate requested percentiles using `np.percentile()`
+  - Handle varying lengths (bankruptcy): use available values, pad with last value or None
+  - Return dict mapping percentile name (e.g., 'p50') to list of values
+  - Document handling of bankruptcy/varying lengths
+
+- [ ] **Step 12.5:** Write tests for aggregating trajectories by threshold
+  - Test that `run_monte_carlo_simulation()` returns trajectory data per threshold
+  - Test structure: `trajectory_data[threshold] = {'p5': [...], 'p25': [...], ...}`
+  - Test that all thresholds have same number of trade steps
+  - Test with contracts and percent position sizing modes
+  - Verify trajectory data is separate from existing summary stats
+
+- [ ] **Step 12.6:** Modify `run_monte_carlo_simulation()` to collect and aggregate trajectories
+  - For each threshold, collect all `balance_history` arrays from simulation runs
+  - Call `calculate_trajectory_percentiles()` for each threshold
+  - Add `trajectory_data` field to returned dictionary
+  - Structure: `{'thresholds': [...], 'summaries': [...], 'trajectory_data': {threshold: percentiles}}`
+  - Keep existing return structure intact (backward compatible)
+  - Consider memory: with 1000 runs × 100 trades × 10 thresholds = modest data size
+
+#### Part B: Historical Replay Trajectory Data
+
+- [ ] **Step 12.7:** Verify replay already returns `trade_history`
+  - Check that `replay_actual_trades()` returns `trade_history` field
+  - Verify `trade_history` contains balance at each step (initial + after each trade)
+  - Write test if missing: verify replay trajectory matches manual calculation
+  - Document that replay already has trajectory data ready for charting
+
+- [ ] **Step 12.8:** Write tests for replay trajectory per threshold
+  - Test that app collects replay `trade_history` for each scenario
+  - Test structure matches Monte Carlo: dict mapping threshold/scenario to balance array
+  - Test with different position sizing modes (contracts vs percent)
+  - Ensure replay trajectory aligns with Monte Carlo trade steps (same length)
+
+#### Part C: Backend API - Pass Data to Frontend
+
+- [ ] **Step 12.9:** Write integration tests for trajectory data in template context
+  - Test that `render_template('results.html', ...)` receives `chart_data` parameter
+  - Test `chart_data` structure contains:
+    - `monte_carlo`: {threshold: {p5: [...], p25: [...], p50: [...], p75: [...], p95: [...]}}
+    - `replay`: {scenario: [balance_array]}
+    - `trade_numbers`: [0, 1, 2, ..., num_trades] (x-axis values)
+  - Test JSON serialization works (no NaN, Infinity issues)
+  - Test with multiple scenarios and thresholds
+
+- [ ] **Step 12.10:** Modify `app.py` to prepare chart data
+  - Extract trajectory data from `run_monte_carlo_simulation()` results
+  - Extract trade_history from each replay result
+  - Create `chart_data` dictionary with structure above
+  - Convert numpy arrays to Python lists (JSON serializable)
+  - Handle NaN/Infinity values (convert to null or drop)
+  - Pass `chart_data` to results template via `render_template()`
+
+- [ ] **Step 12.11:** Add JavaScript/charting library to templates
+  - Download Chart.js or Plotly.js to `static/js/` (or use CDN)
+  - Add script tags to `templates/base.html` or `templates/results.html`
+  - Create `static/js/charts.js` for custom chart rendering logic
+  - Add canvas/div containers to `templates/results.html` for three charts
+
+#### Part D: Frontend - Chart Rendering & Interactivity
+
+- [ ] **Step 12.12:** Implement Comparison Graph (all thresholds, median only)
+  - Parse `chart_data.monte_carlo` in JavaScript
+  - Create line chart with one line per threshold (use p50/median)
+  - X-axis: Trade number (0 to num_trades)
+  - Y-axis: Account balance
+  - Color code each threshold line (use distinct colors, generate palette if many thresholds)
+  - Add legend showing threshold labels
+  - Make lines clickable: onClick sets selected threshold for detail view
+  - Highlight selected threshold line (thicker, brighter)
+  - Add title: "Monte Carlo Comparison - Median Trajectories"
+
+- [ ] **Step 12.13:** Implement Threshold Detail Graph (percentile bands)
+  - Show full percentile bands for currently selected threshold
+  - Plot p5, p25, p50, p75, p95 as separate lines or shaded areas:
+    - p5-p95 band: lightest fill
+    - p25-p75 band: darker fill overlay
+    - p50: solid line on top
+  - Same X/Y axes as comparison graph (trade number, balance)
+  - Update when user clicks threshold in comparison graph
+  - Add title: "Threshold Detail - [selected threshold] - Risk Distribution"
+  - Show bankruptcy zone (balance = 0) with visual indicator
+
+- [ ] **Step 12.14:** Implement Historical Replay Graph
+  - Plot actual balance trajectory from `chart_data.replay`
+  - If multiple scenarios (percent mode), add dropdown to select scenario
+  - X-axis: Trade number, Y-axis: Balance (same scale as Monte Carlo)
+  - Solid line showing actual historical performance
+  - Optional: Overlay Monte Carlo median for selected threshold (dashed line for comparison)
+  - Add title: "Historical Replay - Actual Performance"
+  - Color code to distinguish from Monte Carlo (e.g., green = actual, blue = MC)
+
+- [ ] **Step 12.15:** Add interactivity and polish
+  - Hover tooltips showing exact values (trade number, balance, percentile)
+  - Zoom/pan controls (if using Plotly) or wheel zoom (custom)
+  - Toggle visibility: checkboxes to show/hide individual thresholds in comparison
+  - Export charts as PNG (Chart.js/Plotly built-in feature)
+  - Responsive design: charts resize with window
+  - Loading indicator while charts render (if data is large)
+
+- [ ] **Step 12.16:** Add chart controls UI
+  - "Show/Hide Charts" toggle (some users may prefer table view only)
+  - "Reset Zoom" button
+  - Threshold selector dropdown (alternative to clicking in comparison graph)
+  - "Overlay Replay" checkbox for detail graph
+  - Legend customization (show/hide specific percentiles)
+
+#### Part E: Testing & Validation
+
+- [ ] **Step 12.17:** Write end-to-end tests for chart data flow
+  - Integration test: Submit form, verify chart_data in response
+  - Verify chart containers exist in rendered HTML
+  - Verify JavaScript receives correct data in window/global scope
+  - Test with edge cases: single threshold, bankruptcy, all thresholds profitable
+
+- [ ] **Step 12.18:** Manual testing checklist
+  - [ ] All three charts render correctly with default settings
+  - [ ] Clicking threshold in comparison updates detail view
+  - [ ] Replay graph shows correct trajectory
+  - [ ] Hover tooltips show accurate values
+  - [ ] Charts are responsive and resize properly
+  - [ ] Export to PNG works
+  - [ ] Charts work with both contracts and percent sizing modes
+  - [ ] Performance is acceptable with 1000 simulations × 100 trades × 10 thresholds
+
+- [ ] **Step 12.19:** Add chart documentation
+  - Update README.md with chart feature description
+  - Add screenshots of charts to docs (or README)
+  - Document how to interpret percentile bands
+  - Explain what each graph shows and when to use it
+  - Add tips for comparing Monte Carlo vs historical replay
+
+#### Part F: Performance Optimization (if needed)
+
+- [ ] **Step 12.20:** Measure and optimize if slow
+  - Profile percentile calculation (bottleneck likely here with large data)
+  - Consider downsampling for display (e.g., show every 5th trade if 500+ trades)
+  - Lazy-load charts (render only when user scrolls to graph section)
+  - Web worker for heavy calculations if needed
+  - Server-side percentile calculation already done (good!)
+
+### Success Criteria
+- [ ] Three interactive charts render correctly in results page
+- [ ] Users can compare all thresholds at a glance (comparison graph)
+- [ ] Users can deep-dive into risk profile of one threshold (detail graph)
+- [ ] Historical replay shows actual performance trajectory
+- [ ] Charts are interactive (hover, click, zoom)
+- [ ] Performance is acceptable (< 2 seconds to render with typical data)
+- [ ] Charts work on mobile/tablet (responsive)
+- [ ] All tests pass with trajectory tracking changes
+- [ ] No regressions in existing simulation functionality
+
+### Design Decisions
+- **Why separate graphs?** Balance between quick comparison and detailed analysis without overwhelming user
+- **Why percentile bands?** Show uncertainty and risk distribution, not just median
+- **Why client-side rendering?** Keeps server lightweight, enables interactivity, Chart.js handles complexity
+- **Why not one graph per threshold?** Would take too much vertical space (10+ graphs)
+- **Why include replay?** Essential for validating "what actually happened" vs simulations
+
+### Notes
+- **Memory consideration:** 1000 simulations × 100 trades = 100K data points per threshold. With 10 thresholds = 1M points. After percentile aggregation: 5 percentiles × 100 trades × 10 thresholds = 5K points (very manageable).
+- **Data already collected:** Replay already has `trade_history`, so only simulator needs balance tracking.
+- **Backward compatibility:** New fields added to return dicts, existing functionality unchanged.
+- **Future enhancement:** Allow users to download raw trajectory data as CSV for external analysis.
+
 ## Phase 13: Investigate Bootstrap vs Replay Discrepancy
 **Goal:** Understand and quantify why bootstrap simulation results (averaged over 1000 runs) are order-of-magnitude larger than historical replay results, despite both using the same per-trade risks and P/L values.
 
