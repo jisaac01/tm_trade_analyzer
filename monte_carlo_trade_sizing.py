@@ -1,6 +1,5 @@
 import numpy as np
 import pandas as pd
-import random
 import os
 import argparse
 import webbrowser
@@ -379,7 +378,7 @@ def simulate_trades(
                 risk = generate_risk(avg_risk, max_risk)
                 reward = generate_reward(avg_reward, max_reward)
 
-                if random.random() < win_rate:
+                if np.random.random() < win_rate:
                     balance += reward
                     current_losing_streak = 0  # Reset streak on win
                 else:

@@ -66,33 +66,23 @@
             </div>
             <div class="form-row">
                 <div class="form-group">
-                    <label for="reward_calculation_method" title="Method for capping profit-taking:<br><b>No Cap</b>: No profit cap - take full reward (default)<br><b>Cap at X% of Y</b>: Cap profits at X% of metric Y. Useful for testing how early profit-taking affects outcomes. Caps are applied as min(generated_reward, cap), so profits are only locked in early if the trade exceeds the cap threshold.<br><br><b>Metrics:</b><br>• <b>Conservative Theoretical Max</b>: 95th percentile of theoretical gains from opening structure<br>• <b>Theoretical Max</b>: Maximum theoretical gain from opening structure<br>• <b>Average Realized</b>: Mean of historical winning trades<br>• <b>Conservative Realized Max</b>: 95th percentile of historical wins<br><br><b>Example:</b> 'Cap 50% Conservative Theoretical Max' with $200 theoretical max = cap at $100. If trade would win $150, you lock in $100. If trade would win $80, you take $80.">Reward Calculation Method:</label>
-                    <select id="reward_calculation_method" name="reward_calculation_method" style="width: 440px;">
-                        <option value="no_cap" {% if reward_calculation_method|default('no_cap') == 'no_cap' %}selected{% endif %}>No Cap (Full Reward)</option>
-                        <optgroup label="Cap: Conservative Theoretical Max (p95 Opening Structure)">
-                            <option value="cap_25pct_conservative_theoretical_max" {% if reward_calculation_method|default('no_cap') == 'cap_25pct_conservative_theoretical_max' %}selected{% endif %}>Cap 25% Conservative Theoretical Max</option>
-                            <option value="cap_40pct_conservative_theoretical_max" {% if reward_calculation_method|default('no_cap') == 'cap_40pct_conservative_theoretical_max' %}selected{% endif %}>Cap 40% Conservative Theoretical Max</option>
-                            <option value="cap_50pct_conservative_theoretical_max" {% if reward_calculation_method|default('no_cap') == 'cap_50pct_conservative_theoretical_max' %}selected{% endif %}>Cap 50% Conservative Theoretical Max</option>
-                            <option value="cap_75pct_conservative_theoretical_max" {% if reward_calculation_method|default('no_cap') == 'cap_75pct_conservative_theoretical_max' %}selected{% endif %}>Cap 75% Conservative Theoretical Max</option>
-                        </optgroup>
-                        <optgroup label="Cap: Theoretical Max (Absolute Max from Opening Structure)">
-                            <option value="cap_25pct_theoretical_max" {% if reward_calculation_method|default('no_cap') == 'cap_25pct_theoretical_max' %}selected{% endif %}>Cap 25% Theoretical Max</option>
-                            <option value="cap_40pct_theoretical_max" {% if reward_calculation_method|default('no_cap') == 'cap_40pct_theoretical_max' %}selected{% endif %}>Cap 40% Theoretical Max</option>
-                            <option value="cap_50pct_theoretical_max" {% if reward_calculation_method|default('no_cap') == 'cap_50pct_theoretical_max' %}selected{% endif %}>Cap 50% Theoretical Max</option>
-                            <option value="cap_75pct_theoretical_max" {% if reward_calculation_method|default('no_cap') == 'cap_75pct_theoretical_max' %}selected{% endif %}>Cap 75% Theoretical Max</option>
-                        </optgroup>
-                        <optgroup label="Cap: Average Realized (Mean of Historical Wins)">
-                            <option value="cap_25pct_average_realized" {% if reward_calculation_method|default('no_cap') == 'cap_25pct_average_realized' %}selected{% endif %}>Cap 25% Average Realized</option>
-                            <option value="cap_40pct_average_realized" {% if reward_calculation_method|default('no_cap') == 'cap_40pct_average_realized' %}selected{% endif %}>Cap 40% Average Realized</option>
-                            <option value="cap_50pct_average_realized" {% if reward_calculation_method|default('no_cap') == 'cap_50pct_average_realized' %}selected{% endif %}>Cap 50% Average Realized</option>
-                            <option value="cap_75pct_average_realized" {% if reward_calculation_method|default('no_cap') == 'cap_75pct_average_realized' %}selected{% endif %}>Cap 75% Average Realized</option>
-                        </optgroup>
-                        <optgroup label="Cap: Conservative Realized Max (p95 of Historical Wins)">
-                            <option value="cap_25pct_conservative_realized_max" {% if reward_calculation_method|default('no_cap') == 'cap_25pct_conservative_realized_max' %}selected{% endif %}>Cap 25% Conservative Realized Max</option>
-                            <option value="cap_40pct_conservative_realized_max" {% if reward_calculation_method|default('no_cap') == 'cap_40pct_conservative_realized_max' %}selected{% endif %}>Cap 40% Conservative Realized Max</option>
-                            <option value="cap_50pct_conservative_realized_max" {% if reward_calculation_method|default('no_cap') == 'cap_50pct_conservative_realized_max' %}selected{% endif %}>Cap 50% Conservative Realized Max</option>
-                            <option value="cap_75pct_conservative_realized_max" {% if reward_calculation_method|default('no_cap') == 'cap_75pct_conservative_realized_max' %}selected{% endif %}>Cap 75% Conservative Realized Max</option>
-                        </optgroup>
+                    <label for="max_reward_method" title="<b>Maximum Possible Reward:</b> What's the realistic upper bound for wins? This controls the range of reward values generated by the simulator.<br><br><b>Conservative Realized (p95)</b>: 95th percentile of historical wins - most realistic, limits simulator to proven win range (default)<br><b>Conservative Theoretical (p95)</b>: 95th percentile of theoretical gains from opening structure<br><b>Theoretical Max</b>: Maximum theoretical gain - allows full upside but may be unrealistic<br><b>Max Realized</b>: Maximum historical win - uses actual best result<br><br>This is separate from profit-taking discipline (below).">Max Reward Method:</label>
+                    <select id="max_reward_method" name="max_reward_method" style="width: 440px;">
+                        <option value="conservative_realized" {% if max_reward_method|default('conservative_realized') == 'conservative_realized' %}selected{% endif %}>Conservative Realized (p95 of Historical Wins)</option>
+                        <option value="conservative_theoretical" {% if max_reward_method|default('conservative_realized') == 'conservative_theoretical' %}selected{% endif %}>Conservative Theoretical (p95 of Theoretical Gains)</option>
+                        <option value="theoretical_max" {% if max_reward_method|default('conservative_realized') == 'theoretical_max' %}selected{% endif %}>Theoretical Max (Maximum Possible Gain)</option>
+                        <option value="max_realized" {% if max_reward_method|default('conservative_realized') == 'max_realized' %}selected{% endif %}>Max Realized (Maximum Historical Win)</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="take_profit_method" title="<b>Take Profit Method:</b> When does the trader take profits? This simulates trader discipline by capping rewards at a percentage of the max reward (set above).<br><br><b>No Cap</b>: No profit cap - always take full reward (default)<br><b>25%</b>: Take profits at 25% of max reward<br><b>40%</b>: Take profits at 40% of max reward<br><b>50%</b>: Take profits at 50% of max reward<br><b>75%</b>: Take profits at 75% of max reward<br><br>Caps are applied as min(generated_reward, cap). For example, if max reward is $200 and cap is 50% ($100): if trade would win $150, you lock in $100; if trade would win $80, you take $80.<br><br><b>Important:</b> Both settings use the SAME base value (from Max Reward Method above) to avoid mismatched thresholds.">Take Profit Method:</label>
+                    <select id="take_profit_method" name="take_profit_method" style="width: 440px;">
+                        <option value="no_cap" {% if take_profit_method|default('no_cap') == 'no_cap' %}selected{% endif %}>No Cap (Full Reward)</option>
+                        <option value="25pct" {% if take_profit_method|default('no_cap') == '25pct' %}selected{% endif %}>25% of Max Reward</option>
+                        <option value="40pct" {% if take_profit_method|default('no_cap') == '40pct' %}selected{% endif %}>40% of Max Reward</option>
+                        <option value="50pct" {% if take_profit_method|default('no_cap') == '50pct' %}selected{% endif %}>50% of Max Reward</option>
+                        <option value="75pct" {% if take_profit_method|default('no_cap') == '75pct' %}selected{% endif %}>75% of Max Reward</option>
                     </select>
                 </div>
             </div>

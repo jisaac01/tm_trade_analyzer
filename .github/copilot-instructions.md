@@ -3,7 +3,13 @@
 **Note:** The original file `monte_carlo_trade_sizing.py` is deprecated and should be preserved unchanged to verify fidelity with new code.
 
 1.  **Be Concise:**
-2.  **Mandatory TDD:** You MUST write a failing test *before* writing any implementation code.
+2.  **Mandatory TDD - Specify Expected Behavior First:** 
+    -   You MUST write tests that **specify the EXPECTED/DESIRED behavior** based on requirements and first principles **BEFORE** writing or examining implementation code.
+    -   **DO NOT** write tests by running the current code and asserting whatever it returns.
+    -   **DO** derive expected values from logic (e.g., "with 10% risk and $1000, should afford 1 contract at $100 risk each").
+    -   **DO** document your reasoning: WHY is this the expected value?
+    -   **DO** report discrepancies: If actual ≠ expected, investigate the cause (bug? wrong expectation?).
+    -   Example: ✅ "Cap at 50% should reduce wins → lower balance" | ❌ "Run simulation, assert result == 17508"
 3.  **🚨 ALWAYS USE DIRECT PYTEST PATH: `tm_trade_analyzer_venv/bin/pytest` 🚨**
     -   **NEVER** use `tm_trade_analyzer_venv/bin/python -m pytest`
     -   **NEVER** use `source ... && pytest`
@@ -91,6 +97,7 @@ def test_app_simulation(mock_calc):
 - Keep I/O separated from simulation and analysis logic.
 - Preserve deterministic behavior in tests by seeding RNG where needed.
 - **DRY Principle:** Don't Repeat Yourself - extract duplicated logic into reusable functions or shared templates. Maintain single sources of truth for common code patterns.
+- **Use Only NumPy Random:** ALWAYS use `np.random` for random number generation, NEVER use Python stdlib `random` module. This prevents mixed-RNG non-determinism. Add test guards to catch accidental use of stdlib random.
 
 ### Data & Paths
 - Use project-relative paths for local data files and generated reports.
@@ -116,6 +123,7 @@ The goal of this section is to prevent recurring mistakes. **If you are correcte
     - NEVER mock internal simulation/parsing logic (only external APIs/I/O when necessary)
     - Use `@suppress_mock_warnings` decorator with justification comment if mocking is genuinely required
 -   **Deterministic Tests:** Seed randomness in tests when asserting numeric behavior.
+-   **Use Only One RNG System:** ALWAYS use `np.random` for ALL random number generation (including random(), choice(), shuffle(), etc.). NEVER mix `np.random` with Python stdlib `random` module - this causes non-deterministic results even with seeds. Add test guards to catch accidental use of stdlib random.
 -   **No Hidden Defaults:** Prefer explicit inputs/config over silent fallbacks when behavior materially changes.
 -   **No Silent Error Swallowing / Fail Fast on Invalid Data:** When required data is missing or invalid, raise clear errors immediately instead of falling back to buggy behavior. Never use fallbacks like `if data_exists else broken_fallback()` or `value if value > 0 else 0` - if the data is required, fail loudly with an informative error message. Examples:
     - ❌ WRONG: `pnl_pct = (pnl / risk * 100) if risk > 0 else 0.0` (hides CSV data quality issues)
@@ -124,6 +132,13 @@ The goal of this section is to prevent recurring mistakes. **If you are correcte
 -   **No Backward-Compatibility Additions Unless Requested:** Do not add aliases, fallback paths, fallthrough handling, or compatibility shims unless the user explicitly asks for them.
 -   **Keep Scope Tight:** Implement only the requested behavior; avoid adding speculative knobs.
 -   **Security Hygiene:** Never hardcode secrets, API keys, or private absolute file paths.
+
+### Reward Generation vs Profit-Taking Behavior
+-   **Separate Orthogonal Concepts:** The system has TWO independent reward-related concepts that must not be conflated:
+    1. **Maximum Possible Reward (`max_reward_method`)**: What's the realistic range of wins? Used by `generate_reward()` to set upper bound. Options: theoretical_max, conservative_theoretical (p95), max_realized, conservative_realized (p95).
+    2. **Take Profit Method (`take_profit_method`)**: When does trader take profits? Caps the generated reward based on trader discipline. Options: 25%, 40%, 50%, 75%, No Cap (100%). "Max" refers to whatever was chosen in #1.
+-   **Both Use Same Base:** Both concepts must use the SAME base value (selected by `max_reward_method`). If generation uses conservative_realized but caps use theoretical_max, the cap may never apply (cap > max_reward).
+-   **Clear Naming:** Use descriptive parameter names that reflect the concept. Avoid generic names like `reward_calculation_method` that could mean either concept.
 
 ### Strategy Analytics
 -   **Spread Risk/Reward Semantics:** For options spread analytics, do NOT label realized close-to-close P/L extremes as theoretical max risk/reward. Keep both metrics separate and explicit:

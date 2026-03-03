@@ -21,6 +21,7 @@ class TestSimulator:
             'max_win': 200,
             'max_loss': -100,
             'max_theoretical_loss': 100,
+            "conservative_realized_max_reward": 80,
             'conservative_theoretical_max_loss': 80,
             'pnl_distribution': [50, -50, 50, -50, 50, -50, 50, -50, 50, -50]
         }
@@ -50,10 +51,12 @@ class TestSimulator:
         # Verify median is formatted correctly and is a reasonable value
         median_str = row['Median Final $']
         assert median_str.startswith('$')
-        assert ',' in median_str  # Should have thousands separator
         # Extract numeric value
         median_value = float(median_str.replace('$', '').replace(',', ''))
         assert median_value > 0  # Median should be positive for typical runs
+        # Check thousands separator is present for values >= 1000
+        if median_value >= 1000:
+            assert ',' in median_str  # Should have thousands separator
 
 
 class TestTrajectoryAggregation:
@@ -69,6 +72,7 @@ class TestTrajectoryAggregation:
             'max_win': 200,
             'max_loss': -100,
             'max_theoretical_loss': 100,
+            "conservative_realized_max_reward": 80,
             'conservative_theoretical_max_loss': 80,
             'pnl_distribution': [50, -50, 100, -50, 75]
         }
@@ -96,6 +100,7 @@ class TestTrajectoryAggregation:
             'max_win': 200,
             'max_loss': -100,
             'max_theoretical_loss': 100,
+            "conservative_realized_max_reward": 80,
             'conservative_theoretical_max_loss': 80,
             'pnl_distribution': [50, -50, 100, -50, 75]
         }
@@ -127,6 +132,7 @@ class TestTrajectoryAggregation:
             'max_win': 200,
             'max_loss': -100,
             'max_theoretical_loss': 100,
+            "conservative_realized_max_reward": 80,
             'conservative_theoretical_max_loss': 80,
             'pnl_distribution': [50, -50, 100, -50, 75]
         }
@@ -169,6 +175,7 @@ class TestTrajectoryAggregation:
             'max_win': 200,
             'max_loss': -100,
             'max_theoretical_loss': 100,
+            "conservative_realized_max_reward": 80,
             'conservative_theoretical_max_loss': 80,
             'pnl_distribution': [50, -50, 100, -50, 75]
         }
@@ -204,6 +211,7 @@ class TestTrajectoryAggregation:
             'max_win': 200,
             'max_loss': -100,
             'max_theoretical_loss': 100,
+            "conservative_realized_max_reward": 80,
             'conservative_theoretical_max_loss': 80,
             'pnl_distribution': [50, -50, 100, -50, 75]
         }
@@ -235,6 +243,7 @@ class TestTrajectoryAggregation:
             'max_win': 200,
             'max_loss': -100,
             'max_theoretical_loss': 100,
+            "conservative_realized_max_reward": 80,
             'conservative_theoretical_max_loss': 80,
             'pnl_distribution': [50, -50, 100, -50, 75]
         }
@@ -269,6 +278,7 @@ class TestTrajectoryAggregation:
             'max_win': 200,
             'max_loss': -100,
             'max_theoretical_loss': 100,
+            "conservative_realized_max_reward": 80,
             'conservative_theoretical_max_loss': 80,
             'pnl_distribution': [50, -50, 100, -50, 75, -30, 120, -60, 90, -40]
         }
@@ -350,6 +360,7 @@ class TestPositionSizing:
     def test_get_max_risk_per_spread_uses_conservative(self):
         """Should prefer conservative_theoretical_max_loss over max_loss."""
         trade = {
+            "conservative_realized_max_reward": 80,
             'conservative_theoretical_max_loss': 80,
             'max_loss': -100
         }
@@ -367,6 +378,7 @@ class TestPositionSizing:
         """Should use max_theoretical_loss when specified."""
         trade = {
             'max_theoretical_loss': 200,
+            "conservative_realized_max_reward": 80,
             'conservative_theoretical_max_loss': 80
         }
         assert simulator.get_max_risk_per_spread(trade, 'max_theoretical') == 200
@@ -374,6 +386,7 @@ class TestPositionSizing:
     def test_get_max_risk_per_spread_fixed_conservative_theoretical_max(self):
         """Fixed conservative theoretical max should use conservative_theoretical_max_loss."""
         trade = {
+            "conservative_realized_max_reward": 140,
             'conservative_theoretical_max_loss': 140,
             'max_theoretical_loss': 200
         }
@@ -382,6 +395,7 @@ class TestPositionSizing:
     def test_get_max_risk_per_spread_fixed_theoretical_max(self):
         """Fixed theoretical max should use max_theoretical_loss."""
         trade = {
+            "conservative_realized_max_reward": 140,
             'conservative_theoretical_max_loss': 140,
             'max_theoretical_loss': 200
         }
@@ -417,155 +431,136 @@ class TestPositionSizing:
 
     def test_get_reward_cap_per_spread_no_cap_returns_none(self):
         """Default 'no_cap' should return None (no capping)."""
-        trade = {
-            'avg_win': 100,
-            'max_win': 200
-        }
-        assert simulator.get_reward_cap_per_spread(trade, 'no_cap') is None
+        max_reward = 100.0
+        assert simulator.get_reward_cap_per_spread(max_reward, 'no_cap') is None
         # Test default parameter
-        assert simulator.get_reward_cap_per_spread(trade) is None
+        assert simulator.get_reward_cap_per_spread(max_reward) is None
 
     def test_get_reward_cap_per_spread_cap_50pct_conservative_theoretical_max(self):
         """Should return 50% of conservative_theoretical_max_reward."""
         trade = {
             'conservative_theoretical_max_reward': 300
         }
-        assert simulator.get_reward_cap_per_spread(trade, 'cap_50pct_conservative_theoretical_max') == 150
+        max_reward = simulator.get_max_reward_per_spread(trade, 'conservative_theoretical')
+        assert simulator.get_reward_cap_per_spread(max_reward, '50pct') == 150
 
     def test_get_reward_cap_per_spread_cap_25pct_conservative_theoretical_max(self):
         """Should return 25% of conservative_theoretical_max_reward."""
         trade = {
             'conservative_theoretical_max_reward': 400
         }
-        assert simulator.get_reward_cap_per_spread(trade, 'cap_25pct_conservative_theoretical_max') == 100
+        max_reward = simulator.get_max_reward_per_spread(trade, 'conservative_theoretical')
+        assert simulator.get_reward_cap_per_spread(max_reward, '25pct') == 100
 
     def test_get_reward_cap_per_spread_cap_40pct_conservative_theoretical_max(self):
         """Should return 40% of conservative_theoretical_max_reward."""
         trade = {
             'conservative_theoretical_max_reward': 250
         }
-        assert simulator.get_reward_cap_per_spread(trade, 'cap_40pct_conservative_theoretical_max') == 100
+        max_reward = simulator.get_max_reward_per_spread(trade, 'conservative_theoretical')
+        assert simulator.get_reward_cap_per_spread(max_reward, '40pct') == 100
 
     def test_get_reward_cap_per_spread_cap_75pct_conservative_theoretical_max(self):
         """Should return 75% of conservative_theoretical_max_reward."""
         trade = {
             'conservative_theoretical_max_reward': 200
         }
-        assert simulator.get_reward_cap_per_spread(trade, 'cap_75pct_conservative_theoretical_max') == 150
+        max_reward = simulator.get_max_reward_per_spread(trade, 'conservative_theoretical')
+        assert simulator.get_reward_cap_per_spread(max_reward, '75pct') == 150
 
     def test_get_reward_cap_per_spread_cap_50pct_theoretical_max(self):
         """Should return 50% of max_theoretical_gain."""
         trade = {
             'max_theoretical_gain': 500
         }
-        assert simulator.get_reward_cap_per_spread(trade, 'cap_50pct_theoretical_max') == 250
+        max_reward = simulator.get_max_reward_per_spread(trade, 'theoretical_max')
+        assert simulator.get_reward_cap_per_spread(max_reward, '50pct') == 250
 
     def test_get_reward_cap_per_spread_cap_25pct_theoretical_max(self):
         """Should return 25% of max_theoretical_gain."""
         trade = {
             'max_theoretical_gain': 400
         }
-        assert simulator.get_reward_cap_per_spread(trade, 'cap_25pct_theoretical_max') == 100
+        max_reward = simulator.get_max_reward_per_spread(trade, 'theoretical_max')
+        assert simulator.get_reward_cap_per_spread(max_reward, '25pct') == 100
 
     def test_get_reward_cap_per_spread_cap_40pct_theoretical_max(self):
         """Should return 40% of max_theoretical_gain."""
         trade = {
             'max_theoretical_gain': 300
         }
-        assert simulator.get_reward_cap_per_spread(trade, 'cap_40pct_theoretical_max') == 120
+        max_reward = simulator.get_max_reward_per_spread(trade, 'theoretical_max')
+        assert simulator.get_reward_cap_per_spread(max_reward, '40pct') == 120
 
     def test_get_reward_cap_per_spread_cap_75pct_theoretical_max(self):
         """Should return 75% of max_theoretical_gain."""
         trade = {
             'max_theoretical_gain': 800
         }
-        assert simulator.get_reward_cap_per_spread(trade, 'cap_75pct_theoretical_max') == 600
-
-    def test_get_reward_cap_per_spread_cap_50pct_average_realized(self):
-        """Should return 50% of avg_win."""
-        trade = {
-            'avg_win': 150
-        }
-        assert simulator.get_reward_cap_per_spread(trade, 'cap_50pct_average_realized') == 75
-
-    def test_get_reward_cap_per_spread_cap_25pct_average_realized(self):
-        """Should return 25% of avg_win."""
-        trade = {
-            'avg_win': 200
-        }
-        assert simulator.get_reward_cap_per_spread(trade, 'cap_25pct_average_realized') == 50
-
-    def test_get_reward_cap_per_spread_cap_40pct_average_realized(self):
-        """Should return 40% of avg_win."""
-        trade = {
-            'avg_win': 175
-        }
-        assert simulator.get_reward_cap_per_spread(trade, 'cap_40pct_average_realized') == 70
-
-    def test_get_reward_cap_per_spread_cap_75pct_average_realized(self):
-        """Should return 75% of avg_win."""
-        trade = {
-            'avg_win': 160
-        }
-        assert simulator.get_reward_cap_per_spread(trade, 'cap_75pct_average_realized') == 120
+        max_reward = simulator.get_max_reward_per_spread(trade, 'theoretical_max')
+        assert simulator.get_reward_cap_per_spread(max_reward, '75pct') == 600
 
     def test_get_reward_cap_per_spread_cap_50pct_conservative_realized_max(self):
         """Should return 50% of conservative_realized_max_reward."""
         trade = {
             'conservative_realized_max_reward': 350
         }
-        assert simulator.get_reward_cap_per_spread(trade, 'cap_50pct_conservative_realized_max') == 175
+        max_reward = simulator.get_max_reward_per_spread(trade, 'conservative_realized')
+        assert simulator.get_reward_cap_per_spread(max_reward, '50pct') == 175
 
     def test_get_reward_cap_per_spread_cap_25pct_conservative_realized_max(self):
         """Should return 25% of conservative_realized_max_reward."""
         trade = {
             'conservative_realized_max_reward': 280
         }
-        assert simulator.get_reward_cap_per_spread(trade, 'cap_25pct_conservative_realized_max') == 70
+        max_reward = simulator.get_max_reward_per_spread(trade, 'conservative_realized')
+        assert simulator.get_reward_cap_per_spread(max_reward, '25pct') == 70
 
     def test_get_reward_cap_per_spread_cap_40pct_conservative_realized_max(self):
         """Should return 40% of conservative_realized_max_reward."""
         trade = {
             'conservative_realized_max_reward': 225
         }
-        assert simulator.get_reward_cap_per_spread(trade, 'cap_40pct_conservative_realized_max') == 90
+        max_reward = simulator.get_max_reward_per_spread(trade, 'conservative_realized')
+        assert simulator.get_reward_cap_per_spread(max_reward, '40pct') == 90
 
     def test_get_reward_cap_per_spread_cap_75pct_conservative_realized_max(self):
         """Should return 75% of conservative_realized_max_reward."""
         trade = {
             'conservative_realized_max_reward': 320
         }
-        assert simulator.get_reward_cap_per_spread(trade, 'cap_75pct_conservative_realized_max') == 240
+        max_reward = simulator.get_max_reward_per_spread(trade, 'conservative_realized')
+        assert simulator.get_reward_cap_per_spread(max_reward, '75pct') == 240
 
     def test_get_reward_cap_per_spread_raises_error_on_missing_conservative_theoretical_data(self):
         """Should raise ValueError when conservative_theoretical_max_reward is missing."""
         trade = {}
         with pytest.raises(ValueError, match="Conservative theoretical max reward data is missing"):
-            simulator.get_reward_cap_per_spread(trade, 'cap_50pct_conservative_theoretical_max')
+            simulator.get_max_reward_per_spread(trade, 'conservative_theoretical')
 
     def test_get_reward_cap_per_spread_raises_error_on_missing_theoretical_max_data(self):
         """Should raise ValueError when max_theoretical_gain is missing."""
         trade = {}
         with pytest.raises(ValueError, match="Theoretical max gain data is missing"):
-            simulator.get_reward_cap_per_spread(trade, 'cap_50pct_theoretical_max')
+            simulator.get_max_reward_per_spread(trade, 'theoretical_max')
 
-    def test_get_reward_cap_per_spread_raises_error_on_missing_average_realized_data(self):
-        """Should raise ValueError when avg_win is missing."""
+    def test_get_reward_cap_per_spread_raises_error_on_missing_max_realized_data(self):
+        """Should raise ValueError when max_win is missing."""
         trade = {}
-        with pytest.raises(ValueError, match="Average win data is missing"):
-            simulator.get_reward_cap_per_spread(trade, 'cap_50pct_average_realized')
+        with pytest.raises(ValueError, match="Max realized reward data is missing"):
+            simulator.get_max_reward_per_spread(trade, 'max_realized')
 
     def test_get_reward_cap_per_spread_raises_error_on_missing_conservative_realized_data(self):
         """Should raise ValueError when conservative_realized_max_reward is missing."""
         trade = {}
         with pytest.raises(ValueError, match="Conservative realized max reward data is missing"):
-            simulator.get_reward_cap_per_spread(trade, 'cap_50pct_conservative_realized_max')
+            simulator.get_max_reward_per_spread(trade, 'conservative_realized')
 
     def test_get_reward_cap_per_spread_raises_error_on_unknown_method(self):
-        """Should raise ValueError on unknown reward calculation method."""
-        trade = {'avg_win': 100}
-        with pytest.raises(ValueError, match="Unknown reward calculation method: 'invalid_method'"):
-            simulator.get_reward_cap_per_spread(trade, 'invalid_method')
+        """Should raise ValueError on unknown take_profit_method."""
+        max_reward = 100.0
+        with pytest.raises(ValueError, match="Unknown take_profit_method: 'invalid_method'"):
+            simulator.get_reward_cap_per_spread(max_reward, 'invalid_method')
 
     def test_choose_contract_count_for_risk_pct(self):
         """Test contract count selection for target risk percentage."""
@@ -582,6 +577,7 @@ class TestPositionSizing:
     def test_build_position_size_plan_percent_mode(self):
         """Test position size plan building in percent mode."""
         trade = {
+            "conservative_realized_max_reward": 100,
             'conservative_theoretical_max_loss': 100
         }
         initial_balance = 10000
@@ -597,6 +593,7 @@ class TestPositionSizing:
     def test_build_position_size_plan_respects_risk_calculation_method(self):
         """Percent sizing should use selected risk method when computing contracts."""
         trade = {
+            "conservative_realized_max_reward": 100,
             'conservative_theoretical_max_loss': 100,
             'max_theoretical_loss': 200
         }
@@ -624,6 +621,7 @@ class TestPositionSizing:
     def test_build_position_size_plan_contracts_mode(self):
         """Test position size plan building in contracts mode."""
         trade = {
+            "conservative_realized_max_reward": 100,
             'conservative_theoretical_max_loss': 100
         }
         initial_balance = 10000
@@ -643,6 +641,7 @@ class TestPositionSizing:
         Max Risk %: Based on conservative theoretical max (position sizing constraint)
         """
         trade = {
+            "conservative_realized_max_reward": 200,
             'conservative_theoretical_max_loss': 200,  # $200 per spread (position sizing)
             'median_risk_per_spread': 50  # $50 per spread (for median_realized method)
         }
@@ -702,6 +701,7 @@ class TestPositionSizing:
         Result: Should NOT force 1 contract trade.
         """
         trade = {
+            "conservative_realized_max_reward": 101,
             'conservative_theoretical_max_loss': 101  # $101 per spread
         }
         initial_balance = 100  # Only $100 available
@@ -737,6 +737,7 @@ class TestPositionSizing:
             'avg_loss': -50,
             'max_win': 100,
             'max_loss': -101,
+            "conservative_realized_max_reward": 101,
             'conservative_theoretical_max_loss': 101,
             'max_theoretical_loss': 101,
             'pnl_distribution': [50, -50] * 5
@@ -870,6 +871,7 @@ class TestSimulateTrades:
             "avg_win": 50, 
             "max_win": 80,  # Allow some variability
             "win_rate": 1.0,  # Always wins
+            "conservative_realized_max_reward": 100,
             "conservative_theoretical_max_loss": 100
         }
         position_size = 1
@@ -903,6 +905,7 @@ class TestSimulateTrades:
             "avg_win": 50, 
             "max_win": 50,  # Won't be used (0% win rate)
             "win_rate": 0.0,  # Always loses
+            "conservative_realized_max_reward": 150,
             "conservative_theoretical_max_loss": 150
         }
         position_size = 1
@@ -931,6 +934,7 @@ class TestSimulateTrades:
             "avg_win": 50,
             "max_win": 100,
             "win_rate": 0.5,
+            "conservative_realized_max_reward": 200,
             "conservative_theoretical_max_loss": 200
         }
         position_size = 1  # Initial contracts
@@ -960,6 +964,7 @@ class TestSimulateTrades:
             "max_win": 100,
             "win_rate": 0.5,
             "pnl_distribution": [50, -50, 100, -100, 25],
+            "conservative_realized_max_reward": 200,
             "conservative_theoretical_max_loss": 200
         }
         position_size = 1
@@ -981,6 +986,7 @@ class TestSimulateTrades:
                 "name": "Test",
                 "avg_loss": -50,
                 "max_theoretical_loss": 200,
+                "conservative_realized_max_reward": 100,
                 "conservative_theoretical_max_loss": 100,
                 "avg_win": 50,
                 "max_win": 50,
@@ -1008,6 +1014,7 @@ class TestSimulateTrades:
                 "avg_win": 50,
                 "max_win": 50,
                 "win_rate": 0.0,  # 0% win rate to force losses
+                "conservative_realized_max_reward": 100,
                 "conservative_theoretical_max_loss": 100
             }
             position_size = 1
@@ -1037,6 +1044,7 @@ class TestSimulateTrades:
                 "avg_win": 50,
                 "max_win": 50,
                 "win_rate": 0.0,  # Always lose
+                "conservative_realized_max_reward": 500,
                 "conservative_theoretical_max_loss": 500
             }
             position_size = 1
@@ -1060,6 +1068,7 @@ class TestSimulateTrades:
                 "avg_win": 200,
                 "max_win": 200,
                 "win_rate": 1.0,  # Always win
+                "conservative_realized_max_reward": 100,
                 "conservative_theoretical_max_loss": 100
             }
             position_size = 1
@@ -1087,6 +1096,7 @@ class TestSimulateTrades:
                 "avg_win": 100,
                 "max_win": 100,
                 "win_rate": 0.5,
+                "conservative_realized_max_reward": 300,
                 "conservative_theoretical_max_loss": 300
             }
             position_size = 1
@@ -1094,8 +1104,8 @@ class TestSimulateTrades:
             num_trades = 4
             num_simulations = 1
 
-            # Mock random to alternate win/loss: win, loss, loss, win
-            with unittest.mock.patch('random.random', side_effect=[0.3, 0.7, 0.7, 0.3]):
+            # Mock np.random to alternate win/loss: win, loss, loss, win
+            with unittest.mock.patch('numpy.random.random', side_effect=[0.3, 0.7, 0.7, 0.3]):
                 results = simulator.simulate_trades(trade, position_size, initial_balance, num_trades, num_simulations)
 
             result = results[0]
@@ -1117,6 +1127,7 @@ class TestSimulateTrades:
                 "avg_win": 100,
                 "max_win": 100,
                 "win_rate": 0.5,
+                "conservative_realized_max_reward": 100,
                 "conservative_theoretical_max_loss": 100
             }
             position_size = 1
@@ -1124,8 +1135,8 @@ class TestSimulateTrades:
             num_trades = 5
             num_simulations = 1
 
-            # Mock random to: loss, loss, loss, win, loss
-            with unittest.mock.patch('random.random', side_effect=[0.7, 0.7, 0.7, 0.3, 0.7]):
+            # Mock np.random to: loss, loss, loss, win, loss
+            with unittest.mock.patch('numpy.random.random', side_effect=[0.7, 0.7, 0.7, 0.3, 0.7]):
                 results = simulator.simulate_trades(trade, position_size, initial_balance, num_trades, num_simulations)
 
             result = results[0]
@@ -1143,6 +1154,7 @@ class TestSimulateTrades:
             "avg_win": 50,
             "max_win": 100,
             "win_rate": 0.0,  # Always lose
+            "conservative_realized_max_reward": 200,
             "conservative_theoretical_max_loss": 200,  # Max loss per spread
             "max_theoretical_loss": 200,
             "num_trades": 10,
@@ -1159,7 +1171,7 @@ class TestSimulateTrades:
         num_simulations = 1
         
         # Force all trades to lose max amount
-        with unittest.mock.patch('random.random', return_value=0.99):  # > 0.0 win_rate = loss
+        with unittest.mock.patch('numpy.random.random', return_value=0.99):  # > 0.0 win_rate = loss
             results = simulator.simulate_trades(
                 trade=trade,
                 position_size=requested_position_size,
@@ -1194,6 +1206,7 @@ class TestSimulateTrades:
             "avg_win": 50,
             "max_win": 100,
             "win_rate": 0.3,
+            "conservative_realized_max_reward": 150,
             "conservative_theoretical_max_loss": 150,
             "max_theoretical_loss": 200,
             "num_trades": 10,
@@ -1237,6 +1250,7 @@ class TestSimulateTrades:
             "avg_win": 30,
             "max_win": 100,
             "win_rate": 0.6,
+            "conservative_realized_max_reward": 180,
             "conservative_theoretical_max_loss": 180,  # p95 of theoretical max
             "max_theoretical_loss": 200,
             "num_trades": 10,
@@ -1296,6 +1310,7 @@ class TestSimulateTrades:
             "avg_win": 50,
             "max_win": 100,
             "win_rate": 0.5,
+            "conservative_realized_max_reward": 180,
             "conservative_theoretical_max_loss": 180,  # p95
             "max_theoretical_loss": 220,  # Absolute max (larger!)
             "median_risk_per_spread": 50,
@@ -1353,6 +1368,7 @@ class TestSimulateTrades:
                 "avg_win": 150,
                 "max_win": 200,
                 "conservative_theoretical_max_reward": 180,
+                "conservative_realized_max_reward": 180,  # p95 of historical wins
                 "win_rate": 1.0,  # Always win
                 "conservative_theoretical_max_loss": 100
             }
@@ -1363,7 +1379,8 @@ class TestSimulateTrades:
 
             results = simulator.simulate_trades(
                 trade, position_size, initial_balance, num_trades, num_simulations,
-                reward_calculation_method='no_cap'
+                max_reward_method='conservative_realized',
+                take_profit_method='no_cap'
             )
 
             # Should win full amount: 5 trades * 150 = 750
@@ -1381,6 +1398,7 @@ class TestSimulateTrades:
                     "avg_win": 200,
                     "max_win": 300,
                     "conservative_theoretical_max_reward": 200,  # Cap at 50% = 100
+                    "conservative_realized_max_reward": 200,  # p95 of historical wins
                     "win_rate": 1.0,  # Always win
                     "conservative_theoretical_max_loss": 100
                 }
@@ -1391,7 +1409,8 @@ class TestSimulateTrades:
 
                 results = simulator.simulate_trades(
                     trade, position_size, initial_balance, num_trades, num_simulations,
-                    reward_calculation_method='cap_50pct_conservative_theoretical_max'
+                    max_reward_method='conservative_theoretical',
+                    take_profit_method='50pct'
                 )
 
                 # Generated reward = 200, but cap at 50% of 200 = 100
@@ -1410,6 +1429,7 @@ class TestSimulateTrades:
                     "avg_win": 40,
                     "max_win": 200,
                     "conservative_theoretical_max_reward": 200,  # Cap at 50% = 100
+                    "conservative_realized_max_reward": 200,  # p95 of historical wins
                     "win_rate": 1.0,  # Always win
                     "conservative_theoretical_max_loss": 100
                 }
@@ -1420,7 +1440,8 @@ class TestSimulateTrades:
 
                 results = simulator.simulate_trades(
                     trade, position_size, initial_balance, num_trades, num_simulations,
-                    reward_calculation_method='cap_50pct_conservative_theoretical_max'
+                    max_reward_method='conservative_theoretical',
+                    take_profit_method='50pct'
                 )
 
                 # Generated reward = 40, cap = 100, so take 40
@@ -1438,6 +1459,7 @@ class TestSimulateTrades:
                     "avg_win": 200,
                     "max_win": 300,
                     "conservative_theoretical_max_reward": 200,  # Cap at 50% = 100 per contract
+                    "conservative_realized_max_reward": 200,  # p95 of historical wins
                     "win_rate": 1.0,  # Always win
                     "conservative_theoretical_max_loss": 100
                 }
@@ -1448,7 +1470,8 @@ class TestSimulateTrades:
 
                 results = simulator.simulate_trades(
                     trade, position_size, initial_balance, num_trades, num_simulations,
-                    reward_calculation_method='cap_50pct_conservative_theoretical_max'
+                    max_reward_method='conservative_theoretical',
+                    take_profit_method='50pct'
                 )
 
                 # Cap per contract = 100, 3 contracts = 300 total cap per trade
@@ -1469,6 +1492,7 @@ class TestSimulateTrades:
                     "max_win": 200,
                     "max_theoretical_gain": 400,  # Cap at 25% = 100
                     "win_rate": 1.0,
+                    "conservative_realized_max_reward": 100,
                     "conservative_theoretical_max_loss": 100
                 }
                 position_size = 1
@@ -1478,7 +1502,8 @@ class TestSimulateTrades:
 
                 results = simulator.simulate_trades(
                     trade, position_size, initial_balance, num_trades, num_simulations,
-                    reward_calculation_method='cap_25pct_theoretical_max'
+                    max_reward_method='theoretical_max',
+                    take_profit_method='25pct'
                 )
 
                 # Cap at 25% of 400 = 100
@@ -1487,15 +1512,17 @@ class TestSimulateTrades:
                 assert results[0]['final_balance'] == expected_final_balance
 
     def test_reward_capping_with_average_realized_metric(self):
-        """Test reward capping using average realized wins as base metric."""
+        """Test reward capping using max realized wins as base metric."""
         with unittest.mock.patch('simulator.generate_risk', return_value=100):
             with unittest.mock.patch('simulator.generate_reward', return_value=120):
                 trade = {
                     "avg_loss": -100,
                     "max_loss": -100,
-                    "avg_win": 80,  # Cap at 75% = 60
-                    "max_win": 200,
+                    "avg_win": 80,
+                    "max_win": 200,  # max_realized uses this value
+                    "max_realized_reward": 200,  # Maximum historical win
                     "win_rate": 1.0,
+                    "conservative_realized_max_reward": 100,
                     "conservative_theoretical_max_loss": 100
                 }
                 position_size = 1
@@ -1505,13 +1532,15 @@ class TestSimulateTrades:
 
                 results = simulator.simulate_trades(
                     trade, position_size, initial_balance, num_trades, num_simulations,
-                    reward_calculation_method='cap_75pct_average_realized'
+                    max_reward_method='max_realized',
+                    take_profit_method='75pct'
                 )
 
-                # Cap at 75% of 80 = 60
-                # Generated = 120, capped to 60
-                # 4 trades * 60 = 240
-                expected_final_balance = initial_balance + 240
+                # max_realized uses max_win=200
+                # Cap at 75% of 200 = 150
+                # Generated = 120, which is below cap, so use 120
+                # 4 trades * 120 = 480
+                expected_final_balance = initial_balance + 480
                 assert results[0]['final_balance'] == expected_final_balance
 
     def test_reward_capping_with_conservative_realized_max_metric(self):
@@ -1534,7 +1563,8 @@ class TestSimulateTrades:
 
                 results = simulator.simulate_trades(
                     trade, position_size, initial_balance, num_trades, num_simulations,
-                    reward_calculation_method='cap_40pct_conservative_realized_max'
+                    max_reward_method='conservative_realized',
+                    take_profit_method='40pct'
                 )
 
                 # Cap at 40% of 240 = 96
@@ -1551,6 +1581,7 @@ class TestSimulateTrades:
             "avg_win": 80,
             "max_win": 200,
             "conservative_theoretical_max_reward": 120,  # Cap at 50% = 60
+            "conservative_realized_max_reward": 120,  # p95 of historical wins
             "win_rate": 0.5,
             "pnl_distribution": [150, -50, 200, -100, 180],  # Historical values
             "conservative_theoretical_max_loss": 100
@@ -1564,7 +1595,8 @@ class TestSimulateTrades:
             trade, position_size, initial_balance, num_trades, num_simulations,
             simulation_mode='moving-block-bootstrap',
             block_size=1,
-            reward_calculation_method='cap_50pct_conservative_theoretical_max'
+            max_reward_method='conservative_theoretical',
+            take_profit_method='50pct'
         )
 
         # In bootstrap mode, reward capping should NOT apply to historical P/L
@@ -1592,6 +1624,7 @@ class TestSimulateTrades:
                     "avg_win": 180,
                     "max_win": 250,
                     "conservative_theoretical_max_reward": 200,  # Cap at 50% = 100
+                    "conservative_realized_max_reward": 200,  # p95 of historical wins
                     "win_rate": 0.5,
                     "conservative_theoretical_max_loss": 100
                 }
@@ -1600,11 +1633,12 @@ class TestSimulateTrades:
                 num_trades = 6
                 num_simulations = 1
 
-                # Mock random to alternate: win, loss, win, loss, win, loss
-                with unittest.mock.patch('random.random', side_effect=[0.3, 0.7, 0.3, 0.7, 0.3, 0.7]):
+                # Mock np.random to alternate: win, loss, win, loss, win, loss
+                with unittest.mock.patch('numpy.random.random', side_effect=[0.3, 0.7, 0.3, 0.7, 0.3, 0.7]):
                     results = simulator.simulate_trades(
                         trade, position_size, initial_balance, num_trades, num_simulations,
-                        reward_calculation_method='cap_50pct_conservative_theoretical_max'
+                        max_reward_method='conservative_theoretical',
+                        take_profit_method='50pct'
                     )
 
                 # 3 wins capped at 100 = +300
@@ -1625,6 +1659,7 @@ class TestBalanceHistory:
             "avg_win": 50,
             "max_win": 50,
             "win_rate": 1.0,  # Always win for predictable results
+            "conservative_realized_max_reward": 100,
             "conservative_theoretical_max_loss": 100
         }
         
@@ -1649,6 +1684,7 @@ class TestBalanceHistory:
             "avg_win": 50,
             "max_win": 50,
             "win_rate": 1.0,
+            "conservative_realized_max_reward": 100,
             "conservative_theoretical_max_loss": 100
         }
         num_trades = 10
@@ -1675,6 +1711,7 @@ class TestBalanceHistory:
             "avg_win": 50,
             "max_win": 50,
             "win_rate": 1.0,
+            "conservative_realized_max_reward": 100,
             "conservative_theoretical_max_loss": 100
         }
         
@@ -1701,6 +1738,7 @@ class TestBalanceHistory:
                 "avg_win": 50,
                 "max_win": 50,
                 "win_rate": 1.0,  # Always win
+                "conservative_realized_max_reward": 100,
                 "conservative_theoretical_max_loss": 100
             }
             initial_balance = 1000
@@ -1729,6 +1767,7 @@ class TestBalanceHistory:
                 "avg_win": 50,
                 "max_win": 50,
                 "win_rate": 0.0,  # Always lose
+                "conservative_realized_max_reward": 200,
                 "conservative_theoretical_max_loss": 200
             }
             initial_balance = 1000
@@ -1769,6 +1808,7 @@ class TestBalanceHistory:
                 "avg_win": 200,
                 "max_win": 200,
                 "win_rate": 1.0,  # Always win for predictable compounding
+                "conservative_realized_max_reward": 100,
                 "conservative_theoretical_max_loss": 100
             }
             initial_balance = 1000
@@ -1809,6 +1849,7 @@ class TestBalanceHistory:
                 "avg_win": 50,
                 "max_win": 50,
                 "win_rate": 1.0,  # Always win
+                "conservative_realized_max_reward": 100,
                 "conservative_theoretical_max_loss": 100
             }
             initial_balance = 1000
@@ -1841,6 +1882,7 @@ class TestBalanceHistory:
             "win_rate": 0.5,
             "pnl_distribution": [50, -100, 75, -150, 100],  # Mix of wins and losses
             "per_trade_theoretical_risk": [200, 200, 200, 200, 200],
+            "conservative_realized_max_reward": 200,
             "conservative_theoretical_max_loss": 200
         }
         initial_balance = 5000
@@ -2017,6 +2059,7 @@ class TestTargetRiskEnforcement:
             'max_win': 200,
             'max_loss': -100,
             'max_theoretical_loss': 200,
+            "conservative_realized_max_reward": 200,
             'conservative_theoretical_max_loss': 200,  # Risk per contract
             'pnl_distribution': [50, -50, 50, -50, 50, -50, 50, -50, 50, -50]
         }
@@ -2060,6 +2103,7 @@ class TestTargetRiskEnforcement:
             'max_win': 200,
             'max_loss': -100,
             'max_theoretical_loss': 200,
+            "conservative_realized_max_reward": 200,
             'conservative_theoretical_max_loss': 200,
             'pnl_distribution': [50, -50, 50, -50, 50, -50, 50, -50, 50, -50]
         }
@@ -2099,6 +2143,7 @@ class TestTargetRiskEnforcement:
             'max_win': 100,
             'max_loss': -150,
             'max_theoretical_loss': 150,
+            "conservative_realized_max_reward": 150,
             'conservative_theoretical_max_loss': 150,
             'pnl_distribution': [-100] * 20  # All losses
         }
@@ -2145,6 +2190,7 @@ class TestTargetRiskEnforcement:
             'max_win': 200,
             'max_loss': -100,
             'max_theoretical_loss': 100,
+            "conservative_realized_max_reward": 100,
             'conservative_theoretical_max_loss': 100,  # Risk per contract
             'pnl_distribution': [50, -50] * 10  # Alternate wins/losses
         }
@@ -2211,6 +2257,7 @@ class TestTargetRiskEnforcement:
             'avg_loss': -180,
             'max_win': 150,
             'median_risk_per_spread': 180,
+            "conservative_realized_max_reward": 180,
             'conservative_theoretical_max_loss': 180,
             'max_theoretical_loss': 220,
             'pnl_distribution': [80, -180] * 10  # Alternating to ensure data

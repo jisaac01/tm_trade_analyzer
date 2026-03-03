@@ -79,7 +79,8 @@ def test_results_get_with_session(client):
             'simulation_mode': 'iid',
             'block_size': '1',
             'risk_calculation_method': 'conservative_theoretical',
-            'reward_calculation_method': 'no_cap',
+            'max_reward_method': 'conservative_realized',
+            'take_profit_method': 'no_cap',
             'random_seed': '42'  # Deterministic
         }
         # POST to run simulation
@@ -137,10 +138,10 @@ def test_results_post_update_params(client):
         assert sess['params']['simulation_mode'] == 'moving-block-bootstrap'
         assert sess['params']['block_size'] == 2
 
-def test_reward_calculation_method_passed_to_simulator(client):
-    """Test that reward_calculation_method is properly passed from form to simulator.
+def test_reward_parameters_passed_to_simulator(client):
+    """Test that max_reward_method and take_profit_method are properly passed from form to simulator.
     
-    Uses real simulation to verify that different reward calculation methods
+    Uses real simulation to verify that different reward methods
     actually affect the results (no mocking).
     """
     test_csv = os.path.join(os.path.dirname(__file__), 'test_data', 'test_call_spread.csv')
@@ -157,27 +158,31 @@ def test_reward_calculation_method_passed_to_simulator(client):
             'simulation_mode': 'iid',
             'block_size': '5',
             'risk_calculation_method': 'conservative_theoretical',
-            'reward_calculation_method': 'no_cap',
+            'max_reward_method': 'conservative_realized',
+            'take_profit_method': 'no_cap',
             'random_seed': '42'
         }
         response = client.post('/', data=data, content_type='multipart/form-data', follow_redirects=True)
         assert response.status_code == 200
         
-        # Verify parameter is stored in session
+        # Verify parameters are stored in session
         with client.session_transaction() as sess:
-            assert sess['params']['reward_calculation_method'] == 'no_cap'
+            assert sess['params']['max_reward_method'] == 'conservative_realized'
+            assert sess['params']['take_profit_method'] == 'no_cap'
             assert sess['params']['risk_calculation_method'] == 'conservative_theoretical'
     
-    # Test with different reward method - 'cap_50pct_conservative_theoretical_max'
+    # Test with different reward method - conservative_theoretical + 50% cap
     with open(test_csv, 'rb') as f:
         data['csv_file'] = (f, 'test_call_spread.csv')
-        data['reward_calculation_method'] = 'cap_50pct_conservative_theoretical_max'
+        data['max_reward_method'] = 'conservative_theoretical'
+        data['take_profit_method'] = '50pct'
         response = client.post('/', data=data, content_type='multipart/form-data', follow_redirects=True)
         assert response.status_code == 200
         
-        # Verify parameter is updated in session
+        # Verify parameters are updated in session
         with client.session_transaction() as sess:
-            assert sess['params']['reward_calculation_method'] == 'cap_50pct_conservative_theoretical_max'
+            assert sess['params']['max_reward_method'] == 'conservative_theoretical'
+            assert sess['params']['take_profit_method'] == '50pct'
 
 def test_format_currency_whole():
     """Test the format_currency_whole function."""
@@ -332,7 +337,8 @@ def test_index_get_with_url_parameters(client):
                          '&option_commission=0.75&position_sizing_mode=fixed-percent'
                          '&simulation_mode=moving-block-bootstrap&block_size=7'
                          '&risk_calculation_method=max_theoretical'
-                         '&reward_calculation_method=cap_50pct_conservative_theoretical_max'
+                         '&max_reward_method=conservative_theoretical'
+                         '&take_profit_method=50pct'
                          '&allow_exceed_target_risk=true')
     
     assert response.status_code == 200
@@ -349,7 +355,8 @@ def test_index_get_with_url_parameters(client):
     assert 'value="fixed-percent" selected' in html or 'value="fixed-percent"\n           selected' in html
     assert 'value="moving-block-bootstrap" selected' in html or 'value="moving-block-bootstrap"\n               selected' in html
     assert 'value="max_theoretical" selected' in html or 'value="max_theoretical"\n                       selected' in html
-    assert 'value="cap_50pct_conservative_theoretical_max" selected' in html
+    assert 'value="conservative_theoretical" selected' in html  # max_reward_method
+    assert 'value="50pct" selected' in html  # take_profit_method
     
     # Check checkbox is checked
     assert 'checked' in html  # allow_exceed_target_risk
@@ -378,7 +385,8 @@ def test_index_post_with_file_uuid_reuses_existing_file(client):
             'simulation_mode': 'iid',
             'block_size': '5',
             'risk_calculation_method': 'conservative_theoretical',
-            'reward_calculation_method': 'no_cap'
+            'max_reward_method': 'conservative_realized',
+            'take_profit_method': 'no_cap'
         }
         response = client.post('/', data=data, content_type='multipart/form-data')
         
@@ -507,7 +515,8 @@ def test_results_page_includes_file_uuid_in_link(client):
                 'simulation_mode': 'iid',
                 'block_size': '5',
                 'risk_calculation_method': 'conservative_theoretical',
-                'reward_calculation_method': 'no_cap',
+                'max_reward_method': 'conservative_realized',
+                'take_profit_method': 'no_cap',
                 'allow_exceed_target_risk': 'off',
                 'random_seed': '42'
             }

@@ -323,7 +323,8 @@ def index():
         simulation_mode = request.form.get('simulation_mode', 'iid')
         block_size = int(request.form.get('block_size', 5))
         risk_calculation_method = request.form.get('risk_calculation_method', 'conservative_theoretical')
-        reward_calculation_method = request.form.get('reward_calculation_method', 'no_cap')
+        max_reward_method = request.form.get('max_reward_method', 'conservative_realized')
+        take_profit_method = request.form.get('take_profit_method', 'no_cap')
 
         # Store params in session for re-run
         session['params'] = {
@@ -336,7 +337,8 @@ def index():
             'simulation_mode': simulation_mode,
             'block_size': block_size,
             'risk_calculation_method': risk_calculation_method,
-            'reward_calculation_method': reward_calculation_method,
+            'max_reward_method': max_reward_method,
+            'take_profit_method': take_profit_method,
             'position_sizing_display': position_sizing_raw,  # For display
             'allow_exceed_target_risk': 'allow_exceed_target_risk' in request.form  # Checkbox
         }
@@ -358,7 +360,8 @@ def index():
             'simulation_mode': request.args.get('simulation_mode', 'iid'),
             'block_size': int(request.args.get('block_size', 5)),
             'risk_calculation_method': request.args.get('risk_calculation_method', 'conservative_theoretical'),
-            'reward_calculation_method': request.args.get('reward_calculation_method', 'no_cap'),
+            'max_reward_method': request.args.get('max_reward_method', 'conservative_realized'),
+            'take_profit_method': request.args.get('take_profit_method', 'no_cap'),
             'allow_exceed_target_risk': request.args.get('allow_exceed_target_risk') == 'true'
         }
         # Handle file_uuid from URL
@@ -414,7 +417,8 @@ def results():
             'block_size': int(request.form.get('block_size', params.get('block_size', 1))),
             'position_sizing_display': position_sizing_raw,
             'risk_calculation_method': request.form.get('risk_calculation_method', params.get('risk_calculation_method', 'conservative_theoretical')),
-            'reward_calculation_method': request.form.get('reward_calculation_method', params.get('reward_calculation_method', 'no_cap')),
+            'max_reward_method': request.form.get('max_reward_method', params.get('max_reward_method', 'conservative_realized')),
+            'take_profit_method': request.form.get('take_profit_method', params.get('take_profit_method', 'no_cap')),
             'allow_exceed_target_risk': 'allow_exceed_target_risk' in request.form  # Checkbox
         })
         session['params'] = params
@@ -432,7 +436,8 @@ def results():
         'block_size': 5,
         'position_sizing_display': 'dynamic-percent',
         'risk_calculation_method': 'conservative_theoretical',
-        'reward_calculation_method': 'no_cap',
+        'max_reward_method': 'conservative_realized',
+        'take_profit_method': 'no_cap',
         'allow_exceed_target_risk': False  # Default: strict enforcement
     }
     params = session.get('params', default_params)
@@ -466,7 +471,8 @@ def results():
             commission_per_contract=params['option_commission'],
             num_trades=params['num_trades'],
             risk_calculation_method=params['risk_calculation_method'],
-            reward_calculation_method=params['reward_calculation_method'],
+            max_reward_method=params['max_reward_method'],
+            take_profit_method=params['take_profit_method'],
             allow_exceed_target_risk=params['allow_exceed_target_risk']
         )
         

@@ -602,9 +602,123 @@ With 1000 simulations, we expect to see the average/typical case, not just lucky
 - `tests/test_replay.py` - Real-data tests (0% mock ratio)
 - `tests/test_trade_parser.py` - Pure function tests (0% mock ratio)
 
+## Phase 15: Reward System Refactor ✅ COMPLETE
+
+**Archived Documentation:** Historical investigation documents that led to Phase 15 completion:
+- `AGENT_PROMPT_ADD_NUMERIC_TESTS.md` - Original test requirements and strategy
+- `BUG_3_NUM_TRADES_OVERRIDE.md` - Investigation of silent num_trades override bug (fixed)
+- `NUM_TRADES_INVESTIGATION.md` - Analysis of bootstrap sampling with different trade counts
+- `PHASE1_RECALIBRATION_COMPLETE.md` - Test recalibration process and first-principles analysis
+- `TEST_COVERAGE_ANALYSIS.md` - Gap analysis that identified need for numeric verification tests
+- `TEST_PHASE1_FINDINGS.md` - Discovery of 3 bugs during test implementation (all fixed)
+
+These documents provide historical context for design decisions but all work described is complete.
+
+**Goal:** Separate reward generation from profit-taking discipline to enable independent testing of:
+1. What maximum reward values are realistic (conservative vs theoretical)
+2. What profit-taking discipline the trader applies (25%, 50%, 75%, no cap)
+
+**Problem with Old System:**
+- Single parameter `reward_calculation_method` conflated two orthogonal concepts:
+  - Maximum possible reward (realistic range of wins)
+  - Take profit method (trader discipline/capping behavior)
+- Example: 'cap_50pct_conservative_theoretical_max' mixed both concepts in one parameter
+
+**New Architecture:**
+1. **`max_reward_method`**: What's the realistic range of wins?
+   - `conservative_realized`: p95 of historical wins (default)
+   - `conservative_theoretical`: p95 of theoretical gains from opening structure
+   - `theoretical_max`: Maximum theoretical gain from opening structure
+   - `max_realized`: Maximum historical win
+
+2. **`take_profit_method`**: When does trader take profits?
+   - `no_cap`: No profit taking (default)
+   - `25pct`, `40pct`, `50pct`, `75pct`: Take profits at XX% of max_reward_method
+
+**Key Insight:**
+- Both concepts use the SAME base value (selected by `max_reward_method`)
+- Example: If `max_reward_method='theoretical_max'` generates up to $1,279:
+  - `take_profit_method='50pct'` caps at $640
+  - `take_profit_method='no_cap'` allows full $1,279
+- If `max_reward_method='conservative_realized'` generates up to $584:
+  - `take_profit_method='50pct'` caps at $292
+  - This is why theoretical_max+50% > conservative_realized+no_cap!
+
+**Implementation Status:**
+- [X] Refactored simulator.py to use `max_reward_method` + `take_profit_method`
+- [X] Updated app.py Flask routes to handle both parameters
+- [X] Updated web UI form with separate dropdowns for each concept
+- [X] Created test_golden_values.py with 20 Phase 1 tests (all passing)
+- [X] Fixed Bugs #1-3 discovered during test implementation:
+  - Bug #1: Mixed RNG systems (random + np.random) ✅ Fixed
+  - Bug #2: Reward system refactor validation ✅ Fixed
+  - Bug #3: num_trades silently overridden ✅ Fixed
+- [X] Recalibrated all test expectations using first-principles reasoning
+- [X] Documented findings in PHASE1_RECALIBRATION_COMPLETE.md
+- [X] **COMPLETE:** Updated all legacy tests using old `reward_calculation_method` parameter
+  - **Status: 244/244 tests passing (100% pass rate) ✅**
+  - Converted all instances to use max_reward_method + take_profit_method
+  - Added missing conservative_realized_max_reward fields to test trade dicts
+  - Updated all reward capping test expectations
+  - Updated diagnostic scripts to use new parameter names
+
+**Migration Status:**
+- **New tests:** 20/20 passing (test_golden_values.py) ✅
+- **Updated tests:** 244/244 passing (main test suite) ✅
+  - test_app.py: All updated and passing ✅
+  - test_simulator.py: All updated and passing ✅
+  - test_bootstrap_position_sizing.py: All updated and passing ✅
+  - test_golden_values.py: All passing ✅
+  - All diagnostic scripts: Updated parameters ✅
+
+**Phase 15 Complete:**
+- ✅ All code references updated to new parameter names
+- ✅ All 244 tests passing with 103 warnings (expected mock warnings)
+- ✅ Documentation updated
+- ✅ Full test suite verified
+
+## Future Enhancement Ideas (Optional, Not Scheduled)
+
+These ideas were identified during Phase 15 investigation but are NOT currently required:
+
+### Additional Test Coverage (from TEST_COVERAGE_ANALYSIS.md)
+- **Phase 2-5 numeric tests:** Additional test matrices for less-common parameter combinations
+  - Risk method differences tests (5-7 tests)
+  - Reward cap validation tests (6-8 tests)
+  - All tests already have good coverage, these would be redundant verification
+- **Total potential:** 37-50 additional tests covering edge cases
+
+**Priority:** Low - Current 244 tests provide excellent coverage
+
+### Position Sizing Display Enhancement
+- Show "sequence quality score" in UI comparing historical replay percentile vs bootstrap distribution
+- Help users understand if their historical sequence was lucky/unlucky/typical
+- From Phase 13 investigation (not yet started)
+
+**Priority:** Low - Nice-to-have for user education
+
+### Performance Optimization (Phase 5 Step 5.4)
+- Move simulation processing to background thread
+- Use AJAX/Fetch API for async results loading
+- Prevent browser timeout on heavy simulations
+
+**Priority:** Low - Current performance is acceptable for typical use cases
+
+
 ## Additional Completed Tasks
 - [X] **Testing:** Added comprehensive test suite including unit tests for web app functionality and end-to-end integration test with real data.
 - [X] **Re-run functionality:** Implemented ability to change options after results and re-run simulation without re-uploading CSV.
 - [X] **Risk method consistency:** Fixed percent-sizing planning to respect selected `risk_calculation_method`, corrected Nuclear semantics to use max theoretical loss consistently across simulator/UI/README, and updated simulator tests accordingly.
 - [X] **Risk method UX update:** Added `Variable`/`Fixed` prefixes in the UI selector, introduced separate fixed methods for conservative theoretical max and theoretical max, widened selector width for readability, and added/updated tests.
 - [X] **Historical trade replay:** Implemented feature to show actual trade performance using the same position sizing settings as Monte Carlo simulation, displayed alongside simulation results for comparison.
+## Archived Investigation Materials
+
+The following files document the investigation and debugging process that led to Phase 15 completion. All issues described have been resolved and all tests are passing. These files can be archived or deleted:
+
+**Investigation Documents (6 files):**
+- `AGENT_PROMPT_ADD_NUMERIC_TESTS.md` - Test strategy and requirements (work completed)
+- `BUG_3_NUM_TRADES_OVERRIDE.md` - Bug investigation (bug fixed)
+- `NUM_TRADES_INVESTIGATION.md` - Bootstrap sampling analysis (incorporated into design)
+- `PHASE1_RECALIBRATION_COMPLETE.md` - Test recalibration results (tests passing)
+- `TEST_COVERAGE_ANALYSIS.md` - Coverage gap analysis (gaps filled)
+- `TEST_PHASE1_FINDINGS.md` - Bug discovery documentation (bugs fixed)

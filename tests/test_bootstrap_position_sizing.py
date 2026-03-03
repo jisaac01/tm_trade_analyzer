@@ -71,7 +71,8 @@ def test_bootstrap_matches_replay_for_100pct_risk():
         block_size=5,
         num_trades=trade_stats['num_trades'],
         risk_calculation_method='conservative_theoretical',
-        reward_calculation_method='no_cap',
+        max_reward_method='conservative_realized',
+        take_profit_method='no_cap',
         allow_exceed_target_risk=False
     )
     

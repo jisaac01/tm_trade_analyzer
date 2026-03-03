@@ -1,8 +1,19 @@
 import numpy as np
 import pandas as pd
-import random
 import os
 from trade_parser import parse_trade_csv
+
+# Guard against accidental use of Python stdlib random module
+# We use np.random exclusively to avoid mixed-RNG non-determinism
+import random as _stdlib_random
+_original_random = _stdlib_random.random
+def _guard_stdlib_random(*args, **kwargs):
+    raise RuntimeError(
+        "DO NOT use stdlib random module! Use np.random instead. "
+        "Mixed RNG systems cause non-deterministic results. "
+        "Change random.random() → np.random.random()"
+    )
+_stdlib_random.random = _guard_stdlib_random
 
 OPTION_COMMISSION_PER_CONTRACT = 0.495
 
@@ -125,61 +136,29 @@ def get_max_risk_per_spread(trade, risk_calculation_method='conservative_theoret
     raise ValueError(f"Unknown risk calculation method: '{risk_calculation_method}'")
 
 
-def get_reward_cap_per_spread(trade, reward_calculation_method='no_cap'):
+def get_max_reward_per_spread(trade, max_reward_method='conservative_realized'):
     """
-    Determine the reward cap per spread for profit-taking purposes.
+    Get the maximum possible reward per spread based on the specified method.
     
-    This function calculates the maximum reward amount that will be taken when
-    a trade wins, based on the specified reward calculation method. The cap is
-    applied as: actual_reward = min(generated_reward, cap).
-    
-    This allows testing how early profit-taking affects Monte Carlo simulations.
-    For example, capping at 50% of theoretical max simulates taking profits at
-    50% of the maximum possible gain, reducing upside but potentially improving
-    risk-adjusted returns.
+    This determines the upper bound used by generate_reward() to set the range
+    of possible winning outcomes. This is separate from profit-taking behavior
+    (controlled by take_profit_method).
     
     Parameters:
     - trade (dict): Trade statistics dictionary containing reward metrics.
-    - reward_calculation_method (str): Method for calculating reward caps:
-        - 'no_cap': No capping (default - returns None)
-        - 'cap_XXpct_conservative_theoretical_max': XX% of conservative theoretical max reward (p95 of theoretical gains)
-        - 'cap_XXpct_theoretical_max': XX% of theoretical max reward
-        - 'cap_XXpct_average_realized': XX% of average realized wins
-        - 'cap_XXpct_conservative_realized_max': XX% of conservative realized max reward (p95 of historical wins)
-        Where XX can be: 25, 40, 50, 75
+    - max_reward_method (str): Method for determining max reward generation:
+        - 'conservative_realized': p95 of historical winning trades (default)
+        - 'conservative_theoretical': p95 of theoretical gains
+        - 'theoretical_max': Maximum theoretical gain from spread structure
+        - 'max_realized': Maximum historical winning trade
     
     Returns:
-    - float or None: The reward cap per spread in dollars, or None if no capping.
+    - float: The maximum reward per spread in dollars.
     
     Raises:
     - ValueError: If required reward data is missing or if method is unknown.
     """
-    if reward_calculation_method == 'no_cap':
-        return None
-    
-    # Parse method string: cap_XXpct_METRIC
-    if not reward_calculation_method.startswith('cap_'):
-        raise ValueError(f"Unknown reward calculation method: '{reward_calculation_method}'")
-    
-    parts = reward_calculation_method.split('_')
-    if len(parts) < 3:
-        raise ValueError(f"Unknown reward calculation method: '{reward_calculation_method}'")
-    
-    # Extract percentage (e.g., "25pct" -> 25)
-    pct_str = parts[1]
-    if not pct_str.endswith('pct'):
-        raise ValueError(f"Unknown reward calculation method: '{reward_calculation_method}'")
-    
-    try:
-        percentage = float(pct_str[:-3]) / 100  # Convert "25pct" to 0.25
-    except ValueError:
-        raise ValueError(f"Unknown reward calculation method: '{reward_calculation_method}'")
-    
-    # Reconstruct metric name from remaining parts
-    metric = '_'.join(parts[2:])
-    
-    # Get base value based on metric
-    if metric == 'conservative_theoretical_max':
+    if max_reward_method == 'conservative_theoretical':
         base_value = trade.get('conservative_theoretical_max_reward', 0)
         if not base_value or base_value <= 0:
             raise ValueError(
@@ -187,9 +166,9 @@ def get_reward_cap_per_spread(trade, reward_calculation_method='no_cap'):
                 "Required field: 'conservative_theoretical_max_reward'. "
                 "This is calculated as the 95th percentile of theoretical gains from opening structure."
             )
-        return float(base_value * percentage)
+        return float(base_value)
     
-    if metric == 'theoretical_max':
+    if max_reward_method == 'theoretical_max':
         base_value = trade.get('max_theoretical_gain', 0)
         if not base_value or base_value <= 0:
             raise ValueError(
@@ -197,29 +176,74 @@ def get_reward_cap_per_spread(trade, reward_calculation_method='no_cap'):
                 "Required field: 'max_theoretical_gain'. "
                 "This is calculated from the opening spread structure."
             )
-        return float(base_value * percentage)
+        return float(base_value)
     
-    if metric == 'average_realized':
-        base_value = trade.get('avg_win', 0)
-        if not base_value or base_value <= 0:
-            raise ValueError(
-                "Average win data is missing or invalid. "
-                "Required field: 'avg_win'. "
-                "This is the mean of historical winning trades."
-            )
-        return float(base_value * percentage)
-    
-    if metric == 'conservative_realized_max':
+    if max_reward_method == 'conservative_realized':
         base_value = trade.get('conservative_realized_max_reward', 0)
         if not base_value or base_value <= 0:
             raise ValueError(
                 "Conservative realized max reward data is missing or invalid. "
                 "Required field: 'conservative_realized_max_reward'. "
-                "This is calculated as the 95th percentile of historical winning trades."
+                "This is the 95th percentile of historical winning trades."
             )
-        return float(base_value * percentage)
+        return float(base_value)
     
-    raise ValueError(f"Unknown reward calculation method: '{reward_calculation_method}'")
+    if max_reward_method == 'max_realized':
+        base_value = trade.get('max_win', 0)
+        if not base_value or base_value <= 0:
+            raise ValueError(
+                "Max realized reward data is missing or invalid. "
+                "Required field: 'max_win'. "
+                "This is the maximum historical winning trade."
+            )
+        return float(base_value)
+    
+    raise ValueError(f"Unknown max_reward_method: '{max_reward_method}'")
+
+
+def get_reward_cap_per_spread(max_reward_per_spread, take_profit_method='no_cap'):
+    """
+    Determine the reward cap per spread for profit-taking purposes.
+    
+    This function calculates the maximum reward amount that will be taken when
+    a trade wins, based on trader discipline (take_profit_method). The cap is
+    applied as: actual_reward = min(generated_reward, cap).
+    
+    CRITICAL: This must use the SAME base value as generate_reward() to avoid
+    mismatched thresholds (e.g., cap > max_reward making cap ineffective).
+    
+    Parameters:
+    - max_reward_per_spread (float): Base max reward value (from get_max_reward_per_spread).
+    - take_profit_method (str): Profit-taking discipline:
+        - 'no_cap': No capping (default - returns None)
+        - '25pct': Take profits at 25% of max reward
+        - '40pct': Take profits at 40% of max reward
+        - '50pct': Take profits at 50% of max reward
+        - '75pct': Take profits at 75% of max reward
+    
+    Returns:
+    - float or None: The reward cap per spread in dollars, or None if no capping.
+    
+    Raises:
+    - ValueError: If method is unknown.
+    """
+    if take_profit_method == 'no_cap':
+        return None
+    
+    # Map simple names to percentages
+    profit_taking_map = {
+        '25pct': 0.25,
+        '40pct': 0.40,
+        '50pct': 0.50,
+        '75pct': 0.75
+    }
+    
+    if take_profit_method not in profit_taking_map:
+        raise ValueError(f"Unknown take_profit_method: '{take_profit_method}'. "
+                        f"Valid options: 'no_cap', '25pct', '40pct', '50pct', '75pct'")
+    
+    percentage = profit_taking_map[take_profit_method]
+    return float(max_reward_per_spread * percentage)
 
 
 def choose_contract_count_for_risk_pct(max_risk_per_spread, account_balance, target_risk_pct):
@@ -789,7 +813,8 @@ def simulate_trades(
     simulation_mode='iid',
     block_size=5,
     risk_calculation_method='conservative_theoretical',
-    reward_calculation_method='no_cap',
+    max_reward_method='conservative_realized',
+    take_profit_method='no_cap',
     allow_exceed_target_risk=False,
     position_sizing='percent'
 ):
@@ -816,9 +841,14 @@ def simulate_trades(
     - block_size (int): Block size for bootstrap sampling (only used in bootstrap mode).
     - risk_calculation_method (str): Method for calculating risk amount per trade AND
         position sizing constraints. Both use the same method to maintain safety invariant.
-    - reward_calculation_method (str): Method for calculating reward caps. Options:
+    - max_reward_method (str): Method for determining max reward generation:
+        - 'conservative_realized': p95 of historical wins (default)
+        - 'conservative_theoretical': p95 of theoretical gains
+        - 'theoretical_max': Maximum theoretical gain
+        - 'max_realized': Maximum historical win
+    - take_profit_method (str): Profit-taking discipline:
         - 'no_cap': No capping (default)
-        - 'cap_XXpct_METRIC': Cap at XX% of METRIC (e.g., 'cap_50pct_conservative_theoretical_max')
+        - '25pct', '40pct', '50pct', '75pct': Take profits at XX% of max reward
         Note: Reward capping only applies to IID mode, not bootstrap mode (historical P/L used as-is).
     - allow_exceed_target_risk (bool): If False (default), stops trading if 1 contract would exceed
         target risk %. If True, allows taking 1 contract even if it exceeds target (old behavior).
@@ -846,12 +876,14 @@ def simulate_trades(
     # Loss simulation uses selected risk calculation method
     max_risk_per_spread = get_max_risk_per_spread(trade, risk_calculation_method)
     avg_reward_per_spread = trade['avg_win']
-    conservative_realized_max_reward = trade.get('conservative_realized_max_reward', 0)
-    max_reward_per_spread = conservative_realized_max_reward if conservative_realized_max_reward > 0 else trade['max_win']
-    win_rate = trade['win_rate']
     
-    # Get reward cap per spread (None if no_cap)
-    reward_cap_per_spread = get_reward_cap_per_spread(trade, reward_calculation_method)
+    # Get max reward using specified method (for generate_reward upper bound)
+    max_reward_per_spread = get_max_reward_per_spread(trade, max_reward_method)
+    
+    # Get reward cap based on max_reward (None if no_cap)
+    reward_cap_per_spread = get_reward_cap_per_spread(max_reward_per_spread, take_profit_method)
+    
+    win_rate = trade['win_rate']
     
     results = []
     for _ in range(num_simulations):
@@ -976,7 +1008,7 @@ def simulate_trades(
                     reward_cap = reward_cap_per_spread * contracts
                     reward = min(reward, reward_cap)
 
-                if random.random() < win_rate:
+                if np.random.random() < win_rate:
                     balance += reward
                     current_losing_streak = 0  # Reset streak on win
                 else:
@@ -1012,7 +1044,8 @@ def run_monte_carlo_simulation(
     commission_per_contract=OPTION_COMMISSION_PER_CONTRACT,
     num_trades=60,
     risk_calculation_method='conservative_theoretical',
-    reward_calculation_method='no_cap',
+    max_reward_method='conservative_realized',
+    take_profit_method='no_cap',
     allow_exceed_target_risk=False
 ):
     """
@@ -1031,9 +1064,16 @@ def run_monte_carlo_simulation(
     - simulation_mode (str): 'iid' for independent trades or 'moving-block-bootstrap' for streak preservation.
     - block_size (int): Block size for bootstrap sampling (only used in bootstrap mode).
     - commission_per_contract (float): Commission cost per contract (currently unused in calculations).
-    - num_trades (int): Number of trades per simulation. Must be at least the number of historical trades.
+    - num_trades (int): Number of trades per simulation. Can be any positive value for both IID and bootstrap modes.
     - risk_calculation_method (str): Method for calculating risk amount per trade.
-    - reward_calculation_method (str): Method for calculating reward caps. 'no_cap' for no capping (default).
+    - max_reward_method (str): Method for determining max reward generation:
+        - 'conservative_realized': p95 of historical wins (default)
+        - 'conservative_theoretical': p95 of theoretical gains
+        - 'theoretical_max': Maximum theoretical gain
+        - 'max_realized': Maximum historical win
+    - take_profit_method (str): Profit-taking discipline:
+        - 'no_cap': No capping (default)
+        - '25pct', '40pct', '50pct', '75pct': Take profits at XX% of max reward
     - allow_exceed_target_risk (bool): If False (default), stops trading if 1 contract would exceed
         target risk %. If True, allows taking 1 contract even if it exceeds target (old behavior).
     
@@ -1054,9 +1094,8 @@ def run_monte_carlo_simulation(
     - For 'percent' sizing, tests risk levels: 1%, 2%, 3%, 5%, 10%, 15%, 25%, 50%, 75%, 100%
     - For 'contracts' sizing, tests fixed counts: 1, 2, 5, 10, 15, 20
     - Each position size is simulated num_simulations times with num_trades per simulation
+    - Bootstrap mode samples with replacement, so num_trades can be < CSV length
     """
-    num_trades = max(num_trades, trade_stats['num_trades'])
-    
     # Create trade dict
     trade = {
         "name": "Simulated Trade",
@@ -1098,7 +1137,8 @@ def run_monte_carlo_simulation(
                 simulation_mode=simulation_mode,
                 block_size=block_size,
                 risk_calculation_method=risk_calculation_method,
-                reward_calculation_method=reward_calculation_method,
+                max_reward_method=max_reward_method,
+                take_profit_method=take_profit_method,
                 allow_exceed_target_risk=allow_exceed_target_risk,
                 position_sizing=position_sizing
             )
@@ -1114,7 +1154,8 @@ def run_monte_carlo_simulation(
                 simulation_mode=simulation_mode,
                 block_size=block_size,
                 risk_calculation_method=risk_calculation_method,
-                reward_calculation_method=reward_calculation_method,
+                max_reward_method=max_reward_method,
+                take_profit_method=take_profit_method,
                 allow_exceed_target_risk=allow_exceed_target_risk,
                 position_sizing=position_sizing
             )
