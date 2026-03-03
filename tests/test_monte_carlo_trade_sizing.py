@@ -9,6 +9,8 @@ import numpy as np
 import pytest
 import pandas as pd
 import tempfile
+from conftest import suppress_mock_warnings
+import unittest.mock
 
 
 class TestAnalyzeTradeFile:
@@ -372,6 +374,7 @@ class TestAnalyzeTradeFile:
 class TestSimulateTrades:
     """Comprehensive tests for the simulate_trades function."""
 
+    @suppress_mock_warnings  # Unit test (deprecated module): needs exact P&L for 100% win rate verification
     def test_perfect_win_rate(self):
         """Test with 100% win rate - all simulations should result in maximum profit."""
         # Mock the generators to return fixed values for testing
@@ -403,6 +406,7 @@ class TestSimulateTrades:
                 assert result['max_drawdown'] == expected_drawdown
                 assert result['max_losing_streak'] == 0  # No losses in perfect win rate
 
+    @suppress_mock_warnings  # Unit test (deprecated module): needs exact losses for 0% win rate verification
     def test_zero_win_rate(self):
         """Test with 0% win rate - all simulations should result in bankruptcy."""
         # Mock the generators to return fixed values for testing
@@ -435,6 +439,7 @@ class TestSimulateTrades:
                 assert result['final_balance'] == expected_final_balance
                 assert result['max_drawdown'] == expected_drawdown
 
+    @suppress_mock_warnings  # Unit test (deprecated module): needs exact P&L for 50% win rate verification
     def test_partial_win_rate(self):
         """Test with 50% win rate - check statistical properties."""
         # Mock the generators to return fixed values for testing
@@ -472,6 +477,7 @@ class TestSimulateTrades:
             # Drawdowns should be positive
             assert all(d >= 0 for d in drawdowns)
 
+    @suppress_mock_warnings  # Unit test (deprecated module): needs exact losses for mid-simulation bankruptcy
     def test_bankruptcy_mid_simulation(self):
         """Test bankruptcy occurring mid-simulation."""
         # Mock the generators to return fixed values for testing
@@ -500,6 +506,7 @@ class TestSimulateTrades:
                 assert result['final_balance'] == 0
             assert result['max_drawdown'] == initial_balance
 
+    @suppress_mock_warnings  # Unit test (deprecated module): needs exact P&L to verify position size scaling
     def test_position_size_scaling(self):
         """Test that position size properly scales risk and reward."""
         # Mock the generators to return fixed values for testing
@@ -551,6 +558,7 @@ class TestSimulateTrades:
             assert result['final_balance'] == initial_balance
             assert result['max_drawdown'] == 0
 
+    @suppress_mock_warnings  # Unit test (deprecated module): needs exact win to verify single trade logic
     def test_single_simulation_single_trade_win(self):
         """Test single simulation, single trade, win."""
         # Mock the generators to return fixed values for testing
@@ -578,6 +586,7 @@ class TestSimulateTrades:
             assert results[0]['final_balance'] == initial_balance + 50  # reward
             assert results[0]['max_drawdown'] == 0
 
+    @suppress_mock_warnings  # Unit test (deprecated module): needs exact loss to verify single trade logic
     def test_single_simulation_single_trade_loss(self):
         """Test single simulation, single trade, loss."""
         # Mock the generators to return fixed values for testing
@@ -605,6 +614,7 @@ class TestSimulateTrades:
             assert results[0]['final_balance'] == initial_balance - 100  # risk
             assert results[0]['max_drawdown'] == 100
 
+    @suppress_mock_warnings  # Unit test (deprecated module): needs exact P&L to verify drawdown calculation
     def test_drawdown_calculation(self):
         """Test drawdown calculation with mixed wins/losses."""
         # Mock the generators to return fixed values for testing
@@ -632,6 +642,7 @@ class TestSimulateTrades:
                 assert result['max_drawdown'] >= 0
                 assert result['max_drawdown'] <= initial_balance + (50 * num_trades)  # Theoretical max
 
+    @suppress_mock_warnings  # Unit test (deprecated module): needs exact losses for quick bankruptcy scenario
     def test_large_position_size_bankruptcy(self):
         """Test with large position size leading to quick bankruptcy."""
         # Mock the generators to return fixed values for testing
@@ -660,6 +671,7 @@ class TestSimulateTrades:
                 assert result['final_balance'] == 0
                 assert result['max_drawdown'] == 1000  # Mock returns 1000 per loss
 
+    @suppress_mock_warnings  # Unit test (deprecated module): needs exact losses to compare dynamic vs static sizing
     def test_dynamic_risk_sizing_recomputes_contracts_from_current_equity(self):
         """When enabled, percent-risk sizing should recompute contracts each trade from current balance."""
         import unittest.mock
@@ -786,6 +798,7 @@ class TestPositionSizingMode:
 class TestMovingBlockBootstrap:
     """Tests for moving-block bootstrap sampling and simulation mode."""
 
+    @suppress_mock_warnings  # Unit test (deprecated module): mocks random to verify block concatenation logic
     def test_sample_moving_block_returns_concatenated_blocks(self):
         """Moving-block sampler should stitch contiguous blocks to requested trade count."""
         import unittest.mock
@@ -800,6 +813,7 @@ class TestMovingBlockBootstrap:
 
         assert sampled == [-5, 20, 10, -5, 20, -15]
 
+    @suppress_mock_warnings  # Unit test (deprecated module): mocks generate_* to ensure bootstrap mode doesn't call IID path
     def test_simulate_trades_bootstrap_mode_uses_pnl_distribution_not_iid_generators(self):
         """Bootstrap mode should use sampled realized P/L sequence instead of synthetic risk/reward draws."""
         import unittest.mock

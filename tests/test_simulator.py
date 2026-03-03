@@ -6,6 +6,7 @@ import simulator
 import numpy as np
 import pytest
 import unittest.mock
+from conftest import suppress_mock_warnings
 
 
 class TestSimulator:
@@ -979,6 +980,7 @@ class TestSimulateTrades:
         
         assert len(results) == num_simulations
 
+    @suppress_mock_warnings  # Unit test: needs exact P&L values to test fixed risk calculation logic
     def test_fixed_conservative_theoretical_max_risk_calculation_method(self):
         """Fixed conservative theoretical max should apply full conservative max risk on each loss."""
         with unittest.mock.patch('simulator.generate_reward', return_value=50):
@@ -1004,6 +1006,7 @@ class TestSimulateTrades:
 
             assert results[0]['final_balance'] == 500
 
+    @suppress_mock_warnings  # Unit test: needs exact P&L values to test average realized risk calculation logic
     def test_average_realized_risk_calculation_method(self):
         """Test average realized risk method - all losses should be fixed at average amount."""
         with unittest.mock.patch('simulator.generate_reward', return_value=50):
@@ -1033,6 +1036,7 @@ class TestSimulateTrades:
 
             assert results[0]['final_balance'] == expected_final_balance
 
+    @suppress_mock_warnings  # Unit test: needs exact losses to verify bankruptcy detection logic
     def test_bankruptcy_stops_simulation(self):
         """Simulation should stop when balance reaches zero."""
         with unittest.mock.patch('simulator.generate_risk', return_value=500), \
@@ -1057,6 +1061,7 @@ class TestSimulateTrades:
             for result in results:
                 assert result['final_balance'] == 0  # Bankrupt
 
+    @suppress_mock_warnings  # Unit test: needs exact P&L values to verify balance compounding arithmetic
     def test_compounding_balance_updates(self):
         """Balance should compound correctly across trades."""
         with unittest.mock.patch('simulator.generate_risk', return_value=100), \
@@ -1085,6 +1090,7 @@ class TestSimulateTrades:
             # After trade 3: 1400 + 200 = 1600
             assert result['final_balance'] == 1600
 
+    @suppress_mock_warnings  # Unit test: needs exact P&L sequence to verify drawdown calculation logic
     def test_max_drawdown_tracking(self):
         """Max drawdown should track the peak-to-trough decline."""
         with unittest.mock.patch('simulator.generate_risk', return_value=300), \
@@ -1116,6 +1122,7 @@ class TestSimulateTrades:
             # Max drawdown: 600
             assert result['max_drawdown'] == 600
 
+    @suppress_mock_warnings  # Unit test: needs specific win/loss pattern to verify streak tracking logic
     def test_losing_streak_tracking(self):
         """Max losing streak should track consecutive losses."""
         with unittest.mock.patch('simulator.generate_risk', return_value=100), \
@@ -1142,6 +1149,7 @@ class TestSimulateTrades:
             result = results[0]
             assert result['max_losing_streak'] == 3  # Three consecutive losses
 
+    @suppress_mock_warnings  # Unit test: needs forced losses to verify position sizing constraint logic
     def test_position_size_never_exceeds_account_balance_fixed_contracts(self):
         """
         CRITICAL: Position sizing must ensure that max_risk_per_spread *contracts <= balance
@@ -1357,6 +1365,7 @@ class TestSimulateTrades:
             f"Contracts: {hundred_pct_row['contracts']} " \
             f"(should be {int(initial_balance / trade['max_theoretical_loss'])})"
 
+    @suppress_mock_warnings  # Unit test: needs exact reward values to verify no-cap baseline behavior
     def test_reward_capping_with_no_cap_preserves_current_behavior(self):
         """Default 'no_cap' should behave identically to current behavior (no capping)."""
         with unittest.mock.patch('simulator.generate_risk', return_value=100), \
@@ -1387,6 +1396,7 @@ class TestSimulateTrades:
             expected_final_balance = initial_balance + 750
             assert results[0]['final_balance'] == expected_final_balance
 
+    @suppress_mock_warnings  # Unit test: needs rewards exceeding cap to verify capping logic
     def test_reward_capping_caps_rewards_above_threshold(self):
         """Rewards above cap should be capped to the threshold."""
         with unittest.mock.patch('simulator.generate_risk', return_value=100):
@@ -1418,6 +1428,7 @@ class TestSimulateTrades:
                 expected_final_balance = initial_balance + 500
                 assert results[0]['final_balance'] == expected_final_balance
 
+    @suppress_mock_warnings  # Unit test: needs rewards below cap to verify no-effect behavior
     def test_reward_capping_does_not_affect_rewards_below_cap(self):
         """Rewards below cap should not be affected."""
         with unittest.mock.patch('simulator.generate_risk', return_value=100):
@@ -1449,6 +1460,7 @@ class TestSimulateTrades:
                 expected_final_balance = initial_balance + 200
                 assert results[0]['final_balance'] == expected_final_balance
 
+    @suppress_mock_warnings  # Unit test: needs exact reward per contract to verify scaling logic
     def test_reward_capping_scales_with_contract_count(self):
         """Reward cap should scale with number of contracts."""
         with unittest.mock.patch('simulator.generate_risk', return_value=100):
@@ -1481,6 +1493,7 @@ class TestSimulateTrades:
                 expected_final_balance = initial_balance + 600
                 assert results[0]['final_balance'] == expected_final_balance
 
+    @suppress_mock_warnings  # Unit test: needs exact reward to verify theoretical max metric selection
     def test_reward_capping_with_theoretical_max_metric(self):
         """Test reward capping using theoretical max as base metric."""
         with unittest.mock.patch('simulator.generate_risk', return_value=100):
@@ -1511,6 +1524,7 @@ class TestSimulateTrades:
                 expected_final_balance = initial_balance + 500
                 assert results[0]['final_balance'] == expected_final_balance
 
+    @suppress_mock_warnings  # Unit test: needs exact reward to verify max_realized metric selection
     def test_reward_capping_with_average_realized_metric(self):
         """Test reward capping using max realized wins as base metric."""
         with unittest.mock.patch('simulator.generate_risk', return_value=100):
@@ -1543,6 +1557,7 @@ class TestSimulateTrades:
                 expected_final_balance = initial_balance + 480
                 assert results[0]['final_balance'] == expected_final_balance
 
+    @suppress_mock_warnings  # Unit test: needs exact reward to verify conservative_realized metric selection
     def test_reward_capping_with_conservative_realized_max_metric(self):
         """Test reward capping using conservative realized max (p95 of wins) as base metric."""
         with unittest.mock.patch('simulator.generate_risk', return_value=100):
@@ -1614,6 +1629,7 @@ class TestSimulateTrades:
         # We can't assert exact value due to random sampling, but we can verify structure exists
         assert isinstance(final_balance, (int, float))
 
+    @suppress_mock_warnings  # Unit test: needs specific win/loss pattern to verify mixed outcomes with capping
     def test_reward_capping_works_with_mixed_win_loss_outcomes(self):
         """Test reward capping with alternating wins and losses."""
         with unittest.mock.patch('simulator.generate_risk', return_value=100):
@@ -1727,6 +1743,7 @@ class TestBalanceHistory:
             assert result['balance_history'][0] == initial_balance, \
                 f"First element should be initial_balance ({initial_balance})"
     
+    @suppress_mock_warnings  # Unit test: needs exact P&L to verify final balance matches history
     def test_balance_history_last_element(self):
         """Test that last element of balance_history equals final_balance."""
         with unittest.mock.patch('simulator.generate_risk', return_value=100), \
@@ -1756,6 +1773,7 @@ class TestBalanceHistory:
                 assert result['balance_history'][-1] == result['final_balance'], \
                     "Last element of balance_history should match final_balance"
     
+    @suppress_mock_warnings  # Unit test: needs exact losses to verify bankruptcy history tracking
     def test_balance_history_with_bankruptcy(self):
         """Test balance_history stops when balance hits 0 (bankruptcy)."""
         with unittest.mock.patch('simulator.generate_risk', return_value=200), \
@@ -1797,6 +1815,7 @@ class TestBalanceHistory:
                 assert result['balance_history'][4] == 200
                 assert result['balance_history'][5] == 0
     
+    @suppress_mock_warnings  # Unit test: needs exact P&L to verify dynamic sizing history
     def test_balance_history_with_dynamic_sizing(self):
         """Test balance_history tracks correctly with dynamic risk sizing enabled."""
         with unittest.mock.patch('simulator.generate_risk', return_value=100), \
@@ -1838,6 +1857,7 @@ class TestBalanceHistory:
                 assert balance_history[i] >= balance_history[i-1], \
                     f"Balance should increase with wins: {balance_history[i-1]} -> {balance_history[i]}"
     
+    @suppress_mock_warnings  # Unit test: needs exact P&L to verify IID mode history tracking
     def test_balance_history_in_iid_mode(self):
         """Test that balance_history works correctly in IID mode."""
         with unittest.mock.patch('simulator.generate_risk', return_value=100), \
