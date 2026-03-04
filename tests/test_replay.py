@@ -20,6 +20,10 @@ class TestReplayActualTrades:
             'max_loss': -100,
             'max_theoretical_loss': 100,
             'conservative_theoretical_max_loss': 80,
+            'avg_risk_per_spread': 100.0,  # Average of per_trade_theoretical_risk: [100, 100, 100, 100, 100]
+            'avg_reward_per_spread': 50.0,  # Average of per_trade_theoretical_reward: [50, 50, 50, 50, 50]
+            'max_win_pct': 100.0,  # max(wins) / avg_risk * 100 = 100/100*100
+            'max_loss_pct': 0.0,  # No losses in distribution
             'pnl_distribution': [50, 75, 100, 60, 80],  # All positive
             'per_trade_theoretical_risk': [100, 100, 100, 100, 100],
             'per_trade_theoretical_reward': [50, 50, 50, 50, 50],
@@ -58,6 +62,10 @@ class TestReplayActualTrades:
             'max_loss': -100,
             'max_theoretical_loss': 100,
             'conservative_theoretical_max_loss': 80,
+            'avg_risk_per_spread': 150.0,  # Average of per_trade_theoretical_risk
+            'avg_reward_per_spread': 100.0,  # Average of per_trade_theoretical_reward
+            'max_win_pct': 66.67,  # max(wins) / avg_risk * 100 = 100/150*100
+            'max_loss_pct': -40.0,  # min(losses) / avg_risk * 100 = -60/150*100
             'pnl_distribution': [50, -40, 100, -60, 75, -30],  # Mix of wins/losses
             'per_trade_theoretical_risk': [150, 150, 150, 150, 150, 150],
             'per_trade_theoretical_reward': [100, 100, 100, 100, 100, 100],
@@ -97,6 +105,10 @@ class TestReplayActualTrades:
             'max_loss': -100,
             'max_theoretical_loss': 100,
             'conservative_theoretical_max_loss': 100,
+            'avg_risk_per_spread': 100.0,
+            'avg_reward_per_spread': 75.0,
+            'max_win_pct': 100.0,  # max(wins) / avg_risk * 100 = 100/100*100
+            'max_loss_pct': -50.0,  # min(losses) / avg_risk * 100 = -50/100*100
             'pnl_distribution': [100, -50, 80, -40],
             'per_trade_theoretical_risk': [100, 100, 100, 100],
             'per_trade_theoretical_reward': [75, 75, 75, 75],
@@ -136,6 +148,10 @@ class TestReplayActualTrades:
             'max_loss': -100,
             'max_theoretical_loss': 100,
             'conservative_theoretical_max_loss': 100,
+            'avg_risk_per_spread': 100.0,
+            'avg_reward_per_spread': 60.0,
+            'max_win_pct': 0.0,  # No wins in distribution
+            'max_loss_pct': -80.0,  # min(losses) / avg_risk * 100 = -80/100*100
             'pnl_distribution': [-80, -60, -70, -50, -40],  # All losses
             'per_trade_theoretical_risk': [100, 100, 100, 100, 100],
             'per_trade_theoretical_reward': [60, 60, 60, 60, 60],
@@ -170,6 +186,10 @@ class TestReplayActualTrades:
             'max_loss': -100,
             'max_theoretical_loss': 100,
             'conservative_theoretical_max_loss': 100,
+            'avg_risk_per_spread': 100.0,
+            'avg_reward_per_spread': 80.0,
+            'max_win_pct': 200.0,  # max(wins) / avg_risk * 100 = 200/100*100
+            'max_loss_pct': -80.0,  # min(losses) / avg_risk * 100 = -80/100*100
             'pnl_distribution': [100, 150, -80, -70, 200],
             'per_trade_theoretical_risk': [100, 100, 100, 100, 100],
             'per_trade_theoretical_reward': [80, 80, 80, 80, 80],
@@ -203,6 +223,10 @@ class TestReplayActualTrades:
             'max_loss': -100,
             'max_theoretical_loss': 100,
             'conservative_theoretical_max_loss': 100,
+            'avg_risk_per_spread': 100.0,
+            'avg_reward_per_spread': 70.0,
+            'max_win_pct': 50.0,  # max(wins) / avg_risk * 100 = 50/100*100
+            'max_loss_pct': -80.0,  # min(losses) / avg_risk * 100 = -80/100*100
             'pnl_distribution': [-80, -60, 50],
             'per_trade_theoretical_risk': [100, 100, 100],
             'per_trade_theoretical_reward': [70, 70, 70],
@@ -236,6 +260,10 @@ class TestReplayActualTrades:
             'max_loss': -100,
             'max_theoretical_loss': 200,  # Higher
             'conservative_theoretical_max_loss': 100,  # Lower
+            'avg_risk_per_spread': 200.0,
+            'avg_reward_per_spread': 150.0,
+            'max_win_pct': 25.0,  # max(wins) / avg_risk * 100 = 50/200*100
+            'max_loss_pct': -30.0,  # min(losses) / avg_risk * 100 = -60/200*100
             'pnl_distribution': [50, -60],
             'per_trade_theoretical_risk': [200, 200],
             'per_trade_theoretical_reward': [150, 150],
@@ -286,6 +314,10 @@ class TestReplayActualTrades:
             'max_loss': -100,
             'max_theoretical_loss': 100,
             'conservative_theoretical_max_loss': 100,
+            'avg_risk_per_spread': 100.0,
+            'avg_reward_per_spread': 100.0,
+            'max_win_pct': 0.0,
+            'max_loss_pct': 0.0,
             'pnl_distribution': [],
             'per_trade_theoretical_risk': [],
             'per_trade_theoretical_reward': [],
@@ -316,7 +348,11 @@ class TestReplayActualTrades:
             'max_theoretical_loss': 500,
             'conservative_theoretical_max_loss': 450,
             'max_theoretical_reward': 300,
-            'conservative_max_theoretical_reward': 250
+            'conservative_max_theoretical_reward': 250,
+            'avg_risk_per_spread': 566.67,  # (500+200+1000)/3
+            'avg_reward_per_spread': 350.0,  # (300+150+600)/3
+            'max_win_pct': 35.29,  # max(wins) / avg_risk * 100 = 200/566.67*100
+            'max_loss_pct': 0.0  # No losses
         }
         
         # With $10,000 balance and 2% risk target (dynamic):
@@ -351,7 +387,11 @@ class TestReplayActualTrades:
             'max_theoretical_loss': 300,
             'conservative_theoretical_max_loss': 250,
             'max_theoretical_reward': 400,
-            'conservative_max_theoretical_reward': 300
+            'conservative_max_theoretical_reward': 300,
+            'avg_risk_per_spread': 250.0,
+            'avg_reward_per_spread': 300.0,
+            'max_win_pct': 80.0,  # 200/250*100
+            'max_loss_pct': -20.0  # -50/250*100
         }
         
         with pytest.raises(ValueError, match="per_trade_theoretical_risk is required but missing"):
@@ -372,7 +412,11 @@ class TestReplayActualTrades:
             'per_trade_dates': ['2023-01-01', '2023-02-01', '2023-03-01'],
             'num_trades': 3,
             'max_theoretical_loss': 2000,
-            'conservative_theoretical_max_loss': 1800
+            'conservative_theoretical_max_loss': 1800,
+            'avg_risk_per_spread': 4166.67,  # (2000+500+10000)/3
+            'avg_reward_per_spread': 2500.0,  # (1200+300+6000)/3
+            'max_win_pct': 4.80,  # max(wins) / avg_risk * 100 = 200/4166.67*100
+            'max_loss_pct': -1.20  # min(losses) / avg_risk * 100 = -50/4166.67*100
         }
         
         # With $10,000 balance and fixed contract size of 10:
@@ -401,7 +445,11 @@ class TestReplayActualTrades:
             'per_trade_theoretical_risk': [500, 200],  # Only 2 values for 3 trades!
             'num_trades': 3,
             'max_theoretical_loss': 300,
-            'conservative_theoretical_max_loss': 250
+            'conservative_theoretical_max_loss': 250,
+            'avg_risk_per_spread': 350.0,  # (500+200)/2
+            'avg_reward_per_spread': 250.0,
+            'max_win_pct': 57.14,  # 200/350*100
+            'max_loss_pct': 0.0  # No losses
         }
         
         # Should raise error since lengths don't match
@@ -425,6 +473,10 @@ class TestReplayActualTrades:
             'max_loss': -50,
             'max_theoretical_loss': 200,
             'conservative_theoretical_max_loss': 180,
+            'avg_risk_per_spread': 193.33,  # (200+180+200)/3
+            'avg_reward_per_spread': 140.0,  # (150+120+150)/3
+            'max_win_pct': 51.72,  # max(wins) / avg_risk * 100 = 100/193.33*100
+            'max_loss_pct': -20.69,  # min(losses) / avg_risk * 100 = -40/193.33*100
             'pnl_distribution': [100, -40, 80],
             'per_trade_theoretical_risk': [200, 180, 200],
             'per_trade_theoretical_reward': [150, 120, 150],
@@ -488,6 +540,10 @@ class TestReplayActualTrades:
             'max_loss': -50,
             'max_theoretical_loss': 100,
             'conservative_theoretical_max_loss': 100,
+            'avg_risk_per_spread': 100.0,
+            'avg_reward_per_spread': 80.0,
+            'max_win_pct': 50.0,  # max(wins) / avg_risk * 100 = 50/100*100
+            'max_loss_pct': -40.0,  # min(losses) / avg_risk * 100 = -40/100*100
             'pnl_distribution': [50, -40, 50],
             'per_trade_theoretical_risk': [100, 100, 100],
             'per_trade_theoretical_reward': [80, 80, 80],
@@ -537,6 +593,10 @@ class TestReplayPnlPercentageCalculation:
             'max_loss': -80,
             'max_theoretical_loss': 100,
             'conservative_theoretical_max_loss': 100,
+            'avg_risk_per_spread': 100.0,
+            'avg_reward_per_spread': 100.0,
+            'max_win_pct': 80.0,  # max(wins) / avg_risk * 100 = 80/100*100
+            'max_loss_pct': -60.0,  # min(losses) / avg_risk * 100 = -60/100*100
             'pnl_distribution': [50, -60, 80],  # Win, Loss, Win
             'per_trade_theoretical_risk': [100, 100, 100],
             'per_trade_theoretical_reward': [100, 100, 100],
@@ -612,6 +672,10 @@ class TestReplayPnlPercentageCalculation:
             'max_loss': 0,
             'max_theoretical_loss': 100,
             'conservative_theoretical_max_loss': 100,
+            'avg_risk_per_spread': 50.0,  # (100+0)/2
+            'avg_reward_per_spread': 100.0,
+            'max_win_pct': 100.0,  # 50/50*100 (using non-zero avg)
+            'max_loss_pct': 0.0,
             'pnl_distribution': [50, 25],
             'per_trade_theoretical_risk': [100, 0],  # Second trade has zero risk - INVALID DATA
             'per_trade_theoretical_reward': [100, 100],
@@ -648,6 +712,10 @@ class TestReplayDataValidation:
             'max_loss': 0,
             'max_theoretical_loss': 100,
             'conservative_theoretical_max_loss': 100,
+            'avg_risk_per_spread': -100.0,  # Invalid
+            'avg_reward_per_spread': 100.0,
+            'max_win_pct': -50.0,  # 50/-100*100 (invalid but calculated)
+            'max_loss_pct': 0.0,
             'pnl_distribution': [50],
             'per_trade_theoretical_risk': [-100],  # NEGATIVE - invalid data
             'per_trade_theoretical_reward': [100],
@@ -683,6 +751,10 @@ class TestReplayRiskPercentageCalculation:
             'max_loss': 0,
             'max_theoretical_loss': 150,
             'conservative_theoretical_max_loss': 150,
+            'avg_risk_per_spread': 100.0,  # (100+150+50)/3
+            'avg_reward_per_spread': 100.0,
+            'max_win_pct': 50.0,  # max(wins) / avg_risk * 100 = 50/100*100
+            'max_loss_pct': 0.0,
             'pnl_distribution': [50, 40, 30],  # Different P/Ls
             'per_trade_theoretical_risk': [100, 150, 50],  # Varying risk amounts
             'per_trade_theoretical_reward': [100, 100, 100],
@@ -729,6 +801,10 @@ class TestReplayRiskPercentageCalculation:
             'max_loss': 0,
             'max_theoretical_loss': 100,
             'conservative_theoretical_max_loss': 100,
+            'avg_risk_per_spread': 100.0,
+            'avg_reward_per_spread': 100.0,
+            'max_win_pct': 50.0,  # max(wins) / avg_risk * 100 = 50/100*100
+            'max_loss_pct': 0.0,
             'pnl_distribution': [50, 30],
             'per_trade_theoretical_risk': [100, 100],
             'per_trade_theoretical_reward': [100, 100],
@@ -765,6 +841,10 @@ class TestReplayRiskPercentageCalculation:
             'max_loss': -1000,
             'max_theoretical_loss': 100,
             'conservative_theoretical_max_loss': 100,
+            'avg_risk_per_spread': 100.0,
+            'avg_reward_per_spread': 100.0,
+            'max_win_pct': 50.0,  # max(wins) / avg_risk * 100 = 50/100*100
+            'max_loss_pct': -1000.0,  # min(losses) / avg_risk * 100 = -1000/100*100
             'pnl_distribution': [-1000, 50],  # First trade bankrupts us
             'per_trade_theoretical_risk': [100, 100],
             'per_trade_theoretical_reward': [100, 100],

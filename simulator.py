@@ -1084,7 +1084,12 @@ def run_monte_carlo_simulation(
         - 'table_rows' (list[dict]): Position sizing results with metrics like:
             - Contracts, Target Risk %, Starting Risk %, Max Risk %, Avg Final $, Bankruptcy Prob, etc.
         - 'pnl_preview' (list[str]): Formatted preview of first 10 P/L values
+        - 'historical_max_winning_streak' (int): Longest winning streak in historical data
         - 'historical_max_losing_streak' (int): Longest losing streak in historical data
+        - 'historical_avg_winning_streak' (float): Average winning streak length
+        - 'historical_avg_losing_streak' (float): Average losing streak length
+        - 'historical_median_winning_streak' (float): Median winning streak length
+        - 'historical_median_losing_streak' (float): Median losing streak length
         - 'trajectory_data' (dict): Balance trajectory percentiles for each threshold, with:
             - Keys: threshold identifiers (e.g., '1.00%' for percent mode, '5' for contracts mode)
             - Values: dict of percentile arrays {'p5': [...], 'p25': [...], 'p50': [...], 'p75': [...], 'p95': [...]}
@@ -1193,6 +1198,8 @@ def run_monte_carlo_simulation(
             'Target Risk %': f"{row['target_risk_pct']:.2f}%",
             'Starting Risk %': f"{row['starting_risk_pct']:.2f}%",
             'Max Risk %': f"{max_risk_pct_across_sims:.2f}%",
+            'Average Risk/Reward $': f"${trade['avg_risk_per_spread']:,.0f} / ${trade['avg_reward_per_spread']:,.0f}",
+            'Average Win/Loss $': f"${trade['avg_win']:,.0f} / ${abs(trade['avg_loss']):,.0f}",
             'Avg Final $': f"${avg_final_balance:,.0f}",
             'Median Final $': f"${median_final_balance:,.0f}",
             'Bankruptcy Prob': f"{bankrupt_prob:.0%}",
@@ -1202,21 +1209,54 @@ def run_monte_carlo_simulation(
             'Max Losing Streak': f"{max_losing_streak:.0f}"
         })
 
+    # Calculate win/loss streaks from historical data
+    historical_max_winning_streak = 0
     historical_max_losing_streak = 0
+    current_win_streak = 0
     current_loss_streak = 0
+    all_win_streaks = []
+    all_loss_streaks = []
+    
     for value in trade['pnl_distribution']:
-        if value < 0:
+        if value > 0:
+            # Winning trade
+            current_win_streak += 1
+            if current_loss_streak > 0:
+                all_loss_streaks.append(current_loss_streak)
+                current_loss_streak = 0
+            historical_max_winning_streak = max(historical_max_winning_streak, current_win_streak)
+        elif value < 0:
+            # Losing trade
             current_loss_streak += 1
+            if current_win_streak > 0:
+                all_win_streaks.append(current_win_streak)
+                current_win_streak = 0
             historical_max_losing_streak = max(historical_max_losing_streak, current_loss_streak)
-        else:
-            current_loss_streak = 0
+        # Note: if value == 0, we continue the current streak
+    
+    # Capture final streak if any
+    if current_win_streak > 0:
+        all_win_streaks.append(current_win_streak)
+    if current_loss_streak > 0:
+        all_loss_streaks.append(current_loss_streak)
+    
+    # Calculate averages and medians
+    historical_avg_winning_streak = float(np.mean(all_win_streaks)) if all_win_streaks else 0.0
+    historical_avg_losing_streak = float(np.mean(all_loss_streaks)) if all_loss_streaks else 0.0
+    historical_median_winning_streak = float(np.median(all_win_streaks)) if all_win_streaks else 0.0
+    historical_median_losing_streak = float(np.median(all_loss_streaks)) if all_loss_streaks else 0.0
 
     trade_report = {
         'trade_name': trade['name'],
         'summary': trade,
         'table_rows': data,
         'pnl_preview': [f"{round(x):,}" for x in trade['pnl_distribution'][:10]],
+        'historical_max_winning_streak': historical_max_winning_streak,
         'historical_max_losing_streak': historical_max_losing_streak,
+        'historical_avg_winning_streak': historical_avg_winning_streak,
+        'historical_avg_losing_streak': historical_avg_losing_streak,
+        'historical_median_winning_streak': historical_median_winning_streak,
+        'historical_median_losing_streak': historical_median_losing_streak,
         'trajectory_data': trajectory_data
     }
     

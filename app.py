@@ -80,7 +80,10 @@ def format_monte_carlo_table(report, position_sizing, allow_exceed):
     
     replacements = [
         ('<th>Contracts</th>', f'<th title="{contracts_title}">Contracts</th>'),
+        ('<th>Average Risk/Reward $</th>', '<th title="Average theoretical risk and reward per spread from historical trades. Format: Risk / Reward. Same for all position sizes since it comes from CSV data, not simulation.">Average Risk/Reward $</th>'),
+        ('<th>Average Win/Loss $</th>', '<th title="Average profit per winning trade and average loss per losing trade from historical data. Format: Win / Loss. Same for all position sizes since it comes from CSV data, not simulation.">Average Win/Loss $</th>'),
         ('<th>Avg Final $</th>', '<th title="Average final account balance across all simulations for this position size. Higher values indicate better expected performance, but consider risk metrics too.">Avg Final $</th>'),
+        ('<th>Median Final $</th>', '<th title="Median final account balance across all simulations. More robust to outliers than average - shows the typical outcome.">Median Final $</th>'),
         ('<th>Bankruptcy Prob</th>', '<th title="Probability of account balance reaching zero (bankruptcy) across simulations. Lower is better; indicates robustness of the strategy to adverse sequences.">Bankruptcy Prob</th>'),
         ('<th>Avg Max Drawdown</th>', '<th title="Average of the maximum drawdown (peak-to-trough decline) experienced in each simulation. Measures typical downside volatility.">Avg Max Drawdown</th>'),
         ('<th>Max Drawdown</th>', '<th title="The worst-case maximum drawdown observed across all simulations. Indicates the largest potential loss from peak to trough in any scenario.">Max Drawdown</th>'),

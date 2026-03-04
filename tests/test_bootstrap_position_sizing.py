@@ -137,6 +137,10 @@ def test_bootstrap_uses_correct_risk_per_sampled_trade():
         'max_theoretical_gain': 200,
         'conservative_theoretical_max_reward': 200,
         'conservative_realized_max_reward': 200,
+        'avg_risk_per_spread': 366.67,  # (300+300+500)/3
+        'avg_reward_per_spread': 183.33,  # (150+150+250)/3
+        'max_win_pct': 54.55,  # max(wins) / avg_risk * 100 = 200/366.67*100
+        'max_loss_pct': -81.82,  # min(losses) / avg_risk * 100 = -300/366.67*100
         'risked': 300,
         'total_return': 100,
         'pct_return': 33.3,

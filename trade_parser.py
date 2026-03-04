@@ -85,6 +85,10 @@ def parse_trade_csv(file_or_path):
             'max_theoretical_gain': 0,
             'conservative_theoretical_max_reward': 0,
             'conservative_realized_max_reward': 0,
+            'avg_risk_per_spread': 0,
+            'avg_reward_per_spread': 0,
+            'max_win_pct': 0,
+            'max_loss_pct': 0,
             'risked': 0,
             'total_return': 0,
             'pct_return': 0,
@@ -233,17 +237,38 @@ def parse_trade_csv(file_or_path):
     
     wins = pnl_values[pnl_values > 0]
     losses = pnl_values[pnl_values < 0]
+    median_win = float(np.median(wins)) if len(wins) > 0 else 0
     median_loss = float(np.median(losses)) if len(losses) > 0 else 0
     median_risk_per_spread = abs(median_loss)
+    median_reward_per_spread = float(np.median(per_trade_theoretical_reward))
     conservative_realized_max_reward = float(np.quantile(wins, 0.95)) if len(wins) > 0 else 0
+    
+    # Calculate average risk and reward per spread
+    avg_risk_per_spread = float(np.mean(per_trade_theoretical_risk))
+    avg_reward_per_spread = float(np.mean(per_trade_theoretical_reward))
+    
+    # Calculate median win/loss as percentage of average theoretical risk
+    # Note: avg_risk_per_spread should never be 0 since we calculated it from per_trade_theoretical_risk
+    # If it is 0, we have invalid data and should fail fast
+    median_win_pct = median_win / avg_risk_per_spread * 100
+    median_loss_pct = median_loss / avg_risk_per_spread * 100
+    
+    # Calculate max win/loss as percentage of PER-TRADE theoretical risk
+    # Use the pct_return already calculated in joined dataframe (pnl / theoretical_max_loss * 100)
+    max_win_pct = float(joined.loc[joined['pnl'] > 0, 'pct_return'].max()) if (joined['pnl'] > 0).any() else 0.0
+    max_loss_pct = float(joined.loc[joined['pnl'] < 0, 'pct_return'].min()) if (joined['pnl'] < 0).any() else 0.0
     
     stats = {
         'num_trades': len(pnl_values),
         'win_rate': len(wins) / len(pnl_values) if len(pnl_values) > 0 else 0,
         'avg_win': np.mean(wins) if len(wins) > 0 else 0,
         'avg_loss': np.mean(losses) if len(losses) > 0 else 0,
+        'median_win': median_win,
         'median_loss': median_loss,
         'median_risk_per_spread': median_risk_per_spread,
+        'median_reward_per_spread': median_reward_per_spread,
+        'median_win_pct': median_win_pct,
+        'median_loss_pct': median_loss_pct,
         'max_win': np.max(wins) if len(wins) > 0 else 0,
         'max_loss': np.min(losses) if len(losses) > 0 else 0,  # Most negative
         'max_theoretical_loss': max_theoretical_loss,
@@ -251,6 +276,10 @@ def parse_trade_csv(file_or_path):
         'max_theoretical_gain': max_theoretical_gain,
         'conservative_theoretical_max_reward': conservative_theoretical_max_reward,
         'conservative_realized_max_reward': conservative_realized_max_reward,
+        'avg_risk_per_spread': avg_risk_per_spread,
+        'avg_reward_per_spread': avg_reward_per_spread,
+        'max_win_pct': max_win_pct,
+        'max_loss_pct': max_loss_pct,
         'risked': risked,
         'total_return': total_return,
         'pct_return': pct_return,

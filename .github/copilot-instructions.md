@@ -127,7 +127,9 @@ The goal of this section is to prevent recurring mistakes. **If you are correcte
 -   **No Hidden Defaults:** Prefer explicit inputs/config over silent fallbacks when behavior materially changes.
 -   **No Silent Error Swallowing / Fail Fast on Invalid Data:** When required data is missing or invalid, raise clear errors immediately instead of falling back to buggy behavior. Never use fallbacks like `if data_exists else broken_fallback()` or `value if value > 0 else 0` - if the data is required, fail loudly with an informative error message. Examples:
     - ❌ WRONG: `pnl_pct = (pnl / risk * 100) if risk > 0 else 0.0` (hides CSV data quality issues)
+    - ❌ WRONG: `median_win_pct = (median_win / avg_risk_per_spread * 100) if avg_risk_per_spread > 0 else 0.0` (guards against values we just calculated - if avg_risk_per_spread is 0, we have invalid data and should fail)
     - ✅ CORRECT: Validate `risk > 0` upfront and raise ValueError with specific details (date, value, likely cause)
+    - ✅ CORRECT: If a value was just calculated from valid data, don't guard it with defensive checks - let it fail loudly if the calculation produces invalid results
     - This surfaces CSV data quality issues (missing prices, invalid spreads) immediately rather than hiding them with silent fallbacks
 -   **No Backward-Compatibility Additions Unless Requested:** Do not add aliases, fallback paths, fallthrough handling, or compatibility shims unless the user explicitly asks for them.
 -   **Keep Scope Tight:** Implement only the requested behavior; avoid adding speculative knobs.

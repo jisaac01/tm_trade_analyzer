@@ -24,6 +24,10 @@ class TestSimulator:
             'max_theoretical_loss': 100,
             "conservative_realized_max_reward": 80,
             'conservative_theoretical_max_loss': 80,
+            'avg_risk_per_spread': 80.0,  # Using conservative_theoretical_max_loss
+            'avg_reward_per_spread': 80.0,  # Using conservative_realized_max_reward
+            'max_win_pct': 62.5,  # max(wins) / avg_risk * 100 = 50/80*100
+            'max_loss_pct': -62.5,  # min(losses) / avg_risk * 100 = -50/80*100
             'pnl_distribution': [50, -50, 50, -50, 50, -50, 50, -50, 50, -50]
         }
         
@@ -75,6 +79,10 @@ class TestTrajectoryAggregation:
             'max_theoretical_loss': 100,
             "conservative_realized_max_reward": 80,
             'conservative_theoretical_max_loss': 80,
+            'avg_risk_per_spread': 80.0,
+            'avg_reward_per_spread': 80.0,
+            'max_win_pct': 125.0,  # max(wins) / avg_risk * 100 = 100/80*100
+            'max_loss_pct': -62.5,  # min(losses) / avg_risk * 100 = -50/80*100
             'pnl_distribution': [50, -50, 100, -50, 75]
         }
         
@@ -103,6 +111,10 @@ class TestTrajectoryAggregation:
             'max_theoretical_loss': 100,
             "conservative_realized_max_reward": 80,
             'conservative_theoretical_max_loss': 80,
+            'avg_risk_per_spread': 80.0,
+            'avg_reward_per_spread': 80.0,
+            'max_win_pct': 125.0,
+            'max_loss_pct': -62.5,
             'pnl_distribution': [50, -50, 100, -50, 75]
         }
         
@@ -135,6 +147,10 @@ class TestTrajectoryAggregation:
             'max_theoretical_loss': 100,
             "conservative_realized_max_reward": 80,
             'conservative_theoretical_max_loss': 80,
+            'avg_risk_per_spread': 80.0,
+            'avg_reward_per_spread': 80.0,
+            'max_win_pct': 125.0,
+            'max_loss_pct': -62.5,
             'pnl_distribution': [50, -50, 100, -50, 75]
         }
         
@@ -178,6 +194,10 @@ class TestTrajectoryAggregation:
             'max_theoretical_loss': 100,
             "conservative_realized_max_reward": 80,
             'conservative_theoretical_max_loss': 80,
+            'avg_risk_per_spread': 80.0,
+            'avg_reward_per_spread': 80.0,
+            'max_win_pct': 125.0,
+            'max_loss_pct': -62.5,
             'pnl_distribution': [50, -50, 100, -50, 75]
         }
         
@@ -214,6 +234,10 @@ class TestTrajectoryAggregation:
             'max_theoretical_loss': 100,
             "conservative_realized_max_reward": 80,
             'conservative_theoretical_max_loss': 80,
+            'avg_risk_per_spread': 80.0,
+            'avg_reward_per_spread': 80.0,
+            'max_win_pct': 125.0,
+            'max_loss_pct': -62.5,
             'pnl_distribution': [50, -50, 100, -50, 75]
         }
         
@@ -246,6 +270,10 @@ class TestTrajectoryAggregation:
             'max_theoretical_loss': 100,
             "conservative_realized_max_reward": 80,
             'conservative_theoretical_max_loss': 80,
+            'avg_risk_per_spread': 80.0,
+            'avg_reward_per_spread': 80.0,
+            'max_win_pct': 125.0,
+            'max_loss_pct': -62.5,
             'pnl_distribution': [50, -50, 100, -50, 75]
         }
         
@@ -264,7 +292,12 @@ class TestTrajectoryAggregation:
         assert 'summary' in report
         assert 'table_rows' in report
         assert 'pnl_preview' in report
+        assert 'historical_max_winning_streak' in report
         assert 'historical_max_losing_streak' in report
+        assert 'historical_avg_winning_streak' in report
+        assert 'historical_avg_losing_streak' in report
+        assert 'historical_median_winning_streak' in report
+        assert 'historical_median_losing_streak' in report
         
         # New field should also be present
         assert 'trajectory_data' in report
@@ -281,6 +314,10 @@ class TestTrajectoryAggregation:
             'max_theoretical_loss': 100,
             "conservative_realized_max_reward": 80,
             'conservative_theoretical_max_loss': 80,
+            'avg_risk_per_spread': 80.0,
+            'avg_reward_per_spread': 80.0,
+            'max_win_pct': 150.0,  # max(wins) / avg_risk * 100 = 120/80*100
+            'max_loss_pct': -75.0,  # min(losses) / avg_risk * 100 = -60/80*100
             'pnl_distribution': [50, -50, 100, -50, 75, -30, 120, -60, 90, -40]
         }
         
@@ -741,6 +778,10 @@ class TestPositionSizing:
             "conservative_realized_max_reward": 101,
             'conservative_theoretical_max_loss': 101,
             'max_theoretical_loss': 101,
+            'avg_risk_per_spread': 101.0,
+            'avg_reward_per_spread': 101.0,
+            'max_win_pct': 49.5,  # max(wins) / avg_risk * 100 = 50/101*100
+            'max_loss_pct': -49.5,  # min(losses) / avg_risk * 100 = -50/101*100
             'pnl_distribution': [50, -50] * 5
         }
         
@@ -2081,6 +2122,10 @@ class TestTargetRiskEnforcement:
             'max_theoretical_loss': 200,
             "conservative_realized_max_reward": 200,
             'conservative_theoretical_max_loss': 200,  # Risk per contract
+            'avg_risk_per_spread': 200.0,
+            'avg_reward_per_spread': 200.0,
+            'max_win_pct': 25.0,  # max(wins) / avg_risk * 100 = 50/200*100
+            'max_loss_pct': -25.0,  # min(losses) / avg_risk * 100 = -50/200*100
             'pnl_distribution': [50, -50, 50, -50, 50, -50, 50, -50, 50, -50]
         }
         
@@ -2125,6 +2170,10 @@ class TestTargetRiskEnforcement:
             'max_theoretical_loss': 200,
             "conservative_realized_max_reward": 200,
             'conservative_theoretical_max_loss': 200,
+            'avg_risk_per_spread': 200.0,
+            'avg_reward_per_spread': 200.0,
+            'max_win_pct': 25.0,  # max(wins) / avg_risk * 100 = 50/200*100
+            'max_loss_pct': -25.0,  # min(losses) / avg_risk * 100 = -50/200*100
             'pnl_distribution': [50, -50, 50, -50, 50, -50, 50, -50, 50, -50]
         }
         
@@ -2165,6 +2214,10 @@ class TestTargetRiskEnforcement:
             'max_theoretical_loss': 150,
             "conservative_realized_max_reward": 150,
             'conservative_theoretical_max_loss': 150,
+            'avg_risk_per_spread': 150.0,
+            'avg_reward_per_spread': 150.0,
+            'max_win_pct': 0.0,  # No wins in pnl_distribution
+            'max_loss_pct': -66.67,  # min(losses) / avg_risk * 100 = -100/150*100
             'pnl_distribution': [-100] * 20  # All losses
         }
         
@@ -2212,6 +2265,10 @@ class TestTargetRiskEnforcement:
             'max_theoretical_loss': 100,
             "conservative_realized_max_reward": 100,
             'conservative_theoretical_max_loss': 100,  # Risk per contract
+            'avg_risk_per_spread': 100.0,
+            'avg_reward_per_spread': 100.0,
+            'max_win_pct': 50.0,  # max(wins) / avg_risk * 100 = 50/100*100
+            'max_loss_pct': -50.0,  # min(losses) / avg_risk * 100 = -50/100*100
             'pnl_distribution': [50, -50] * 10  # Alternate wins/losses
         }
         
@@ -2280,6 +2337,10 @@ class TestTargetRiskEnforcement:
             "conservative_realized_max_reward": 180,
             'conservative_theoretical_max_loss': 180,
             'max_theoretical_loss': 220,
+            'avg_risk_per_spread': 180.0,
+            'avg_reward_per_spread': 180.0,
+            'max_win_pct': 44.44,  # max(wins) / avg_risk * 100 = 80/180*100
+            'max_loss_pct': -100.0,  # min(losses) / avg_risk * 100 = -180/180*100
             'pnl_distribution': [80, -180] * 10  # Alternating to ensure data
         }
         

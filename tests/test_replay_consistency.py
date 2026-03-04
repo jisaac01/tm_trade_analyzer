@@ -42,6 +42,10 @@ def test_starting_risk_matches_first_trade_risk():
         'win_rate': 0.5,
         'conservative_theoretical_max_loss': conservative_risk,  # p95 approx 180
         'max_theoretical_loss': max_risk,  # max = 350
+        'avg_risk_per_spread': 188.5,  # (350 + 180*19) / 20
+        'avg_reward_per_spread': 50.0,  # mean of per_trade_rewards
+        'max_win_pct': 26.53,  # max(wins) / avg_risk * 100 = 50/188.5*100
+        'max_loss_pct': -95.49,  # min(losses) / avg_risk * 100 = -180/188.5*100
         'pnl_distribution': pnl_distribution,
         'per_trade_theoretical_risk': per_trade_risks,
         'per_trade_theoretical_reward': per_trade_rewards,
@@ -101,6 +105,10 @@ def test_fail_fast_when_replay_mode_missing_data():
         'win_rate': 0.5,
         'conservative_theoretical_max_loss': 180.0,
         'max_theoretical_loss': 350.0,
+        'avg_risk_per_spread': 180.0,  # Use aggregate since per-trade not available
+        'avg_reward_per_spread': 180.0,
+        'max_win_pct': 27.78,  # 50/180*100
+        'max_loss_pct': 0.0,  # No losses in distribution
         'pnl_distribution': [50.0] * 20
         # Missing: per_trade_theoretical_risk, per_trade_theoretical_reward, per_trade_dates
     }
@@ -152,6 +160,10 @@ def test_starting_contracts_mismatch_affordability():
         'win_rate': 1.0,
         'conservative_theoretical_max_loss': 200.0,  # p95 = 200
         'max_theoretical_loss': 200.0,
+        'avg_risk_per_spread': 195.0,  # (100 + 200*19) / 20
+        'avg_reward_per_spread': 50.0,
+        'max_win_pct': 25.64,  # max(wins) / avg_risk * 100 = 50/195*100
+        'max_loss_pct': 0.0,  # No losses in distribution
         'pnl_distribution': pnl_distribution,
         'per_trade_theoretical_risk': per_trade_risks,
         'per_trade_theoretical_reward': per_trade_rewards,
