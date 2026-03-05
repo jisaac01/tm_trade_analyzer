@@ -321,3 +321,166 @@ class TestTradeParser:
         assert trade2['expiration'] == '2023-02-28'
         assert len(trade2['opening_legs']) == 2
         assert len(trade2['closing_legs']) == 2
+
+
+class TestSameExpirationOverlappingTrades:
+    """
+    Tests that two overlapping trades sharing the same Expiration date are
+    parsed as SEPARATE trades rather than merged into one.
+
+    test_same_expiration_overlapping.csv contains:
+      Trade A: open 01-Nov-2023, exp 17-Nov-2023, Long Strike=440, Short Strike=445
+               P/L = $250 + (-$100) = $150  [Win]
+               risk = 300, reward = 200
+
+      Trade B: open 02-Nov-2023, exp 17-Nov-2023, Long Strike=441, Short Strike=446
+               P/L = $150 + (-$75) = $75    [Win]
+               risk = 300, reward = 200
+
+    Theoretical risk/reward derivation (debit spread, net_open_cashflow=-300):
+      width = 500, theoretical_max_loss = 300, theoretical_max_gain = 200
+    """
+
+    SAME_EXP_CSV = 'tests/test_data/test_same_expiration_overlapping.csv'
+
+    def _stats(self):
+        return trade_parser.parse_trade_csv(self.SAME_EXP_CSV)
+
+    # ── num_trades ───────────────────────────────────────────────────────
+
+    def test_num_trades_is_two_not_one(self):
+        """
+        Critical regression test: same-expiration overlapping trades must
+        produce 2 entries in pnl_distribution, not 1.
+        Before the fix, groupby('Expiration') merged them into a single row.
+        """
+        stats = self._stats()
+        assert stats['num_trades'] == 2, (
+            "Two overlapping trades with the same expiration should be parsed "
+            "as 2 separate trades, not merged into 1."
+        )
+
+    def test_pnl_distribution_has_two_entries(self):
+        """pnl_distribution length must equal the number of separate trades (2)."""
+        stats = self._stats()
+        assert len(stats['pnl_distribution']) == 2
+
+    def test_pnl_values_are_correct(self):
+        """
+        Trade A P/L = $250 + (-$100) = $150.
+        Trade B P/L = $150 + (-$75) = $75.
+        In chronological order: [150, 75].
+        """
+        stats = self._stats()
+        pnl = stats['pnl_distribution']
+        assert abs(pnl[0] - 150.0) < 0.01, f"Trade A P/L should be 150, got {pnl[0]}"
+        assert abs(pnl[1] - 75.0) < 0.01, f"Trade B P/L should be 75, got {pnl[1]}"
+
+    # ── per-trade dates ──────────────────────────────────────────────────
+
+    def test_per_trade_dates_has_two_entries(self):
+        stats = self._stats()
+        assert len(stats['per_trade_dates']) == 2
+
+    def test_per_trade_open_dates_correct(self):
+        """Trade A opens 2023-11-01, Trade B opens 2023-11-02."""
+        stats = self._stats()
+        assert stats['per_trade_dates'][0] == '2023-11-01'
+        assert stats['per_trade_dates'][1] == '2023-11-02'
+
+    def test_per_trade_close_dates_correct(self):
+        """Both trades close on 2023-11-17 (the shared expiration date)."""
+        stats = self._stats()
+        assert stats['per_trade_close_dates'][0] == '2023-11-17'
+        assert stats['per_trade_close_dates'][1] == '2023-11-17'
+
+    # ── theoretical risk/reward ──────────────────────────────────────────
+
+    def test_per_trade_theoretical_risk_correct(self):
+        """
+        Each trade is a debit spread with net_open_cashflow=-300, width=500.
+        theoretical_max_loss = 300 for both.
+        """
+        stats = self._stats()
+        risk = stats['per_trade_theoretical_risk']
+        assert len(risk) == 2
+        assert abs(risk[0] - 300.0) < 0.01, f"Trade A risk should be 300, got {risk[0]}"
+        assert abs(risk[1] - 300.0) < 0.01, f"Trade B risk should be 300, got {risk[1]}"
+
+    def test_per_trade_theoretical_reward_correct(self):
+        """
+        width=500, debit=300 → theoretical_max_gain = 500 - 300 = 200 for both.
+        """
+        stats = self._stats()
+        reward = stats['per_trade_theoretical_reward']
+        assert len(reward) == 2
+        assert abs(reward[0] - 200.0) < 0.01
+        assert abs(reward[1] - 200.0) < 0.01
+
+    # ── raw_trade_data ───────────────────────────────────────────────────
+
+    def test_raw_trade_data_has_two_entries(self):
+        """raw_trade_data must have 2 entries (one per trade), not 1."""
+        stats = self._stats()
+        assert len(stats['raw_trade_data']) == 2
+
+    def test_raw_trade_data_trade_a_opening_legs(self):
+        """Trade A raw data must have 2 opening legs opened on 2023-11-01."""
+        stats = self._stats()
+        trade_a = stats['raw_trade_data'][0]
+        assert len(trade_a['opening_legs']) == 2
+        for leg in trade_a['opening_legs']:
+            assert leg['date'] == '2023-11-01', (
+                f"Trade A opening legs must be dated 2023-11-01, got {leg['date']}"
+            )
+
+    def test_raw_trade_data_trade_b_opening_legs(self):
+        """Trade B raw data must have 2 opening legs opened on 2023-11-02."""
+        stats = self._stats()
+        trade_b = stats['raw_trade_data'][1]
+        assert len(trade_b['opening_legs']) == 2
+        for leg in trade_b['opening_legs']:
+            assert leg['date'] == '2023-11-02', (
+                f"Trade B opening legs must be dated 2023-11-02, got {leg['date']}"
+            )
+
+    def test_raw_trade_data_expiration_is_shared(self):
+        """Both entries share expiration 2023-11-17."""
+        stats = self._stats()
+        assert stats['raw_trade_data'][0]['expiration'] == '2023-11-17'
+        assert stats['raw_trade_data'][1]['expiration'] == '2023-11-17'
+
+    def test_raw_trade_data_closing_legs_correctly_split(self):
+        """
+        Trade A closing legs: Strike=440 (Long) and Strike=445 (Short).
+        Trade B closing legs: Strike=441 (Long) and Strike=446 (Short).
+        The legs must NOT be mixed across trades.
+        """
+        stats = self._stats()
+        trade_a = stats['raw_trade_data'][0]
+        trade_b = stats['raw_trade_data'][1]
+
+        a_close_strikes = {leg['strike'] for leg in trade_a['closing_legs']}
+        b_close_strikes = {leg['strike'] for leg in trade_b['closing_legs']}
+
+        # Trade A only has strikes 440 and 445
+        assert a_close_strikes == {440.0, 445.0}, (
+            f"Trade A closing strikes should be {{440, 445}}, got {a_close_strikes}"
+        )
+        # Trade B only has strikes 441 and 446
+        assert b_close_strikes == {441.0, 446.0}, (
+            f"Trade B closing strikes should be {{441, 446}}, got {b_close_strikes}"
+        )
+
+    # ── win/loss counts ──────────────────────────────────────────────────
+
+    def test_all_wins(self):
+        """Both trades are wins (P/L > 0)."""
+        stats = self._stats()
+        assert stats['wins'] == 2
+        assert stats['losses'] == 0
+
+    def test_total_return(self):
+        """Total return = 150 + 75 = 225."""
+        stats = self._stats()
+        assert abs(stats['total_return'] - 225.0) < 0.01

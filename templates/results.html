@@ -80,6 +80,125 @@
                 <div class="summary-item"><span title="Maximum realized profit and loss as percentage of average theoretical risk.">Max Win/Loss %</span><strong style="white-space: nowrap;">{{ "{:.1f}".format(report.summary.max_win_pct) }}% / <span style="color: #ef4444;">{{ "{:.1f}".format(report.summary.max_loss_pct) }}%</span></strong></div>
             </div>
         </div>
+
+        {# ── Signal Timing Statistics ──────────────────────────────────────── #}
+        {% set ss = report.summary.signal_stats %}
+        {% if ss and ss.total_signals > 0 %}
+        <div style="margin-top: 18px; border-top: 1px solid #2f3d52; padding-top: 16px;">
+            <h4 style="margin: 0 0 12px; color: var(--accent);">Signal Timing Statistics</h4>
+
+            <div class="summary-grid">
+                {# ── Overview group ───────────────────────────────────────── #}
+                <div class="summary-group">
+                    <h4>Overview</h4>
+                    <div class="summary-item">
+                        <span title="Total number of trade signals in the backtest.">Total Signals</span>
+                        <strong>{{ ss.total_signals }}</strong>
+                    </div>
+                    <div class="summary-item">
+                        <span title="Longest run of trade signals on consecutive NYSE trading days.">Max Sequential Run</span>
+                        <strong>{{ ss.max_sequential_run }}</strong>
+                    </div>
+                    {% if ss.sequential_signal_count > 0 %}
+                    <div class="summary-item">
+                        <span title="Number of signals that fired on the next NYSE trading day immediately after the previous signal.">Sequential Day Signals</span>
+                        <strong>{{ ss.sequential_signal_count }}</strong>
+                    </div>
+                    {% endif %}
+                    {% if ss.overlapping_signal_count > 0 %}
+                    <div class="summary-item">
+                        <span title="Number of signals that fired while a previous trade was still open (i.e. the new open date falls within the open→close window of a prior trade).">Overlapping Signals</span>
+                        <strong>{{ ss.overlapping_signal_count }}</strong>
+                    </div>
+                    {% endif %}
+                    {% if ss.overlapping_non_sequential.count > 0 %}
+                    <div class="summary-item" style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #2f3d52;">
+                        <span title="Signals that overlap a still-open previous trade but did NOT fire on the very next NYSE trading day after the previous signal.">Overlap (non-sequential)</span>
+                        <strong>{{ ss.overlapping_non_sequential.count }}</strong>
+                    </div>
+                    <div class="summary-item">
+                        <span title="Win/loss record of signals that are overlapping but not sequential.">W/L (overlap non-seq)</span>
+                        <strong>{{ ss.overlapping_non_sequential.wins }} / <span style="color: #ef4444;">{{ ss.overlapping_non_sequential.losses }}</span></strong>
+                    </div>
+                    <div class="summary-item">
+                        <span title="Total P/L of signals that are overlapping but not sequential.">P/L (overlap non-seq)</span>
+                        <strong {% if ss.overlapping_non_sequential.pnl < 0 %}style="color: #ef4444;"{% endif %}>
+                            {% if ss.overlapping_non_sequential.pnl >= 0 %}${{ "{:,.0f}".format(ss.overlapping_non_sequential.pnl) }}{% else %}-${{ "{:,.0f}".format(-ss.overlapping_non_sequential.pnl) }}{% endif %}
+                        </strong>
+                    </div>
+                    {% endif %}
+                </div>
+
+                {# ── Gap stats group ──────────────────────────────────────── #}
+                <div class="summary-group">
+                    <h4>Gap Between Signals</h4>
+                    <div class="summary-item">
+                        <span title="Largest number of NYSE trading days between consecutive signal open dates. A gap of 1 means the signals are on consecutive trading days (sequential).">Max Gap (trading days)</span>
+                        <strong>{{ ss.max_gap_trading_days }}</strong>
+                    </div>
+                    <div class="summary-item">
+                        <span title="Median number of NYSE trading days between consecutive signal open dates.">Median Gap (trading days)</span>
+                        <strong>{{ "{:.1f}".format(ss.median_gap_trading_days) }}</strong>
+                    </div>
+                </div>
+
+                {# ── Weekday distribution group ────────────────────────────── #}
+                <div class="summary-group">
+                    <h4>Signals by Day of Week</h4>
+                    {% for wd in [0, 1, 2, 3, 4] %}
+                    {% set day = ss.signals_by_weekday[wd] %}
+                    {% if day.count > 0 %}
+                    <div class="summary-item" title="{{ day.name }}: {{ day.count }} signals ({{ '{:.0f}'.format(day.pct) }}%) — {{ day.wins }}W / {{ day.losses }}L — P/L: {% if day.pnl >= 0 %}${{ '{:,.0f}'.format(day.pnl) }}{% else %}-${{ '{:,.0f}'.format(-day.pnl) }}{% endif %}">
+                        <span>{{ day.name }}</span>
+                        <strong style="white-space: nowrap;">
+                            {{ day.count }} ({{ "{:.0f}".format(day.pct) }}%)
+                            &nbsp;·&nbsp; {{ day.wins }}W / <span style="color: #ef4444;">{{ day.losses }}L</span>
+                        </strong>
+                    </div>
+                    {% endif %}
+                    {% endfor %}
+                </div>
+            </div>
+
+            {# ── Sequential position breakdown (only if any sequential signals) #}
+            {% if ss.sequential_signal_count > 0 %}
+            <div style="margin-top: 14px;">
+                <h4 style="margin: 0 0 8px; font-size: 13px; color: #9ca3af;">
+                    Sequential Signal Breakdown
+                    <span title="For each 'Nth day in a row' position, shows how many times a signal fired on that sequential day and its win/loss record. Position 1 = first signal of a consecutive run (the trigger). Position 2 = signal on the very next trading day, etc.">ⓘ</span>
+                </h4>
+                <table style="border-collapse: collapse; font-size: 13px; width: auto;">
+                    <thead>
+                        <tr style="color: #9ca3af;">
+                            <th style="padding: 4px 12px 4px 0; text-align: left;">Position in Run</th>
+                            <th style="padding: 4px 12px 4px 0; text-align: right;">Count</th>
+                            <th style="padding: 4px 12px 4px 0; text-align: right;">Wins</th>
+                            <th style="padding: 4px 12px 4px 0; text-align: right; color: #ef4444;">Losses</th>
+                            <th style="padding: 4px 12px 4px 0; text-align: right;">Win Rate</th>
+                            <th style="padding: 4px 0 4px 0; text-align: right;">Total P/L</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for pos in ss.sequential_by_position.keys()|sort %}
+                        {% set sp = ss.sequential_by_position[pos] %}
+                        <tr>
+                            <td style="padding: 3px 12px 3px 0;" title="Signal fired on day {{ pos }} of a consecutive-day run ({{ pos-1 }} day{{ 's' if pos > 2 else '' }} after the initial signal)">Day {{ pos }}</td>
+                            <td style="padding: 3px 12px 3px 0; text-align: right;">{{ sp.count }}</td>
+                            <td style="padding: 3px 12px 3px 0; text-align: right;">{{ sp.wins }}</td>
+                            <td style="padding: 3px 12px 3px 0; text-align: right; color: #ef4444;">{{ sp.losses }}</td>
+                            <td style="padding: 3px 12px 3px 0; text-align: right;">{{ "{:.0f}".format(sp.wins / sp.count * 100 if sp.count > 0 else 0) }}%</td>
+                            <td style="padding: 3px 0 3px 0; text-align: right; {% if sp.pnl < 0 %}color: #ef4444;{% endif %}">
+                                {% if sp.pnl >= 0 %}${{ "{:,.0f}".format(sp.pnl) }}{% else %}-${{ "{:,.0f}".format(-sp.pnl) }}{% endif %}
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
         <p class="distribution" title="Sample of the first 10 profit/loss outcomes from the historical trade data. Shows the distribution used for Monte Carlo sampling."><strong>P/L Distribution (first 10):</strong> {{ report.pnl_preview|join(', ') }}</p>
     </details>
 </section>
@@ -166,7 +285,7 @@
                 </thead>
                 <tbody>
                     {% for trade in scenario.trade_details %}
-                    <tr class="trade-row-hoverable" data-trade-date="{{ trade.date }}">
+                    <tr class="trade-row-hoverable" data-trade-date="{{ trade.date }}" data-trade-idx="{{ loop.index0 }}">
                         <td>${{ "{:,.0f}".format(trade.balance_before) }}</td>
                         <td>{{ trade.date }}</td>
                         <td>{{ trade.contracts }}</td>
@@ -237,18 +356,8 @@
         
         // Trade detail tooltip functionality
         {% if raw_trade_data and raw_trade_data|length > 0 %}
-        // Embed raw trade data
+        // Embed raw trade data (index-aligned with pnl_distribution / per_trade_dates)
         const rawTradeData = {{ raw_trade_data|tojson|safe }};
-        
-        // Create a lookup map by date for quick access
-        const tradeDataByDate = {};
-        rawTradeData.forEach(trade => {
-            // Extract opening date from the first opening leg
-            if (trade.opening_legs && trade.opening_legs.length > 0) {
-                const openDate = trade.opening_legs[0].date;
-                tradeDataByDate[openDate] = trade;
-            }
-        });
         
         // Create tooltip element
         const tooltip = document.createElement('div');
@@ -258,8 +367,13 @@
         // Add hover listeners to all trade rows
         document.querySelectorAll('.trade-row-hoverable').forEach(row => {
             row.addEventListener('mouseenter', function(e) {
-                const tradeDate = this.dataset.tradeDate;
-                const trade = tradeDataByDate[tradeDate];
+                // Use index-based lookup: the Nth replay row corresponds to rawTradeData[N].
+                // This correctly handles overlapping trades that share the same open date
+                // (e.g. two trades with different expirations opened on the same day).
+                const tradeIdx = parseInt(this.dataset.tradeIdx);
+                const trade = (tradeIdx >= 0 && tradeIdx < rawTradeData.length)
+                    ? rawTradeData[tradeIdx]
+                    : null;
                 
                 if (!trade) return;
                 

@@ -1,7 +1,238 @@
 import pandas as pd
 import numpy as np
+from datetime import date as _date
+import pandas_market_calendars as _mcal
 
 OPTION_COMMISSION_PER_CONTRACT = 0.495
+
+
+# ---------------------------------------------------------------------------
+# NYSE calendar helper (cached per year like merge_backtests.py)
+# ---------------------------------------------------------------------------
+
+_nyse_calendar = None
+_nyse_day_cache: dict = {}
+
+
+def _get_nyse():
+    global _nyse_calendar
+    if _nyse_calendar is None:
+        _nyse_calendar = _mcal.get_calendar('NYSE')
+    return _nyse_calendar
+
+
+def _trading_day_index_map(start: _date, end: _date) -> dict:
+    """
+    Return {date: int_index} for all NYSE trading days in [start, end].
+    Index 0 = start (or first trading day on/after start).
+    """
+    if start > end:
+        return {}
+    nyse = _get_nyse()
+    schedule = nyse.schedule(
+        start_date=start.strftime('%Y-%m-%d'),
+        end_date=end.strftime('%Y-%m-%d'),
+    )
+    return {ts.date(): i for i, ts in enumerate(schedule.index)}
+
+
+# ---------------------------------------------------------------------------
+# Signal statistics
+# ---------------------------------------------------------------------------
+
+def _empty_signal_stats() -> dict:
+    """Return a zeroed-out signal_stats dict (for empty or single-trade data)."""
+    _weekday_names = {0: 'Monday', 1: 'Tuesday', 2: 'Wednesday', 3: 'Thursday', 4: 'Friday'}
+    return {
+        'sequential_signal_count': 0,
+        'overlapping_signal_count': 0,
+        'max_sequential_run': 0,
+        'max_gap_trading_days': 0,
+        'median_gap_trading_days': 0.0,
+        'sequential_by_position': {},
+        'overlapping_non_sequential': {'count': 0, 'wins': 0, 'losses': 0, 'pnl': 0.0},
+        'signals_by_weekday': {
+            wd: {'name': name, 'count': 0, 'wins': 0, 'losses': 0, 'pnl': 0.0, 'pct': 0.0}
+            for wd, name in _weekday_names.items()
+        },
+        'total_signals': 0,
+        'gaps': [],
+    }
+
+
+def compute_signal_stats(
+    per_trade_open_dates: list,
+    per_trade_close_dates: list,
+    pnl_distribution: list,
+) -> dict:
+    """
+    Compute signal timing statistics: sequential signals, overlapping signals,
+    gap distributions, and weekday breakdowns.
+
+    All three input lists must be the same length and correspond to the same
+    trade (i.e. index i is the same trade across all three lists).
+    Per-trade close dates may be None for trades with no recorded close date;
+    such trades are skipped in overlap calculations.
+
+    Parameters
+    ----------
+    per_trade_open_dates  : list[str] – 'YYYY-MM-DD' open dates
+    per_trade_close_dates : list[str | None] – 'YYYY-MM-DD' close dates
+    pnl_distribution      : list[float] – realized P/L per trade
+
+    Returns
+    -------
+    dict with keys:
+      sequential_signal_count   – # of trades that opened on the next NYSE
+                                   trading day after the previous trade's open
+      overlapping_signal_count  – # of trades that opened while at least one
+                                   previous trade was still open
+      max_sequential_run        – length of the longest consecutive-day run
+      max_gap_trading_days      – largest ordinal gap between consecutive opens
+      median_gap_trading_days   – median ordinal gap between consecutive opens
+      sequential_by_position    – {pos: {count, wins, losses, pnl}} for pos≥2
+      overlapping_non_sequential– {count, wins, losses, pnl} for trades that
+                                   overlap a previous trade but are NOT the
+                                   next sequential day
+      signals_by_weekday        – {0..4: {name, count, wins, losses, pnl, pct}}
+      total_signals             – total number of trades analysed
+      gaps                      – list of ordinal gaps (length n-1 for n trades)
+    """
+    _weekday_names = {0: 'Monday', 1: 'Tuesday', 2: 'Wednesday', 3: 'Thursday', 4: 'Friday'}
+
+    if not per_trade_open_dates:
+        return _empty_signal_stats()
+
+    n = len(per_trade_open_dates)
+    assert n == len(per_trade_close_dates) == len(pnl_distribution), (
+        "per_trade_open_dates, per_trade_close_dates, and pnl_distribution "
+        "must all be the same length."
+    )
+
+    # Sort everything by open_date; maintain stable order for ties.
+    parsed_opens = [_date.fromisoformat(d) for d in per_trade_open_dates]
+    parsed_closes = [
+        (_date.fromisoformat(d) if d is not None else None)
+        for d in per_trade_close_dates
+    ]
+    order = sorted(range(n), key=lambda i: parsed_opens[i])
+    open_dates = [parsed_opens[i] for i in order]
+    close_dates = [parsed_closes[i] for i in order]
+    pnls = [float(pnl_distribution[i]) for i in order]
+
+    # Build NYSE trading-day index map covering the full date range.
+    all_known = [d for d in open_dates + close_dates if d is not None]
+    td_map = _trading_day_index_map(min(all_known), max(all_known))
+
+    # ── Gap calculation ──────────────────────────────────────────────────
+    gaps: list[int] = []
+    for i in range(n - 1):
+        idx_curr = td_map.get(open_dates[i])
+        idx_next = td_map.get(open_dates[i + 1])
+        if idx_curr is not None and idx_next is not None:
+            gaps.append(idx_next - idx_curr)
+        else:
+            # Dates outside market calendar (e.g. holiday opens) – treat as
+            # non-sequential with a gap of 2 to be conservative.
+            gaps.append(2)
+
+    max_gap = int(max(gaps)) if gaps else 0
+    median_gap = float(np.median(gaps)) if gaps else 0.0
+
+    # ── Sequential run positions ─────────────────────────────────────────
+    # run_positions[i] = ordinal position of trade i within its sequential run.
+    # A run is a maximal sequence where every consecutive pair has gap == 1.
+    run_positions = [1] * n
+    for i in range(1, n):
+        if gaps[i - 1] == 1:
+            run_positions[i] = run_positions[i - 1] + 1
+        else:
+            run_positions[i] = 1
+
+    max_sequential_run = max(run_positions) if run_positions else 1
+
+    # Accumulate sequential-by-position stats (positions 2+)
+    sequential_by_position: dict = {}
+    for i, pos in enumerate(run_positions):
+        if pos < 2:
+            continue
+        if pos not in sequential_by_position:
+            sequential_by_position[pos] = {'count': 0, 'wins': 0, 'losses': 0, 'pnl': 0.0}
+        sequential_by_position[pos]['count'] += 1
+        sequential_by_position[pos]['pnl'] += pnls[i]
+        if pnls[i] > 0:
+            sequential_by_position[pos]['wins'] += 1
+        elif pnls[i] < 0:
+            sequential_by_position[pos]['losses'] += 1
+
+    sequential_signal_count = sum(v['count'] for v in sequential_by_position.values())
+
+    # ── Overlapping signals ──────────────────────────────────────────────
+    # Trade i is "overlapping" if some earlier trade j has:
+    #   open_dates[j] < open_dates[i] <= close_dates[j]
+    overlapping_indices: set = set()
+    for i in range(1, n):
+        for j in range(i - 1, -1, -1):
+            if open_dates[j] >= open_dates[i]:
+                continue  # same-day or later open – not a prior trade
+            cj = close_dates[j]
+            if cj is not None and open_dates[i] <= cj:
+                overlapping_indices.add(i)
+                break  # found one – no need to check further
+
+    overlapping_signal_count = len(overlapping_indices)
+
+    # Overlapping but NOT sequential (run_positions == 1 for that trade)
+    ons: dict = {'count': 0, 'wins': 0, 'losses': 0, 'pnl': 0.0}
+    for i in overlapping_indices:
+        if run_positions[i] < 2:  # not the next consecutive day
+            ons['count'] += 1
+            ons['pnl'] += pnls[i]
+            if pnls[i] > 0:
+                ons['wins'] += 1
+            elif pnls[i] < 0:
+                ons['losses'] += 1
+
+    # ── Weekday distribution ─────────────────────────────────────────────
+    _all_weekday_names = {
+        0: 'Monday', 1: 'Tuesday', 2: 'Wednesday',
+        3: 'Thursday', 4: 'Friday', 5: 'Saturday', 6: 'Sunday',
+    }
+    signals_by_weekday = {
+        wd: {'name': name, 'count': 0, 'wins': 0, 'losses': 0, 'pnl': 0.0, 'pct': 0.0}
+        for wd, name in _weekday_names.items()
+    }
+    for i, d in enumerate(open_dates):
+        wd = d.weekday()
+        if wd not in signals_by_weekday:
+            # Defensive: handle weekend dates in synthetic/test data
+            signals_by_weekday[wd] = {
+                'name': _all_weekday_names.get(wd, f'Weekday{wd}'),
+                'count': 0, 'wins': 0, 'losses': 0, 'pnl': 0.0, 'pct': 0.0,
+            }
+        signals_by_weekday[wd]['count'] += 1
+        signals_by_weekday[wd]['pnl'] += pnls[i]
+        if pnls[i] > 0:
+            signals_by_weekday[wd]['wins'] += 1
+        elif pnls[i] < 0:
+            signals_by_weekday[wd]['losses'] += 1
+
+    for wd in signals_by_weekday:
+        cnt = signals_by_weekday[wd]['count']
+        signals_by_weekday[wd]['pct'] = (cnt / n * 100.0) if n > 0 else 0.0
+
+    return {
+        'sequential_signal_count': sequential_signal_count,
+        'overlapping_signal_count': overlapping_signal_count,
+        'max_sequential_run': max_sequential_run,
+        'max_gap_trading_days': max_gap,
+        'median_gap_trading_days': median_gap,
+        'sequential_by_position': sequential_by_position,
+        'overlapping_non_sequential': ons,
+        'signals_by_weekday': signals_by_weekday,
+        'total_signals': n,
+        'gaps': gaps,
+    }
 
 
 def parse_trade_csv(file_or_path):
@@ -62,13 +293,49 @@ def parse_trade_csv(file_or_path):
     df['Profit/Loss'] = df['Profit/Loss'].apply(clean_money)
     df['Trade Price'] = df['Trade Price'].apply(clean_money)
 
+    # ── Assign _trade_key = "Expiration|open_date" ───────────────────────────
+    # This allows overlapping trades that share the same Expiration date to be
+    # treated as separate trades. We identify which close rows belong to which
+    # opening trade by matching on (Expiration, Strike, Type), then use the
+    # matched opening date as part of the composite key.
+    #
+    # Limitation: if two overlapping trades share the SAME (Expiration, Strike,
+    # Type) combination, both will be assigned to the first-seen opening date.
+    # That edge case is rare and not supported by TradeMachine's CSV format.
+    _open_eligible = df[
+        df['Description'].fillna('').str.contains('Open')
+        & df['Strike'].notna()
+        & df['Type'].notna()
+    ].sort_values('Date')
+    _leg_to_open_date: dict = {}
+    for _, _r in _open_eligible.iterrows():
+        _leg = (str(_r['Expiration']), str(_r['Strike']), str(_r['Type']))
+        if _leg not in _leg_to_open_date:
+            _leg_to_open_date[_leg] = _r['Date']
+
+    def _trade_open_date_for_row(row):
+        """Return the opening date this row belongs to."""
+        if 'Open' in str(row.get('Description', '')):
+            return row['Date']
+        _leg = (str(row['Expiration']), str(row['Strike']), str(row['Type']))
+        return _leg_to_open_date.get(_leg, row['Date'])
+
+    if not df.empty:
+        df['_trade_open_date'] = df.apply(_trade_open_date_for_row, axis=1)
+        df['_trade_key'] = (
+            df['Expiration'].astype(str) + '|'
+            + df['_trade_open_date'].dt.strftime('%Y-%m-%d')
+        )
+    else:
+        df['_trade_open_date'] = pd.Series(dtype='datetime64[ns]')
+        df['_trade_key'] = pd.Series(dtype=object)
+
     # Filter for close rows (rows with Profit/Loss)
     close_df = df[df['Profit/Loss'].notna()].copy()
-    close_df = close_df[close_df['Profit/Loss'].notna()]
-    
-    # Group by Expiration to get net P/L per trade
+
+    # Group by _trade_key to get net P/L per trade
     # sort=False preserves chronological order from file instead of alphabetical sorting
-    trade_pnl = close_df.groupby('Expiration', sort=False)['Profit/Loss'].sum()
+    trade_pnl = close_df.groupby('_trade_key', sort=False)['Profit/Loss'].sum()
     
     pnl_values = trade_pnl.values
     
@@ -103,6 +370,8 @@ def parse_trade_csv(file_or_path):
             'pnl_distribution': [],
             'per_trade_theoretical_reward': [],
             'per_trade_dates': [],
+            'per_trade_close_dates': [],
+            'signal_stats': _empty_signal_stats(),
             'raw_trade_data': []
         }
 
@@ -120,7 +389,7 @@ def parse_trade_csv(file_or_path):
     conservative_theoretical_max_reward = 0
     if not open_df.empty:
         open_df['open_cashflow'] = -open_df['Size'] * open_df['Trade Price'] * 100
-        theoretical = open_df.groupby('Expiration', sort=False).agg(
+        theoretical = open_df.groupby('_trade_key', sort=False).agg(
             net_open_cashflow=('open_cashflow', 'sum'),
             min_strike=('Strike', 'min'),
             max_strike=('Strike', 'max'),
@@ -150,10 +419,10 @@ def parse_trade_csv(file_or_path):
 
     risked = 0
     if not open_df.empty:
-        first_expiration = theoretical.index[0]
+        first_trade_key = theoretical.index[0]
         first_trade_risk = float(theoretical.iloc[0]['theoretical_max_loss'])
         first_trade_entry_commission = float(
-            open_df[open_df['Expiration'] == first_expiration]['Size'].abs().sum() * OPTION_COMMISSION_PER_CONTRACT
+            open_df[open_df['_trade_key'] == first_trade_key]['Size'].abs().sum() * OPTION_COMMISSION_PER_CONTRACT
         )
         risked = first_trade_risk + first_trade_entry_commission
     total_return = float(np.sum(pnl_values))
@@ -174,8 +443,16 @@ def parse_trade_csv(file_or_path):
         )
     
     # At this point, joined is guaranteed to be non-empty (error raised above if empty)
-    joined['pct_return'] = np.where(
-        joined['theoretical_max_loss'] > 0,
+
+    # Join close dates (max close date per trade_key) onto joined
+    close_date_by_key = close_df.groupby('_trade_key')['Date'].max().rename('close_date')
+    joined = joined.join(close_date_by_key, how='left')
+
+    # Sort by open_date so the replay table and all per-trade lists are in
+    # chronological order regardless of how the rows appear in the source file.
+    joined = joined.sort_values('open_date', kind='stable')
+
+    joined['pct_return'] = np.where(        joined['theoretical_max_loss'] > 0,
         joined['pnl'] / joined['theoretical_max_loss'] * 100,
         0
     )
@@ -188,12 +465,17 @@ def parse_trade_csv(file_or_path):
     per_trade_theoretical_reward = joined['theoretical_max_gain'].tolist()
     # Extract per-trade dates (opening date for each trade) in same order
     per_trade_dates = [d.strftime('%Y-%m-%d') for d in joined['open_date']]
-    
-    # Extract raw trade data grouped by expiration for drill-down functionality
+    # Extract per-trade close dates in same order (None if not available)
+    per_trade_close_dates = [
+        d.strftime('%Y-%m-%d') if not pd.isna(d) else None
+        for d in joined['close_date']
+    ]
     raw_trade_data = []
-    for expiration in joined.index:
-        # Get all rows for this expiration
-        trade_rows = df[df['Expiration'] == expiration].copy()
+    for trade_key in joined.index:
+        # Get all rows for this trade (matched by composite key)
+        trade_rows = df[df['_trade_key'] == trade_key].copy()
+        # Extract the expiration from the trade rows
+        expiration = trade_rows['Expiration'].iloc[0] if not trade_rows.empty else trade_key.split('|')[0]
         
         # Separate opening and closing legs
         opening_legs = trade_rows[trade_rows['Description'].fillna('').str.contains('Open')].copy()
@@ -228,8 +510,9 @@ def parse_trade_csv(file_or_path):
                 'stock_price': f"${stock_price:.2f}" if stock_price != '' else '',
             }
         
+        expiration_str = expiration.strftime('%Y-%m-%d') if isinstance(expiration, pd.Timestamp) else pd.to_datetime(expiration).strftime('%Y-%m-%d')
         trade_data = {
-            'expiration': expiration.strftime('%Y-%m-%d') if isinstance(expiration, pd.Timestamp) else pd.to_datetime(expiration).strftime('%Y-%m-%d'),
+            'expiration': expiration_str,
             'opening_legs': [format_row(row) for _, row in opening_legs.iterrows()],
             'closing_legs': [format_row(row) for _, row in closing_legs.iterrows()]
         }
@@ -297,6 +580,10 @@ def parse_trade_csv(file_or_path):
         'per_trade_theoretical_risk': per_trade_theoretical_risk,
         'per_trade_theoretical_reward': per_trade_theoretical_reward,
         'per_trade_dates': per_trade_dates,
+        'per_trade_close_dates': per_trade_close_dates,
+        'signal_stats': compute_signal_stats(
+            per_trade_dates, per_trade_close_dates, joined['pnl'].tolist()
+        ),
         'raw_trade_data': raw_trade_data,
         'min_date': min_date,
         'max_date': max_date

@@ -1,0 +1,17 @@
+Date,Description,Size,Symbol,Expiration,Strike,Type,Trade Price,Profit/Loss,Stock Price,Adjusted Stock Price
+04-Jan-2023,Open Long,1,SPY,06-Jan-2023,400,Call,$5.00,,$400,$400
+04-Jan-2023,Open Short,-1,SPY,06-Jan-2023,405,Call,$2.00,,$400,$400
+06-Jan-2023,Close Long,-1,SPY,06-Jan-2023,400,Call,$7.50,$250,$401,$401
+06-Jan-2023,Close Short,1,SPY,06-Jan-2023,405,Call,$1.50,-$150,$401,$401
+17-Jan-2023,Open Long,1,SPY,25-Jan-2023,400,Call,$5.00,,$400,$400
+17-Jan-2023,Open Short,-1,SPY,25-Jan-2023,405,Call,$2.00,,$400,$400
+25-Jan-2023,Close Long,-1,SPY,25-Jan-2023,400,Call,$7.50,$250,$401,$401
+25-Jan-2023,Close Short,1,SPY,25-Jan-2023,405,Call,$1.50,-$175,$401,$401
+03-Jan-2023,Open Long,1,SPY,13-Jan-2023,400,Call,$5.00,,$400,$400
+03-Jan-2023,Open Short,-1,SPY,13-Jan-2023,405,Call,$2.00,,$400,$400
+13-Jan-2023,Close Long,-1,SPY,13-Jan-2023,400,Call,$7.50,$400,$401,$401
+13-Jan-2023,Close Short,1,SPY,13-Jan-2023,405,Call,$1.50,-$250,$401,$401
+11-Jan-2023,Open Long,1,SPY,20-Jan-2023,400,Call,$5.00,,$400,$400
+11-Jan-2023,Open Short,-1,SPY,20-Jan-2023,405,Call,$2.00,,$400,$400
+20-Jan-2023,Close Long,-1,SPY,20-Jan-2023,400,Call,$5.50,-$50,$401,$401
+20-Jan-2023,Close Short,1,SPY,20-Jan-2023,405,Call,$2.00,$0,$401,$401
