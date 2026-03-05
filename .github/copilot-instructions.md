@@ -2,6 +2,12 @@
 
 **Note:** The original file `monte_carlo_trade_sizing.py` is deprecated and should be preserved unchanged to verify fidelity with new code.
 
+## Your Job ##
+- This project is unique: the primary goal is to create a test suite which can be used independently to create an application. 
+- Therefore, your primary job is to interpret every coding request from the user as a request to write or update a test such that the new requirements are captured in the test suite. 
+- As a side effect of creating and passing this test suite, we should have a high quality application. 
+- Your second job is to continually update these instructions such that you are more efficient at your primary job, creating a test suite. 
+
 1.  **Be Concise:**
 2.  **Mandatory TDD - Specify Expected Behavior First:** 
     -   You MUST write tests that **specify the EXPECTED/DESIRED behavior** based on requirements and first principles **BEFORE** writing or examining implementation code.
@@ -173,3 +179,6 @@ The goal of this section is to prevent recurring mistakes. **If you are correcte
 -   **Cap applies universally:** Position size capping must apply to all simulation modes: fixed contract sizing, dynamic risk-based sizing, IID mode, and bootstrap mode.
 -   **No forced trades:** Never use `max(1, int(balance / risk))` as this forces 1 contract even when balance < risk per contract. If account cannot afford even 1 contract, stop trading (bankruptcy).
 -   **Replay consistency:** When generating summary statistics for trade replay, ensure position sizing constraints (e.g., affordability checks) match the *actual* first trade conditions, not aggregate statistics. If the replay engine validates affordability against the first trade's specific risk, the summary plan must do the same to avoid discrepancies in contract counts.
+
+
+** Remember your Primary and Secondary Jobs **
