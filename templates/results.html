@@ -38,10 +38,10 @@
     <h2>{{ report.trade_name|escape }}</h2>
     <details open>
         <summary style="cursor: pointer; color: var(--accent); margin-bottom: 10px;">TradeMachine Backtest Results (from CSV file)</summary>
+        <p class="meta">Note: These results should match the numbers shown in TradeMachine for the same backtest period (sanity check).</p>
         {% if report.summary.min_date and report.summary.max_date %}
         <p class="meta">Backtest Period: <strong>{{ report.summary.min_date }} to {{ report.summary.max_date }}</strong></p>
         {% endif %}
-        <p class="meta">Note: These results should match the numbers shown in TradeMachine for the same backtest period (sanity check).</p>
         <div class="summary-grid">
             <div class="summary-group">
                 <h4>Performance</h4>
@@ -181,12 +181,12 @@
             {% set has_seq = ss.sequential_signal_count > 0 %}
             {% set has_ons = ss.overlapping_non_sequential_by_gap and ss.overlapping_non_sequential_by_gap|length > 0 %}
             {% if has_seq or has_ons %}
-            <div style="margin-top: 16px; display: flex; gap: 40px; flex-wrap: wrap; align-items: flex-start;">
+            <div style="margin-top: 16px; display: flex; gap: 16px; flex-wrap: wrap; align-items: flex-start;">
 
                 {# ── Sequential position breakdown ── #}
                 {% if has_seq %}
-                <div>
-                    <h4 style="margin: 0 0 8px; font-size: 13px; color: #9ca3af;">
+                <div class="summary-group" style="flex: 0 1 calc(50% - 8px); min-width: 260px; box-sizing: border-box;">
+                    <h4 style="margin: 0 0 8px;">
                         Sequential Signal Breakdown
                         <span title="For each 'Nth day in a row' position, shows how many times a signal fired on that sequential day and its win/loss record. Position 2 = opened on the very next trading day after a prior open, etc.">ⓘ</span>
                     </h4>
@@ -222,8 +222,8 @@
 
                 {# ── Non-sequential overlap breakdown ── #}
                 {% if has_ons %}
-                <div>
-                    <h4 style="margin: 0 0 8px; font-size: 13px; color: #9ca3af;">
+                <div class="summary-group" style="flex: 0 1 calc(50% - 8px); min-width: 260px; box-sizing: border-box;">
+                    <h4 style="margin: 0 0 8px;">
                         Non-Sequential Overlap Breakdown
                         <span title="For each gap (in NYSE trading days) between consecutive signal open dates, shows how many overlapping non-sequential signals fired and their win/loss record. Gap = trading days since the previous open when this new signal fired while that prior trade was still open.">ⓘ</span>
                     </h4>
@@ -332,6 +332,23 @@
         
         {% for scenario in replay_details_data %}
         <div id="{{ scenario.scenario_id }}" class="scenario-details" style="display: none;">
+            {# ── Color legend: only shown when overlapping trades exist ── #}
+            {% set has_overlap = scenario.trade_details | selectattr('overlap_type', 'in', ['sequential', 'sequential_and_overlapping', 'overlapping_non_sequential']) | list | length > 0 %}
+            {% if has_overlap %}
+            <div style="display: flex; justify-content: flex-end; margin-bottom: 8px;">
+                <div style="display: flex; gap: 16px; align-items: center; padding: 8px 14px; background: var(--card-bg, #1a2535); border: 1px solid var(--border-color, #2f3d52); border-radius: 6px; font-size: 12px; color: #9ca3af;">
+                    <span style="font-weight: 600; color: #c9d1d9; margin-right: 4px;">Row Colors:</span>
+                    <span style="display: flex; align-items: center; gap: 6px;">
+                        <span style="display: inline-block; width: 14px; height: 14px; background: rgba(96,165,250,0.14); border-left: 3px solid rgba(96,165,250,0.7); border-radius: 2px;"></span>
+                        Sequential overlap
+                    </span>
+                    <span style="display: flex; align-items: center; gap: 6px;">
+                        <span style="display: inline-block; width: 14px; height: 14px; background: rgba(245,158,11,0.14); border-left: 3px solid rgba(245,158,11,0.7); border-radius: 2px;"></span>
+                        Non-sequential overlap
+                    </span>
+                </div>
+            </div>
+            {% endif %}
             <table class="sim-table">
                 <thead>
                     <tr>
