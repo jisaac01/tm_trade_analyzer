@@ -50,7 +50,11 @@ def _empty_signal_stats() -> dict:
         'max_gap_trading_days': 0,
         'median_gap_trading_days': 0.0,
         'sequential_by_position': {},
+        'sequential_total': {'count': 0, 'wins': 0, 'losses': 0, 'pnl': 0.0},
+        'overlapping_total': {'count': 0, 'wins': 0, 'losses': 0, 'pnl': 0.0},
         'overlapping_non_sequential': {'count': 0, 'wins': 0, 'losses': 0, 'pnl': 0.0},
+        'overlapping_non_sequential_by_gap': {},
+        'per_trade_overlap_type': [],
         'signals_by_weekday': {
             wd: {'name': name, 'count': 0, 'wins': 0, 'losses': 0, 'pnl': 0.0, 'pct': 0.0}
             for wd, name in _weekday_names.items()
@@ -64,13 +68,14 @@ def compute_signal_stats(
     per_trade_open_dates: list,
     per_trade_close_dates: list,
     pnl_distribution: list,
+    per_trade_is_primary: list | None = None,
 ) -> dict:
     """
     Compute signal timing statistics: sequential signals, overlapping signals,
     gap distributions, and weekday breakdowns.
 
-    All three input lists must be the same length and correspond to the same
-    trade (i.e. index i is the same trade across all three lists).
+    All three core input lists must be the same length and correspond to the
+    same trade (i.e. index i is the same trade across all three lists).
     Per-trade close dates may be None for trades with no recorded close date;
     such trades are skipped in overlap calculations.
 
@@ -79,6 +84,13 @@ def compute_signal_stats(
     per_trade_open_dates  : list[str] – 'YYYY-MM-DD' open dates
     per_trade_close_dates : list[str | None] – 'YYYY-MM-DD' close dates
     pnl_distribution      : list[float] – realized P/L per trade
+    per_trade_is_primary  : list[bool] | None – optional flag per trade.
+        When provided, a trade marked False (“secondary”) is one whose open
+        date appears non-chronologically in the source file (e.g. appended by
+        merge_backtests.py). PRIMARY LOGIC: if any secondary trade exists,
+        primary trades (‘True’) are NEVER marked overlapping – they form the
+        base set. If all trades are primary (no non-chronological entry), the
+        flag is discarded and classic overlap detection applies.
 
     Returns
     -------
@@ -108,6 +120,10 @@ def compute_signal_stats(
         "per_trade_open_dates, per_trade_close_dates, and pnl_distribution "
         "must all be the same length."
     )
+    if per_trade_is_primary is not None:
+        assert len(per_trade_is_primary) == n, (
+            "per_trade_is_primary must have the same length as the trade lists."
+        )
 
     # Sort everything by open_date; maintain stable order for ties.
     parsed_opens = [_date.fromisoformat(d) for d in per_trade_open_dates]
@@ -119,6 +135,13 @@ def compute_signal_stats(
     open_dates = [parsed_opens[i] for i in order]
     close_dates = [parsed_closes[i] for i in order]
     pnls = [float(pnl_distribution[i]) for i in order]
+
+    # Remap per_trade_is_primary to sorted order; discard if all-primary.
+    # If None or all True → primary_sorted = None (classic overlap behavior).
+    if per_trade_is_primary is not None and any(not p for p in per_trade_is_primary):
+        primary_sorted: list | None = [per_trade_is_primary[i] for i in order]
+    else:
+        primary_sorted = None  # all primary or not provided – classic behavior
 
     # Build NYSE trading-day index map covering the full date range.
     all_known = [d for d in open_dates + close_dates if d is not None]
@@ -170,8 +193,12 @@ def compute_signal_stats(
     # ── Overlapping signals ──────────────────────────────────────────────
     # Trade i is "overlapping" if some earlier trade j has:
     #   open_dates[j] < open_dates[i] <= close_dates[j]
+    # When primary_sorted is set, only SECONDARY (primary_sorted[i]=False)
+    # trades can be overlapping. Primary trades are always the base set.
     overlapping_indices: set = set()
     for i in range(1, n):
+        if primary_sorted is not None and primary_sorted[i]:
+            continue  # primary trades are never overlapping
         for j in range(i - 1, -1, -1):
             if open_dates[j] >= open_dates[i]:
                 continue  # same-day or later open – not a prior trade
@@ -182,8 +209,20 @@ def compute_signal_stats(
 
     overlapping_signal_count = len(overlapping_indices)
 
+    # ── Overlapping totals (all overlapping regardless of sequentialness) ──
+    overlapping_total: dict = {'count': 0, 'wins': 0, 'losses': 0, 'pnl': 0.0}
+    for i in overlapping_indices:
+        overlapping_total['count'] += 1
+        overlapping_total['pnl'] += pnls[i]
+        if pnls[i] > 0:
+            overlapping_total['wins'] += 1
+        elif pnls[i] < 0:
+            overlapping_total['losses'] += 1
+
     # Overlapping but NOT sequential (run_positions == 1 for that trade)
     ons: dict = {'count': 0, 'wins': 0, 'losses': 0, 'pnl': 0.0}
+    # Group by gap from previous open date
+    ons_by_gap: dict = {}
     for i in overlapping_indices:
         if run_positions[i] < 2:  # not the next consecutive day
             ons['count'] += 1
@@ -192,6 +231,50 @@ def compute_signal_stats(
                 ons['wins'] += 1
             elif pnls[i] < 0:
                 ons['losses'] += 1
+            # Group by gap (gaps[i-1] is the gap from trade i-1 to trade i)
+            gap = gaps[i - 1] if i > 0 else 0
+            if gap not in ons_by_gap:
+                ons_by_gap[gap] = {'count': 0, 'wins': 0, 'losses': 0, 'pnl': 0.0}
+            ons_by_gap[gap]['count'] += 1
+            ons_by_gap[gap]['pnl'] += pnls[i]
+            if pnls[i] > 0:
+                ons_by_gap[gap]['wins'] += 1
+            elif pnls[i] < 0:
+                ons_by_gap[gap]['losses'] += 1
+
+    # ── Sequential totals ────────────────────────────────────────────────
+    sequential_total: dict = {'count': 0, 'wins': 0, 'losses': 0, 'pnl': 0.0}
+    for i, pos in enumerate(run_positions):
+        if pos >= 2:
+            sequential_total['count'] += 1
+            sequential_total['pnl'] += pnls[i]
+            if pnls[i] > 0:
+                sequential_total['wins'] += 1
+            elif pnls[i] < 0:
+                sequential_total['losses'] += 1
+
+    # ── Per-trade overlap type (mapped back to original input order) ──────
+    # Primary trades (when primary_sorted is active) are never '...overlapping'.
+    overlap_types_sorted = []
+    for i in range(n):
+        is_seq = run_positions[i] >= 2
+        is_overlap = i in overlapping_indices
+        is_primary = primary_sorted is not None and primary_sorted[i]
+        if is_primary:
+            # Primary trade: can be sequential but never overlapping
+            overlap_types_sorted.append('sequential' if is_seq else '')
+        elif is_seq and is_overlap:
+            overlap_types_sorted.append('sequential_and_overlapping')
+        elif is_seq:
+            overlap_types_sorted.append('sequential')
+        elif is_overlap:
+            overlap_types_sorted.append('overlapping_non_sequential')
+        else:
+            overlap_types_sorted.append('')
+    # Map from sorted position back to original input order
+    per_trade_overlap_type = [''] * n
+    for sorted_idx, type_val in enumerate(overlap_types_sorted):
+        per_trade_overlap_type[order[sorted_idx]] = type_val
 
     # ── Weekday distribution ─────────────────────────────────────────────
     _all_weekday_names = {
@@ -228,7 +311,11 @@ def compute_signal_stats(
         'max_gap_trading_days': max_gap,
         'median_gap_trading_days': median_gap,
         'sequential_by_position': sequential_by_position,
+        'sequential_total': sequential_total,
+        'overlapping_total': overlapping_total,
         'overlapping_non_sequential': ons,
+        'overlapping_non_sequential_by_gap': ons_by_gap,
+        'per_trade_overlap_type': per_trade_overlap_type,
         'signals_by_weekday': signals_by_weekday,
         'total_signals': n,
         'gaps': gaps,
@@ -526,6 +613,29 @@ def parse_trade_csv(file_or_path):
     median_reward_per_spread = float(np.median(per_trade_theoretical_reward))
     conservative_realized_max_reward = float(np.quantile(wins, 0.95)) if len(wins) > 0 else 0
     
+    # ── Primary trade detection (file-order based) ───────────────────────────
+    # A trade is "primary" if its open_date is >= every preceding trade's
+    # open_date as they appear in the source file (sort=False in groupby).
+    # This identifies trades appended non-chronologically by merge_backtests.py
+    # (they appear *after* a later-dated trade in the file).
+    # If ALL trades are primary (file was sorted), we discard the flag so that
+    # classic overlap detection applies unchanged.
+    _file_order_keys = list(theoretical.index)  # file order preserved via sort=False
+    _file_order_open_dates = [theoretical.loc[k, 'open_date'] for k in _file_order_keys]
+    _max_seen = None
+    _primary_by_key: dict = {}
+    for _key, _od in zip(_file_order_keys, _file_order_open_dates):
+        if _max_seen is None or _od >= _max_seen:
+            _primary_by_key[_key] = True
+            _max_seen = _od
+        else:
+            _primary_by_key[_key] = False
+    # Build per_trade_is_primary aligned with joined (sorted by open_date)
+    _per_trade_is_primary: list | None = [_primary_by_key.get(k, True) for k in joined.index]
+    # Discard if all primary (no non-chronological trades in the file)
+    if all(_per_trade_is_primary):
+        _per_trade_is_primary = None
+
     # Calculate average risk and reward per spread
     avg_risk_per_spread = float(np.mean(per_trade_theoretical_risk))
     avg_reward_per_spread = float(np.mean(per_trade_theoretical_reward))
@@ -582,7 +692,8 @@ def parse_trade_csv(file_or_path):
         'per_trade_dates': per_trade_dates,
         'per_trade_close_dates': per_trade_close_dates,
         'signal_stats': compute_signal_stats(
-            per_trade_dates, per_trade_close_dates, joined['pnl'].tolist()
+            per_trade_dates, per_trade_close_dates, joined['pnl'].tolist(),
+            per_trade_is_primary=_per_trade_is_primary
         ),
         'raw_trade_data': raw_trade_data,
         'min_date': min_date,

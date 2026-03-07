@@ -4,34 +4,77 @@ Tests for compute_signal_stats in trade_parser.py.
 ALL expected values are derived from first principles (NYSE calendar arithmetic),
 NOT from running the current code and asserting its output.
 
-Test scenario: 4 trades, given to the parser in jumbled order (B, D, A, C),
-expected to be sorted by open_date before analysis.
+--- test_overlapping_trades.csv (OVERLAPPING_CSV) ---
 
-NYSE trading days in Jan 2023 (relevant range):
-  Jan 03=idx0, Jan 04=idx1, Jan 05=idx2, Jan 06=idx3, Jan 09=idx4,
-  Jan 10=idx5, Jan 11=idx6, Jan 12=idx7, Jan 13=idx8, Jan 17=idx9,
-  Jan 18=idx10, Jan 19=idx11, Jan 20=idx12, Jan 23=idx13, Jan 24=idx14,
-  Jan 25=idx15
+File row order (jumbled): B (Jan 4), D (Jan 17), A (Jan 3), C (Jan 11).
+parse_trade_csv sorts internally before analysis.
 
-Trades (sorted by open_date):
-  A: open 2023-01-03 (Tue, idx=0), close 2023-01-13 (Fri, idx=8),  P/L = +$150 [Win]
-  B: open 2023-01-04 (Wed, idx=1), close 2023-01-06 (Fri, idx=3),  P/L = +$100 [Win]
-  C: open 2023-01-11 (Wed, idx=6), close 2023-01-20 (Fri, idx=12), P/L = -$50  [Loss]
-  D: open 2023-01-17 (Tue, idx=9), close 2023-01-25 (Wed, idx=15), P/L = +$75  [Win]
+With PRIMARY DETECTION (new): trades are marked primary if their open_date is
+>= all previously-seen open dates as they appear in file order.
+  File order primary check:
+    B (Jan 4): first seen → primary, max_seen = Jan 4
+    D (Jan 17): Jan 17 >= Jan 4 → primary, max_seen = Jan 17
+    A (Jan 3):  Jan 3  < Jan 17 → SECONDARY
+    C (Jan 11): Jan 11 < Jan 17 → SECONDARY
+  has_secondary = True → primary logic applies.
+  Primary trades (B, D) are NEVER marked overlapping.
 
-Gaps between consecutive opens: A→B=1, B→C=5, C→D=3
-Run positions: A=1, B=2 (seq after A), C=1 (new run), D=1 (new run)
+Sorted order for overlap / gap analysis:
+  A (secondary, Jan 3,  idx 0): no prior trade → not overlapping
+  B (primary,   Jan 4,  idx 1): primary → skip for overlap check
+  C (secondary, Jan 11, idx 6): Jan 11 ∈ (A.open Jan3, A.close Jan13] → overlapping
+  D (primary,   Jan 17, idx 9): primary → skip for overlap check
 
-Overlapping:
-  B overlaps A (Jan 04 ∈ (Jan03, Jan13])     → B is also sequential (run_pos=2)
-  C overlaps A (Jan 11 ∈ (Jan03, Jan13])     → C is NOT sequential (run_pos=1)
-  D overlaps C (Jan 17 ∈ (Jan11, Jan20])     → D is NOT sequential (run_pos=1)
+New overlap result:
+  overlapping_signal_count = 1  (C only)
+  overlapping_non_sequential  = {C}: count=1, wins=0, losses=1, pnl=-50
+  overlapping_total           = {C}: count=1, wins=0, losses=1, pnl=-50
+  sequential_total            = {B}: count=1, wins=1, losses=0, pnl=+100
+   (sequential detection is independent of primary status)
+
+Gaps between consecutive opens (sorted): A→B=1, B→C=5, C→D=3
+Run positions: A=1, B=2 (seq after A), C=1, D=1
+
+per_trade_overlap_type (in input/file order B,D,A,C → indices 0,1,2,3):
+  B (idx 0): 'sequential'
+  D (idx 1): ''
+  A (idx 2): ''
+  C (idx 3): 'overlapping_non_sequential'
 
 Weekday:
   A (Jan 03) = Tuesday  (weekday 1)
   B (Jan 04) = Wednesday (weekday 2)
   C (Jan 11) = Wednesday (weekday 2)
   D (Jan 17) = Tuesday  (weekday 1)
+
+--- test_primary_overlapping_trades.csv (PRIMARY_CSV) ---
+
+Simulates merge_backtests.py output: a primary (chronological) block followed
+by a secondary (non-chronological, appended-at-end) block.
+
+File row order: P1 (Jan 3), P2 (Jan 23), S1 (Jan 4*), S2 (Jan 11*)
+  * non-chronological: appended after P2 whose open_date is Jan 23
+
+Primary detection:
+  P1 (Jan 3):  primary, max_seen = Jan 3
+  P2 (Jan 23): primary, max_seen = Jan 23
+  S1 (Jan 4):  Jan 4  < Jan 23 → SECONDARY
+  S2 (Jan 11): Jan 11 < Jan 23 → SECONDARY
+  has_secondary = True → primary logic applies.
+
+Sorted for analysis: P1 (prim, Jan3), S1 (sec, Jan4), S2 (sec, Jan11), P2 (prim, Jan23)
+Gaps: P1→S1=1 (sequential!), S1→S2=5, S2→P2=8
+
+Overlap check (primary → skip):
+  S1 (sec): Jan4 ∈ (P1.open Jan3, P1.close Jan13] → overlapping; run_pos=2 → 'sequential_and_overlapping'
+  S2 (sec): Jan11 ∈ (P1.open Jan3, P1.close Jan13] → overlapping; run_pos=1 → 'overlapping_non_sequential'
+
+P/L:
+  P1=+150, P2=-75, S1=+80, S2=-30
+  primary_pnl    = +150 + (-75) = +75
+  overlapping_pnl = +80 + (-30) = +50
+  total_pnl       = +125
+  total_pnl - overlapping_pnl = +75 = primary_pnl  ← key consistency check
 """
 import sys
 import os
@@ -42,6 +85,7 @@ import trade_parser
 
 
 OVERLAPPING_CSV = 'tests/test_data/test_overlapping_trades.csv'
+PRIMARY_CSV     = 'tests/test_data/test_primary_overlapping_trades.csv'
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -204,38 +248,40 @@ class TestSequentialSignals:
 class TestOverlappingSignals:
     def test_overlapping_signal_count(self):
         """
-        B overlaps A (Jan 04 ∈ (Jan03, Jan13]).
-        C overlaps A (Jan 11 ∈ (Jan03, Jan13]).
-        D overlaps C (Jan 17 ∈ (Jan11, Jan20]).
-        Expected: 3 overlapping signals.
+        With primary detection applied to test_overlapping_trades.csv:
+          File order: B(Jan4), D(Jan17), A(Jan3), C(Jan11)
+          Primary: B, D. Secondary: A, C.
+          Only secondary trades can be overlapping.
+          A (secondary): no prior open trade → not overlapping.
+          C (secondary): Jan 11 ∈ (A.open Jan3, A.close Jan13] → overlapping.
+          B and D (primary): never overlapping.
+        Expected: 1.
         """
         ss = get_signal_stats()
-        assert ss['overlapping_signal_count'] == 3
+        assert ss['overlapping_signal_count'] == 1
 
     def test_overlapping_non_sequential_count(self):
         """
-        Overlapping but NOT sequential: C and D (run_pos=1, not 2nd day of a run).
-        B is overlapping but IS sequential (run_pos=2) → excluded.
-        Expected: 2.
+        C is overlapping and has run_pos=1 (not sequential) → non-sequential overlap.
+        Expected: 1.
         """
         ss = get_signal_stats()
-        assert ss['overlapping_non_sequential']['count'] == 2
+        assert ss['overlapping_non_sequential']['count'] == 1
 
     def test_overlapping_non_sequential_wins_losses(self):
         """
-        C = -$50 (loss), D = +$75 (win).
-        Expected: 1 win, 1 loss.
+        C = -$50 (loss) only. Expected: 0 wins, 1 loss.
         """
         ons = get_signal_stats()['overlapping_non_sequential']
-        assert ons['wins'] == 1
+        assert ons['wins'] == 0
         assert ons['losses'] == 1
 
     def test_overlapping_non_sequential_pnl(self):
         """
-        C(-50) + D(+75) = +$25 total P/L.
+        C only: P/L = -$50.
         """
         ons = get_signal_stats()['overlapping_non_sequential']
-        assert abs(ons['pnl'] - 25.0) < 0.01
+        assert abs(ons['pnl'] - (-50.0)) < 0.01
 
 
 # ---------------------------------------------------------------------------
@@ -452,3 +498,245 @@ class TestLongerSequentialRun:
         """
         ss = self._stats_for_three_day_run()
         assert ss['overlapping_non_sequential']['count'] == 0
+
+
+# ---------------------------------------------------------------------------
+# sequential_total and overlapping_total (OVERLAPPING_CSV)
+# ---------------------------------------------------------------------------
+
+class TestSequentialTotal:
+    """
+    sequential_total accumulates P/L across all sequential-day trades.
+    For test_overlapping_trades.csv with primary detection:
+      Sequential = {B}: B opened Jan 4 (next NYSE day after A Jan 3), run_pos=2.
+      B = +$100 (Win).
+    """
+
+    def test_sequential_total_count(self):
+        """Only B is sequential. Expected: count=1."""
+        ss = get_signal_stats()
+        assert ss['sequential_total']['count'] == 1
+
+    def test_sequential_total_wins_losses(self):
+        """B is a win (+$100). Expected: 1 win, 0 losses."""
+        st = get_signal_stats()['sequential_total']
+        assert st['wins'] == 1
+        assert st['losses'] == 0
+
+    def test_sequential_total_pnl(self):
+        """B = +$100. Expected pnl = +100."""
+        st = get_signal_stats()['sequential_total']
+        assert abs(st['pnl'] - 100.0) < 0.01
+
+
+class TestOverlappingTotal:
+    """
+    overlapping_total accumulates P/L across ALL overlapping trades
+    (sequential + non-sequential).
+    For test_overlapping_trades.csv with primary detection:
+      Only C is overlapping → count=1, pnl=-50.
+    """
+
+    def test_overlapping_total_count(self):
+        """Only C is overlapping. Expected: count=1."""
+        ss = get_signal_stats()
+        assert ss['overlapping_total']['count'] == 1
+
+    def test_overlapping_total_wins_losses(self):
+        """C = -$50 (loss). Expected: 0 wins, 1 loss."""
+        ot = get_signal_stats()['overlapping_total']
+        assert ot['wins'] == 0
+        assert ot['losses'] == 1
+
+    def test_overlapping_total_pnl(self):
+        """C = -$50. Expected pnl = -50."""
+        ot = get_signal_stats()['overlapping_total']
+        assert abs(ot['pnl'] - (-50.0)) < 0.01
+
+
+class TestPerTradeOverlapType:
+    """
+    per_trade_overlap_type is mapped back to original input order.
+    For parse_trade_csv on test_overlapping_trades.csv:
+      per_trade_dates / pnl_distribution are in open_date-sorted order: A, B, C, D.
+      A = '' (secondary, not overlapping)
+      B = 'sequential' (primary, sequential — but NOT overlapping)
+      C = 'overlapping_non_sequential' (secondary, overlapping, not sequential)
+      D = '' (primary, not sequential, not overlapping)
+    """
+
+    def test_per_trade_overlap_type_length(self):
+        """Must have same length as pnl_distribution."""
+        stats = trade_parser.parse_trade_csv(OVERLAPPING_CSV)
+        assert len(stats['signal_stats']['per_trade_overlap_type']) == len(stats['pnl_distribution'])
+
+    def test_per_trade_overlap_type_values(self):
+        """
+        Sorted order (open_date order): A(Jan3), B(Jan4), C(Jan11), D(Jan17).
+        Expected types: ['', 'sequential', 'overlapping_non_sequential', ''].
+        """
+        stats = trade_parser.parse_trade_csv(OVERLAPPING_CSV)
+        types = stats['signal_stats']['per_trade_overlap_type']
+        # Verify A, B, C, D in order
+        assert types[0] == '', f"A expected '', got {types[0]!r}"
+        assert types[1] == 'sequential', f"B expected 'sequential', got {types[1]!r}"
+        assert types[2] == 'overlapping_non_sequential', f"C expected 'overlapping_non_sequential', got {types[2]!r}"
+        assert types[3] == '', f"D expected '', got {types[3]!r}"
+
+
+# ---------------------------------------------------------------------------
+# Primary overlap detection: test_primary_overlapping_trades.csv
+# ---------------------------------------------------------------------------
+
+class TestPrimaryOverlapDetection:
+    """
+    test_primary_overlapping_trades.csv simulates a merge_backtests.py output:
+      Primary block (chronological): P1 (Jan 3), P2 (Jan 23)
+      Secondary block (appended, non-chronological): S1 (Jan 4), S2 (Jan 11)
+
+    Expected:
+      P/L values: P1=+150, P2=-75, S1=+80, S2=-30
+      Primary P&L = P1+P2 = +75
+      Overlapping P&L = S1+S2 = +50
+      total - overlapping = primary (key user scenario)
+
+      overlapping_signal_count = 2 (S1 and S2 only; P1 and P2 are primary)
+      sequential_signal_count = 1 (S1: opens Jan4, 1 NYSE day after P1 Jan3)
+      sequential_total: count=1, wins=1, pnl=+80
+      overlapping_non_sequential: count=1 (S2), wins=0, losses=1, pnl=-30
+      overlapping_total: count=2, wins=1, losses=1, pnl=+50
+    """
+
+    def _stats(self):
+        return trade_parser.parse_trade_csv(PRIMARY_CSV)
+
+    def _ss(self):
+        return self._stats()['signal_stats']
+
+    def test_total_signals(self):
+        """4 trades total (P1, P2, S1, S2)."""
+        assert self._ss()['total_signals'] == 4
+
+    def test_overlapping_signal_count(self):
+        """
+        Only secondary trades S1 and S2 can be overlapping.
+        Both open while P1 (Jan3–Jan13) is still open.
+        Expected: 2.
+        """
+        assert self._ss()['overlapping_signal_count'] == 2
+
+    def test_primary_trades_not_overlapping(self):
+        """
+        P1 and P2 are primary → their overlap_type must not contain 'overlapping'.
+        In sorted order: P1(idx0)='', S1(idx1)=sequential_and_overlapping,
+        S2(idx2)=overlapping_non_sequential, P2(idx3)=''.
+        """
+        stats = self._stats()
+        types = stats['signal_stats']['per_trade_overlap_type']
+        # sorted order: P1, S1, S2, P2  (open dates Jan3, Jan4, Jan11, Jan23)
+        assert 'overlapping' not in types[0], f"P1 should not be overlapping, got {types[0]!r}"
+        assert 'overlapping' not in types[3], f"P2 should not be overlapping, got {types[3]!r}"
+
+    def test_secondary_trades_are_overlapping(self):
+        """
+        S1 (idx1) and S2 (idx2) are secondary and both overlap P1.
+        """
+        stats = self._stats()
+        types = stats['signal_stats']['per_trade_overlap_type']
+        assert 'overlapping' in types[1], f"S1 expected overlapping, got {types[1]!r}"
+        assert 'overlapping' in types[2], f"S2 expected overlapping, got {types[2]!r}"
+
+    def test_sequential_signal_count(self):
+        """
+        S1 opens Jan 4, 1 NYSE day after P1 Jan 3 → sequential.
+        No other sequential pairs. Expected: 1.
+        """
+        assert self._ss()['sequential_signal_count'] == 1
+
+    def test_sequential_total_pnl(self):
+        """S1 = +$80 is the only sequential signal. Expected pnl = +80."""
+        st = self._ss()['sequential_total']
+        assert st['count'] == 1
+        assert st['wins'] == 1
+        assert abs(st['pnl'] - 80.0) < 0.01
+
+    def test_overlapping_total(self):
+        """
+        Overlapping (all) = {S1, S2}: count=2, wins=1(S1), losses=1(S2), pnl=+50.
+        """
+        ot = self._ss()['overlapping_total']
+        assert ot['count'] == 2
+        assert ot['wins'] == 1
+        assert ot['losses'] == 1
+        assert abs(ot['pnl'] - 50.0) < 0.01
+
+    def test_overlapping_non_sequential(self):
+        """
+        S2 is overlapping and non-sequential (gap S1→S2 = 5 days).
+        S2 = -$30 (loss). Expected: count=1, pnl=-30.
+        """
+        ons = self._ss()['overlapping_non_sequential']
+        assert ons['count'] == 1
+        assert ons['wins'] == 0
+        assert ons['losses'] == 1
+        assert abs(ons['pnl'] - (-30.0)) < 0.01
+
+    def test_pnl_consistency(self):
+        """
+        Core user scenario: total_pnl - overlapping_pnl should equal primary_pnl.
+        Primary P&L = P1(+150) + P2(-75) = +75.
+        Overlapping P&L (from overlapping_total) = S1(+80) + S2(-30) = +50.
+        Total P&L = +125.
+        +125 - +50 = +75 = primary P&L.
+        """
+        stats = self._stats()
+        total_pnl = sum(stats['pnl_distribution'])
+        overlapping_pnl = stats['signal_stats']['overlapping_total']['pnl']
+        expected_primary_pnl = 75.0
+        residual = total_pnl - overlapping_pnl
+        assert abs(residual - expected_primary_pnl) < 0.01, (
+            f"total({total_pnl}) - overlapping({overlapping_pnl}) = {residual}, "
+            f"expected primary P&L {expected_primary_pnl}"
+        )
+
+
+# ---------------------------------------------------------------------------
+# All-chronological file → primary marking discarded, classic behavior intact
+# ---------------------------------------------------------------------------
+
+class TestAllChronologicalDiscardsPrimary:
+    """
+    When all per_trade_is_primary flags are True (or when the input list is
+    chronological so no secondary trades exist), compute_signal_stats must
+    discard primary marking and produce identical results to calling without it.
+    """
+
+    def _base_stats(self):
+        return trade_parser.compute_signal_stats(
+            ['2023-01-03', '2023-01-04', '2023-01-11', '2023-01-17'],
+            ['2023-01-13', '2023-01-06', '2023-01-20', '2023-01-25'],
+            [150.0, 100.0, -50.0, 75.0]
+        )
+
+    def _stats_all_primary(self):
+        return trade_parser.compute_signal_stats(
+            ['2023-01-03', '2023-01-04', '2023-01-11', '2023-01-17'],
+            ['2023-01-13', '2023-01-06', '2023-01-20', '2023-01-25'],
+            [150.0, 100.0, -50.0, 75.0],
+            per_trade_is_primary=[True, True, True, True]
+        )
+
+    def test_overlapping_count_same_with_all_primary(self):
+        """
+        All-primary → discard primary marking → same overlap count as no-primary.
+        Classic behavior: B, C, D all overlap → count=3.
+        """
+        assert self._base_stats()['overlapping_signal_count'] == 3
+        assert self._stats_all_primary()['overlapping_signal_count'] == 3
+
+    def test_sequential_count_same_with_all_primary(self):
+        """Sequential count unchanged when all-primary (marking discarded)."""
+        assert (
+            self._base_stats()['sequential_signal_count']
+            == self._stats_all_primary()['sequential_signal_count']
+        )

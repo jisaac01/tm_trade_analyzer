@@ -79,6 +79,11 @@ def replay_actual_trades(
     pnl_distribution = trade_stats.get('pnl_distribution', [])
     if not pnl_distribution:
         raise ValueError("pnl_distribution cannot be empty for trade replay")
+
+    # Per-trade overlap type (optional; empty string if not available)
+    per_trade_overlap_type = (
+        trade_stats.get('signal_stats', {}).get('per_trade_overlap_type', [])
+    )
     
     # Get per-trade theoretical risk - REQUIRED, no fallback
     per_trade_risk = trade_stats.get('per_trade_theoretical_risk', [])
@@ -249,7 +254,8 @@ def replay_actual_trades(
             'pnl_pct': (pnl / trade_theoretical_risk) * 100,
             'risk_pct': (total_theoretical_risk / balance_before) * 100,
             'balance_before': balance_before,
-            'balance_after': balance
+            'balance_after': balance,
+            'overlap_type': per_trade_overlap_type[idx] if idx < len(per_trade_overlap_type) else '',
         })
         
         trade_history.append(balance)

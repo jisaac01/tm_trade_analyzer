@@ -122,6 +122,7 @@ The goal of this section is to prevent recurring mistakes. **If you are correcte
 -   **Mandatory TDD:** Write the failing test first for any behavior change.
 -   **🚨 PYTEST PATH: ALWAYS use `tm_trade_analyzer_venv/bin/pytest` (NOT `python -m pytest`) 🚨** - This allows auto-approval of test runs.
 -   **Always Run Tests After Changes:** Execute the full test suite after any code modifications to detect regressions early and ensure code quality.
+-   **Every new field/behavior needs a test — no exceptions:** When you add new output fields (e.g. `sequential_total`, `overlapping_total`, `per_trade_overlap_type`, `overlap_type` in replay) or new behavior to existing functions, you MUST write tests for those fields in the same session. Running existing tests and seeing them pass is NOT sufficient — new capabilities are untested until covered. "I added X but didn't write tests for X" is a TDD violation even if the full suite passes.
 -   **Follow Testing Guidelines:** See [docs/TESTING_GUIDELINES.md](docs/TESTING_GUIDELINES.md) for comprehensive testing standards. Key principles:
     - Integration tests > Unit tests > Mocked tests
     - Real CSV data > Synthetic data
