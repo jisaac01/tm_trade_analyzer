@@ -9,7 +9,7 @@
            target="_blank" 
            style="color: inherit; text-decoration: none; display: inline-flex; align-items: center; gap: 8px;"
            title="Open new tab with same parameters for side-by-side comparison">
-            Monte Carlo Trade Sizing Report
+            Trade Replay Results
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity: 0.6;">
                 <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
                 <polyline points="15 3 21 3 21 9"></polyline>
@@ -19,7 +19,7 @@
     </h1>
     <p class="meta">Initial Balance: <strong>${{ "{:,.0f}".format(initial_balance) }}</strong></p>
     {% if not show_error_only %}
-    <p class="meta">Position Sizing: <strong>{{ position_sizing_display_text }}</strong> • Simulation Mode: <strong>{{ simulation_mode|escape }}</strong> {% if simulation_mode == 'moving-block-bootstrap' %}• Block Size: {{ block_size }}{% endif %}</p>
+    <p class="meta">Position Sizing: <strong>{{ position_sizing_display_text }}</strong>{% if monte_carlo_enabled %} • Simulation Mode: <strong>{{ simulation_mode|escape }}</strong>{% if simulation_mode == 'moving-block-bootstrap' %} • Block Size: {{ block_size }}{% endif %}{% endif %}</p>
     {% endif %}
 </section>
 
