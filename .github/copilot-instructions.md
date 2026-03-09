@@ -21,6 +21,10 @@
     -   **NEVER** use `source ... && pytest`
     -   **ALWAYS** use the full direct path: `tm_trade_analyzer_venv/bin/pytest`
     -   This allows auto-approval of test runs.
+3b. **🚨 NEVER RUN MULTILINE PYTHON IN THE TERMINAL 🚨**
+    -   **NEVER** paste or run multiline Python code directly in a terminal (here-doc, `python -c "..."`, etc.) — the shell mangles indentation and quoting.
+    -   **ALWAYS** write the code to a file first (use `create_file` or `replace_string_in_file`), then execute that file: `tm_trade_analyzer_venv/bin/python scripts/my_script.py`
+    -   If the script is purely exploratory/one-off, place it in `scripts/` and delete it after use.
 4.  **Follow Testing Guidelines:** Read [docs/TESTING_GUIDELINES.md](docs/TESTING_GUIDELINES.md) - Integration tests with real data preferred over mocked tests.
 5.  **Update the 'Lessons & Mistakes to Avoid' section below:**
     -   If the user corrects your logic or behavior, you MUST update the 'Lessons & Mistakes to Avoid' section below with the lesson learned.
