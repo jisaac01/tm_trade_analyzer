@@ -219,7 +219,37 @@ def test_risk_calculation_method_selector_labels_and_width(client):
 
 @patch('app.trade_parser.parse_trade_csv')
 def test_results_simulation_error_displays_and_preserves_state(mock_parse, client):
-    """Test that simulation errors are displayed and form state is preserved."""
+    """Test that simulation errors are displayed and form state is preserved.
+    
+    This test verifies the error path in the Monte Carlo simulation route.
+    Requires monte_carlo_enabled=true so that run_monte_carlo_simulation is
+    called and fails due to insufficient balance (balance=10, risk=450).
+    """
+    import config, tempfile, os
+    # Enable MC so run_monte_carlo_simulation is called and fails on tiny balance
+    _cfg_content = """
+[simulation]
+monte_carlo_enabled = true
+initial_balance = 10000
+num_simulations = 100
+num_trades = 10
+option_commission = 0.50
+position_sizing_mode = "dynamic-percent"
+simulation_mode = "iid"
+block_size = 5
+risk_calculation_method = "conservative_theoretical"
+max_reward_method = "conservative_realized"
+take_profit_method = "no_cap"
+allow_exceed_target_risk = false
+"""
+    with tempfile.NamedTemporaryFile(mode='w', suffix='.toml', delete=False) as _f:
+        _f.write(_cfg_content)
+        _cfg_path = _f.name
+    try:
+        config.load(config_path=_cfg_path)
+    finally:
+        os.unlink(_cfg_path)
+
     # Mock the parsing to return valid data
     mock_parse.return_value = {
         'num_trades': 10,

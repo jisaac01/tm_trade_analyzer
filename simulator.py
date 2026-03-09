@@ -1033,6 +1033,98 @@ def simulate_trades(
     return results
 
 
+def _calculate_streak_stats(pnl_distribution: list) -> dict:
+    """Calculate win/loss streak statistics from a P/L distribution.
+
+    Returns a dict with keys:
+        historical_max/avg/median_winning/losing_streak
+    """
+    historical_max_winning_streak = 0
+    historical_max_losing_streak = 0
+    current_win_streak = 0
+    current_loss_streak = 0
+    all_win_streaks: list[int] = []
+    all_loss_streaks: list[int] = []
+
+    for value in pnl_distribution:
+        if value > 0:
+            current_win_streak += 1
+            if current_loss_streak > 0:
+                all_loss_streaks.append(current_loss_streak)
+                current_loss_streak = 0
+            historical_max_winning_streak = max(historical_max_winning_streak, current_win_streak)
+        elif value < 0:
+            current_loss_streak += 1
+            if current_win_streak > 0:
+                all_win_streaks.append(current_win_streak)
+                current_win_streak = 0
+            historical_max_losing_streak = max(historical_max_losing_streak, current_loss_streak)
+        # value == 0: continue current streak unchanged
+
+    if current_win_streak > 0:
+        all_win_streaks.append(current_win_streak)
+    if current_loss_streak > 0:
+        all_loss_streaks.append(current_loss_streak)
+
+    return {
+        'historical_max_winning_streak': historical_max_winning_streak,
+        'historical_max_losing_streak': historical_max_losing_streak,
+        'historical_avg_winning_streak': float(np.mean(all_win_streaks)) if all_win_streaks else 0.0,
+        'historical_avg_losing_streak': float(np.mean(all_loss_streaks)) if all_loss_streaks else 0.0,
+        'historical_median_winning_streak': float(np.median(all_win_streaks)) if all_win_streaks else 0.0,
+        'historical_median_losing_streak': float(np.median(all_loss_streaks)) if all_loss_streaks else 0.0,
+    }
+
+
+def _assemble_trade_report(trade: dict, table_rows: list, trajectory_data: dict) -> dict:
+    """Assemble the standard trade report dict shared by both code paths.
+
+    Parameters
+    ----------
+    trade:
+        Trade dict (must have ``'name'`` and ``'pnl_distribution'`` keys).
+    table_rows:
+        Pre-computed Monte Carlo table rows, or ``[]`` when MC is disabled.
+    trajectory_data:
+        Per-threshold trajectory percentiles, or ``{}`` when MC is disabled.
+    """
+    return {
+        'trade_name': trade['name'],
+        'summary': trade,
+        'table_rows': table_rows,
+        'pnl_preview': [f"{round(x):,}" for x in trade['pnl_distribution'][:10]],
+        **_calculate_streak_stats(trade['pnl_distribution']),
+        'trajectory_data': trajectory_data,
+    }
+
+
+def build_summary_report(trade_stats: dict) -> dict:
+    """
+    Build the non-Monte-Carlo portion of a trade report.
+
+    Computes the same backtest-summary fields (streak stats, pnl_preview, etc.)
+    that ``run_monte_carlo_simulation`` includes in each report, but without
+    running any simulations.  Used when Monte Carlo is disabled so the results
+    page can still display backtest summary, signal stats, and historical
+    replay tables.
+
+    Parameters
+    ----------
+    trade_stats:
+        Parsed trade statistics dict from ``parse_trade_csv``.
+        Must already have a ``'name'`` key set (e.g. from the uploaded filename).
+
+    Returns
+    -------
+    dict
+        Report dict with keys: ``trade_name``, ``summary``, ``pnl_preview``,
+        ``historical_max/avg/median_winning/losing_streak``,
+        ``table_rows`` (empty), ``trajectory_data`` (empty).
+    """
+    trade = {"name": "Simulated Trade", **trade_stats}
+    return _assemble_trade_report(trade, table_rows=[], trajectory_data={})
+
+
 def run_monte_carlo_simulation(
     trade_stats,
     initial_balance,
@@ -1209,55 +1301,5 @@ def run_monte_carlo_simulation(
             'Max Losing Streak': f"{max_losing_streak:.0f}"
         })
 
-    # Calculate win/loss streaks from historical data
-    historical_max_winning_streak = 0
-    historical_max_losing_streak = 0
-    current_win_streak = 0
-    current_loss_streak = 0
-    all_win_streaks = []
-    all_loss_streaks = []
-    
-    for value in trade['pnl_distribution']:
-        if value > 0:
-            # Winning trade
-            current_win_streak += 1
-            if current_loss_streak > 0:
-                all_loss_streaks.append(current_loss_streak)
-                current_loss_streak = 0
-            historical_max_winning_streak = max(historical_max_winning_streak, current_win_streak)
-        elif value < 0:
-            # Losing trade
-            current_loss_streak += 1
-            if current_win_streak > 0:
-                all_win_streaks.append(current_win_streak)
-                current_win_streak = 0
-            historical_max_losing_streak = max(historical_max_losing_streak, current_loss_streak)
-        # Note: if value == 0, we continue the current streak
-    
-    # Capture final streak if any
-    if current_win_streak > 0:
-        all_win_streaks.append(current_win_streak)
-    if current_loss_streak > 0:
-        all_loss_streaks.append(current_loss_streak)
-    
-    # Calculate averages and medians
-    historical_avg_winning_streak = float(np.mean(all_win_streaks)) if all_win_streaks else 0.0
-    historical_avg_losing_streak = float(np.mean(all_loss_streaks)) if all_loss_streaks else 0.0
-    historical_median_winning_streak = float(np.median(all_win_streaks)) if all_win_streaks else 0.0
-    historical_median_losing_streak = float(np.median(all_loss_streaks)) if all_loss_streaks else 0.0
-
-    trade_report = {
-        'trade_name': trade['name'],
-        'summary': trade,
-        'table_rows': data,
-        'pnl_preview': [f"{round(x):,}" for x in trade['pnl_distribution'][:10]],
-        'historical_max_winning_streak': historical_max_winning_streak,
-        'historical_max_losing_streak': historical_max_losing_streak,
-        'historical_avg_winning_streak': historical_avg_winning_streak,
-        'historical_avg_losing_streak': historical_avg_losing_streak,
-        'historical_median_winning_streak': historical_median_winning_streak,
-        'historical_median_losing_streak': historical_median_losing_streak,
-        'trajectory_data': trajectory_data
-    }
-    
+    trade_report = _assemble_trade_report(trade, data, trajectory_data)
     return [trade_report]

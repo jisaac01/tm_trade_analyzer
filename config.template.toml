@@ -1,0 +1,47 @@
+# Simulation configuration template.
+#
+# On first app startup, this file is copied to config.toml (which is gitignored).
+# To customize your local environment, edit config.toml directly — your changes
+# will NOT appear in `git status`.
+#
+# Example local workflow:
+#   1. App starts → config.toml is created from this file
+#   2. Edit config.toml: set monte_carlo_enabled = true
+#   3. config.toml stays out of git (gitignored)
+
+[simulation]
+
+# Toggle Monte Carlo simulation on/off.
+# Monte Carlo simulations are computationally expensive. Set to true locally to
+# enable them. The committed default is false so CI/CD and casual viewers only
+# see the fast historical-replay view.
+monte_carlo_enabled = false
+
+# --- Default form values ---
+# These are used as defaults when no session state exists (first visit).
+
+initial_balance = 10000
+num_simulations = 1000
+num_trades = 60
+option_commission = 0.50
+
+# Options: fixed-percent, dynamic-percent, contracts
+position_sizing_mode = "dynamic-percent"
+
+# Options: iid, moving-block-bootstrap
+simulation_mode = "iid"
+
+block_size = 5
+
+# Options: conservative_theoretical, max_theoretical, median_realized,
+#          average_realized, average_realized_trimmed,
+#          fixed_conservative_theoretical_max, fixed_theoretical_max
+risk_calculation_method = "conservative_theoretical"
+
+# Options: conservative_realized, conservative_theoretical, theoretical_max, max_realized
+max_reward_method = "conservative_realized"
+
+# Options: no_cap, 25pct, 40pct, 50pct, 75pct
+take_profit_method = "no_cap"
+
+allow_exceed_target_risk = false

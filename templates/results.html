@@ -267,6 +267,7 @@
 </section>
 
 <!-- Comparison Chart: All Thresholds (Median Only) -->
+{% if monte_carlo_enabled %}
 <section class="trade-card" id="charts-section">
     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
         <h2 style="margin: 0;" title="Shows median (p50) balance trajectory across all risk thresholds. Click any line to view full percentile distribution.">Monte Carlo Comparison - All Thresholds <span style="color: #9ca3af; font-size: 14px; cursor: help;">ⓘ</span></h2>
@@ -297,6 +298,7 @@
         <canvas id="detailChart"></canvas>
     </div>
 </section>
+{% endif %}
 
 <!-- Replay Chart: Historical Actual Performance -->
 <section class="trade-card chart-section" style="display: block;">

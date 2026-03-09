@@ -10,14 +10,6 @@
                 <label for="initial_balance" title="The starting account balance in dollars. This is used as the baseline for calculating position sizes and risk percentages in the simulation. Higher balances allow for larger positions at the same risk percentage.">Initial Balance ($):</label>
                 <input type="number" id="initial_balance" name="initial_balance" value="{{ initial_balance|default(10000)|int }}" min="1" step="1" style="width: 120px;">
             </div>
-            <div class="form-group">
-                <label for="num_simulations" title="The number of Monte Carlo simulations to run. More simulations provide more accurate statistical estimates but take longer to compute. Recommended: 1000+ for reliable results, 10000+ for high precision.">Number of Simulations:</label>
-                <input type="number" id="num_simulations" name="num_simulations" value="{{ num_simulations|default(1000) }}" min="1" style="width: 100px;">
-            </div>
-            <div class="form-group">
-                <label for="num_trades" title="The number of trades to simulate per simulation run. This determines the length of each Monte Carlo path. More trades provide more robust statistics but increase computation time. Default is 60, but will use the number of historical trades if larger.">Number of Trades:</label>
-                <input type="number" id="num_trades" name="num_trades" value="{{ num_trades|default(60) }}" min="1" style="width: 100px;">
-            </div>
         </div>
 
         <div class="form-row">
@@ -37,55 +29,80 @@
 
         <details>
             <summary style="cursor: pointer; color: var(--accent); margin-bottom: 10px;">Advanced Options</summary>
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="simulation_mode" title="Simulation method for generating trade sequences:<br><b>IID</b>: Independent and Identically Distributed - each trade is drawn randomly from the historical distribution, assuming no dependencies between trades<br><b>Bootstrap</b>: Moving Block Bootstrap - resamples consecutive blocks of historical trades to preserve temporal dependencies and patterns. Example: if historical trades were [win, loss, win, loss] and block size=2, possible sequences include [win, loss] or [loss, win], maintaining the pattern of alternating outcomes">Simulation Mode:</label>
-                    <select id="simulation_mode" name="simulation_mode" style="width: 120px;">
-                        <option value="iid" {% if simulation_mode|default('iid') == 'iid' %}selected{% endif %}>IID</option>
-                        <option value="moving-block-bootstrap" {% if simulation_mode|default('iid') == 'moving-block-bootstrap' %}selected{% endif %}>Bootstrap</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="block_size" title="For Bootstrap mode: Size of consecutive trade blocks to resample from history. This preserves winning/losing streak patterns. Block size = 1 samples individual trades (loses temporal dependencies, similar to IID). Default 5 balances streak preservation with sample diversity. Larger blocks (7+) preserve more dependency structure. Only used in Bootstrap mode.">Block Size:</label>
-                    <input type="number" id="block_size" name="block_size" value="{{ block_size|default(5) }}" min="1" style="width: 80px;">
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="risk_calculation_method" title="Method for calculating risk amount per trade:<br><b>Variable: Conservative Theoretical Max</b>: Variable losses up to 95th percentile of theoretical losses (excludes outlier losses)<br><b>Variable: Theoretical Max</b>: Variable losses up to maximum theoretical loss<br><b>Fixed: Median Realized</b>: Fixed loss amount at median of actual historical losses<br><b>Fixed: Average Realized</b>: Fixed loss amount at average of actual historical losses<br><b>Fixed: Average Realized (Trimmed)</b>: Fixed loss amount at average excluding top 5% outliers<br><b>Fixed: Conservative Theoretical Max</b>: Fixed loss amount at conservative theoretical max<br><b>Fixed: Theoretical Max</b>: Fixed loss amount at theoretical max">Risk Calculation Method:</label>
-                    <select id="risk_calculation_method" name="risk_calculation_method" style="width: 320px;">
-                        <option value="conservative_theoretical" {% if risk_calculation_method|default('conservative_theoretical') == 'conservative_theoretical' %}selected{% endif %}>Variable: Conservative Theoretical Max</option>
-                        <option value="max_theoretical" {% if risk_calculation_method|default('conservative_theoretical') == 'max_theoretical' %}selected{% endif %}>Variable: Theoretical Max</option>
-                        <option value="median_realized" {% if risk_calculation_method|default('conservative_theoretical') == 'median_realized' %}selected{% endif %}>Fixed: Median Realized</option>
-                        <option value="average_realized" {% if risk_calculation_method|default('conservative_theoretical') == 'average_realized' %}selected{% endif %}>Fixed: Average Realized</option>
-                        <option value="average_realized_trimmed" {% if risk_calculation_method|default('conservative_theoretical') == 'average_realized_trimmed' %}selected{% endif %}>Fixed: Average Realized (Trimmed)</option>
-                        <option value="fixed_conservative_theoretical_max" {% if risk_calculation_method|default('conservative_theoretical') == 'fixed_conservative_theoretical_max' %}selected{% endif %}>Fixed: Conservative Theoretical Max</option>
-                        <option value="fixed_theoretical_max" {% if risk_calculation_method|default('conservative_theoretical') == 'fixed_theoretical_max' %}selected{% endif %}>Fixed: Theoretical Max</option>
-                    </select>
-                </div>
-            </div>
-            <div class="form-row">
-                <div class="form-group">
-                    <label for="max_reward_method" title="<b>Maximum Possible Reward:</b> What's the realistic upper bound for wins? This controls the range of reward values generated by the simulator.<br><br><b>Conservative Realized (p95)</b>: 95th percentile of historical wins - most realistic, limits simulator to proven win range (default)<br><b>Conservative Theoretical (p95)</b>: 95th percentile of theoretical gains from opening structure<br><b>Theoretical Max</b>: Maximum theoretical gain - allows full upside but may be unrealistic<br><b>Max Realized</b>: Maximum historical win - uses actual best result<br><br>This is separate from profit-taking discipline (below).">Max Reward Method:</label>
-                    <select id="max_reward_method" name="max_reward_method" style="width: 440px;">
-                        <option value="conservative_realized" {% if max_reward_method|default('conservative_realized') == 'conservative_realized' %}selected{% endif %}>Conservative Realized (p95 of Historical Wins)</option>
-                        <option value="conservative_theoretical" {% if max_reward_method|default('conservative_realized') == 'conservative_theoretical' %}selected{% endif %}>Conservative Theoretical (p95 of Theoretical Gains)</option>
-                        <option value="theoretical_max" {% if max_reward_method|default('conservative_realized') == 'theoretical_max' %}selected{% endif %}>Theoretical Max (Maximum Possible Gain)</option>
-                        <option value="max_realized" {% if max_reward_method|default('conservative_realized') == 'max_realized' %}selected{% endif %}>Max Realized (Maximum Historical Win)</option>
-                    </select>
-                </div>
 
-                <div class="form-group">
-                    <label for="take_profit_method" title="<b>Take Profit Method:</b> When does the trader take profits? This simulates trader discipline by capping rewards at a percentage of the max reward (set above).<br><br><b>No Cap</b>: No profit cap - always take full reward (default)<br><b>25%</b>: Take profits at 25% of max reward<br><b>40%</b>: Take profits at 40% of max reward<br><b>50%</b>: Take profits at 50% of max reward<br><b>75%</b>: Take profits at 75% of max reward<br><br>Caps are applied as min(generated_reward, cap). For example, if max reward is $200 and cap is 50% ($100): if trade would win $150, you lock in $100; if trade would win $80, you take $80.<br><br><b>Important:</b> Both settings use the SAME base value (from Max Reward Method above) to avoid mismatched thresholds.">Take Profit Method:</label>
-                    <select id="take_profit_method" name="take_profit_method" style="width: 440px;">
-                        <option value="no_cap" {% if take_profit_method|default('no_cap') == 'no_cap' %}selected{% endif %}>No Cap (Full Reward)</option>
-                        <option value="25pct" {% if take_profit_method|default('no_cap') == '25pct' %}selected{% endif %}>25% of Max Reward</option>
-                        <option value="40pct" {% if take_profit_method|default('no_cap') == '40pct' %}selected{% endif %}>40% of Max Reward</option>
-                        <option value="50pct" {% if take_profit_method|default('no_cap') == '50pct' %}selected{% endif %}>50% of Max Reward</option>
-                        <option value="75pct" {% if take_profit_method|default('no_cap') == '75pct' %}selected{% endif %}>75% of Max Reward</option>
-                    </select>
+            <!-- ① Monte Carlo toggle — the king --> 
+            <div class="form-row">
+                <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
+                    <input type="checkbox" id="monte_carlo_enabled" name="monte_carlo_enabled" {% if monte_carlo_enabled %}checked{% endif %} style="width: auto; margin: 0;" onchange="toggleMCControls(this.checked)">
+                    <label for="monte_carlo_enabled" style="margin: 0; cursor: pointer; font-weight: bold;" title="When checked: Runs a full Monte Carlo simulation across all position sizes, generating probability distributions and trajectory charts. This is computationally expensive (several seconds). When unchecked (default): Skips simulation and shows only the historical replay and backtest summary — much faster.">
+                        Enable Monte Carlo Simulation
+                    </label>
                 </div>
             </div>
+
+            <!-- ② MC-only params: simulations + trades --> 
+            <div id="mc-controls" style="{{ '' if monte_carlo_enabled else 'opacity:0.4;' }}">
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="num_simulations" title="The number of Monte Carlo simulations to run. More simulations provide more accurate statistical estimates but take longer to compute. Recommended: 1000+ for reliable results, 10000+ for high precision.">Number of Simulations:</label>
+                        <input type="number" id="num_simulations" name="num_simulations" value="{{ num_simulations|default(1000) }}" min="1" style="width: 100px;" {% if not monte_carlo_enabled %}disabled{% endif %}>
+                    </div>
+                    <div class="form-group">
+                        <label for="num_trades" title="The number of trades to simulate per simulation run. This determines the length of each Monte Carlo path. More trades provide more robust statistics but increase computation time. Default is 60, but will use the number of historical trades if larger.">Number of Trades:</label>
+                        <input type="number" id="num_trades" name="num_trades" value="{{ num_trades|default(60) }}" min="1" style="width: 100px;" {% if not monte_carlo_enabled %}disabled{% endif %}>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="simulation_mode" title="Simulation method for generating trade sequences:<br><b>IID</b>: Independent and Identically Distributed - each trade is drawn randomly from the historical distribution, assuming no dependencies between trades<br><b>Bootstrap</b>: Moving Block Bootstrap - resamples consecutive blocks of historical trades to preserve temporal dependencies and patterns. Example: if historical trades were [win, loss, win, loss] and block size=2, possible sequences include [win, loss] or [loss, win], maintaining the pattern of alternating outcomes">Simulation Mode:</label>
+                        <select id="simulation_mode" name="simulation_mode" style="width: 120px;" {% if not monte_carlo_enabled %}disabled{% endif %}>
+                            <option value="iid" {% if simulation_mode|default('iid') == 'iid' %}selected{% endif %}>IID</option>
+                            <option value="moving-block-bootstrap" {% if simulation_mode|default('iid') == 'moving-block-bootstrap' %}selected{% endif %}>Bootstrap</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="block_size" title="For Bootstrap mode: Size of consecutive trade blocks to resample from history. This preserves winning/losing streak patterns. Block size = 1 samples individual trades (loses temporal dependencies, similar to IID). Default 5 balances streak preservation with sample diversity. Larger blocks (7+) preserve more dependency structure. Only used in Bootstrap mode.">Block Size:</label>
+                        <input type="number" id="block_size" name="block_size" value="{{ block_size|default(5) }}" min="1" style="width: 80px;" {% if not monte_carlo_enabled %}disabled{% endif %}>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="risk_calculation_method" title="Method for calculating risk amount per trade:<br><b>Variable: Conservative Theoretical Max</b>: Variable losses up to 95th percentile of theoretical losses (excludes outlier losses)<br><b>Variable: Theoretical Max</b>: Variable losses up to maximum theoretical loss<br><b>Fixed: Median Realized</b>: Fixed loss amount at median of actual historical losses<br><b>Fixed: Average Realized</b>: Fixed loss amount at average of actual historical losses<br><b>Fixed: Average Realized (Trimmed)</b>: Fixed loss amount at average excluding top 5% outliers<br><b>Fixed: Conservative Theoretical Max</b>: Fixed loss amount at conservative theoretical max<br><b>Fixed: Theoretical Max</b>: Fixed loss amount at theoretical max">Risk Calculation Method:</label>
+                        <select id="risk_calculation_method" name="risk_calculation_method" style="width: 320px;" {% if not monte_carlo_enabled %}disabled{% endif %}>
+                            <option value="conservative_theoretical" {% if risk_calculation_method|default('conservative_theoretical') == 'conservative_theoretical' %}selected{% endif %}>Variable: Conservative Theoretical Max</option>
+                            <option value="max_theoretical" {% if risk_calculation_method|default('conservative_theoretical') == 'max_theoretical' %}selected{% endif %}>Variable: Theoretical Max</option>
+                            <option value="median_realized" {% if risk_calculation_method|default('conservative_theoretical') == 'median_realized' %}selected{% endif %}>Fixed: Median Realized</option>
+                            <option value="average_realized" {% if risk_calculation_method|default('conservative_theoretical') == 'average_realized' %}selected{% endif %}>Fixed: Average Realized</option>
+                            <option value="average_realized_trimmed" {% if risk_calculation_method|default('conservative_theoretical') == 'average_realized_trimmed' %}selected{% endif %}>Fixed: Average Realized (Trimmed)</option>
+                            <option value="fixed_conservative_theoretical_max" {% if risk_calculation_method|default('conservative_theoretical') == 'fixed_conservative_theoretical_max' %}selected{% endif %}>Fixed: Conservative Theoretical Max</option>
+                            <option value="fixed_theoretical_max" {% if risk_calculation_method|default('conservative_theoretical') == 'fixed_theoretical_max' %}selected{% endif %}>Fixed: Theoretical Max</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="max_reward_method" title="<b>Maximum Possible Reward:</b> What's the realistic upper bound for wins? This controls the range of reward values generated by the simulator.<br><br><b>Conservative Realized (p95)</b>: 95th percentile of historical wins - most realistic, limits simulator to proven win range (default)<br><b>Conservative Theoretical (p95)</b>: 95th percentile of theoretical gains from opening structure<br><b>Theoretical Max</b>: Maximum theoretical gain - allows full upside but may be unrealistic<br><b>Max Realized</b>: Maximum historical win - uses actual best result<br><br>This is separate from profit-taking discipline (below).">Max Reward Method:</label>
+                        <select id="max_reward_method" name="max_reward_method" style="width: 440px;" {% if not monte_carlo_enabled %}disabled{% endif %}>
+                            <option value="conservative_realized" {% if max_reward_method|default('conservative_realized') == 'conservative_realized' %}selected{% endif %}>Conservative Realized (p95 of Historical Wins)</option>
+                            <option value="conservative_theoretical" {% if max_reward_method|default('conservative_realized') == 'conservative_theoretical' %}selected{% endif %}>Conservative Theoretical (p95 of Theoretical Gains)</option>
+                            <option value="theoretical_max" {% if max_reward_method|default('conservative_realized') == 'theoretical_max' %}selected{% endif %}>Theoretical Max (Maximum Possible Gain)</option>
+                            <option value="max_realized" {% if max_reward_method|default('conservative_realized') == 'max_realized' %}selected{% endif %}>Max Realized (Maximum Historical Win)</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="take_profit_method" title="<b>Take Profit Method:</b> When does the trader take profits? This simulates trader discipline by capping rewards at a percentage of the max reward (set above).<br><br><b>No Cap</b>: No profit cap - always take full reward (default)<br><b>25%</b>: Take profits at 25% of max reward<br><b>40%</b>: Take profits at 40% of max reward<br><b>50%</b>: Take profits at 50% of max reward<br><b>75%</b>: Take profits at 75% of max reward<br><br>Caps are applied as min(generated_reward, cap). For example, if max reward is $200 and cap is 50% ($100): if trade would win $150, you lock in $100; if trade would win $80, you take $80.<br><br><b>Important:</b> Both settings use the SAME base value (from Max Reward Method above) to avoid mismatched thresholds.">Take Profit Method:</label>
+                        <select id="take_profit_method" name="take_profit_method" style="width: 440px;" {% if not monte_carlo_enabled %}disabled{% endif %}>
+                            <option value="no_cap" {% if take_profit_method|default('no_cap') == 'no_cap' %}selected{% endif %}>No Cap (Full Reward)</option>
+                            <option value="25pct" {% if take_profit_method|default('no_cap') == '25pct' %}selected{% endif %}>25% of Max Reward</option>
+                            <option value="40pct" {% if take_profit_method|default('no_cap') == '40pct' %}selected{% endif %}>40% of Max Reward</option>
+                            <option value="50pct" {% if take_profit_method|default('no_cap') == '50pct' %}selected{% endif %}>50% of Max Reward</option>
+                            <option value="75pct" {% if take_profit_method|default('no_cap') == '75pct' %}selected{% endif %}>75% of Max Reward</option>
+                        </select>
+                    </div>
+                </div>
+            </div><!-- end #mc-controls -->
+
+            <!-- ③ Always-active: applies to replay too -->
             <div class="form-row">
                 <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
                     <input type="checkbox" id="allow_exceed_target_risk" name="allow_exceed_target_risk" {% if allow_exceed_target_risk %}checked{% endif %} style="width: auto; margin: 0;">
@@ -95,5 +112,15 @@
                 </div>
             </div>
         </details>
+
+        <script>
+        function toggleMCControls(enabled) {
+            var container = document.getElementById('mc-controls');
+            container.style.opacity = enabled ? '1' : '0.4';
+            container.querySelectorAll('input, select').forEach(function(el) {
+                el.disabled = !enabled;
+            });
+        }
+        </script>
 
         <button type="submit">{{ submit_button_text|default('Run Simulation') }}</button>

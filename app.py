@@ -4,6 +4,7 @@ from html import escape
 import simulator
 import replay
 import trade_parser
+import config
 import os
 import uuid
 import json
@@ -11,6 +12,9 @@ import math
 
 app = Flask(__name__)
 app.secret_key = 'supersecretkey'  # Change this to a random secret in production
+
+# Load local config (creates config.toml from config.template.toml if absent)
+config.load()
 
 
 def clean_for_json(value):
@@ -316,18 +320,19 @@ def index():
             flash('Please upload a CSV file.', 'error')
             return redirect(url_for('index'))
 
-        # Get parameters
-        initial_balance = float(request.form.get('initial_balance', 10000))
-        num_simulations = int(request.form.get('num_simulations', 1000))
-        num_trades = int(request.form.get('num_trades', 60))
-        option_commission = float(request.form.get('option_commission', 0.50))
-        position_sizing_raw = request.form.get('position_sizing_mode', 'dynamic-percent')
+        # Get parameters (fall back to config defaults when form field is absent)
+        _cfg = config.simulation_defaults()
+        initial_balance = float(request.form.get('initial_balance', _cfg.get('initial_balance', 10000)))
+        num_simulations = int(request.form.get('num_simulations', _cfg.get('num_simulations', 1000)))
+        num_trades = int(request.form.get('num_trades', _cfg.get('num_trades', 60)))
+        option_commission = float(request.form.get('option_commission', _cfg.get('option_commission', 0.50)))
+        position_sizing_raw = request.form.get('position_sizing_mode', _cfg.get('position_sizing_mode', 'dynamic-percent'))
         position_sizing, dynamic_risk_sizing = parse_position_sizing_mode(position_sizing_raw)
-        simulation_mode = request.form.get('simulation_mode', 'iid')
-        block_size = int(request.form.get('block_size', 5))
-        risk_calculation_method = request.form.get('risk_calculation_method', 'conservative_theoretical')
-        max_reward_method = request.form.get('max_reward_method', 'conservative_realized')
-        take_profit_method = request.form.get('take_profit_method', 'no_cap')
+        simulation_mode = request.form.get('simulation_mode', _cfg.get('simulation_mode', 'iid'))
+        block_size = int(request.form.get('block_size', _cfg.get('block_size', 5)))
+        risk_calculation_method = request.form.get('risk_calculation_method', _cfg.get('risk_calculation_method', 'conservative_theoretical'))
+        max_reward_method = request.form.get('max_reward_method', _cfg.get('max_reward_method', 'conservative_realized'))
+        take_profit_method = request.form.get('take_profit_method', _cfg.get('take_profit_method', 'no_cap'))
 
         # Store params in session for re-run
         session['params'] = {
@@ -343,7 +348,8 @@ def index():
             'max_reward_method': max_reward_method,
             'take_profit_method': take_profit_method,
             'position_sizing_display': position_sizing_raw,  # For display
-            'allow_exceed_target_risk': 'allow_exceed_target_risk' in request.form  # Checkbox
+            'allow_exceed_target_risk': 'allow_exceed_target_risk' in request.form,  # Checkbox
+            'monte_carlo_enabled': 'monte_carlo_enabled' in request.form,  # Checkbox
         }
 
         return redirect(url_for('results'))
@@ -354,18 +360,20 @@ def index():
     
     # Check URL parameters first, then fall back to session
     if request.args:
+        _cfg = config.simulation_defaults()
         params = {
-            'initial_balance': float(request.args.get('initial_balance', 10000)),
-            'num_simulations': int(request.args.get('num_simulations', 1000)),
-            'num_trades': int(request.args.get('num_trades', 60)),
-            'option_commission': float(request.args.get('option_commission', 0.50)),
-            'position_sizing_display': request.args.get('position_sizing_mode', 'dynamic-percent'),
-            'simulation_mode': request.args.get('simulation_mode', 'iid'),
-            'block_size': int(request.args.get('block_size', 5)),
-            'risk_calculation_method': request.args.get('risk_calculation_method', 'conservative_theoretical'),
-            'max_reward_method': request.args.get('max_reward_method', 'conservative_realized'),
-            'take_profit_method': request.args.get('take_profit_method', 'no_cap'),
-            'allow_exceed_target_risk': request.args.get('allow_exceed_target_risk') == 'true'
+            'initial_balance': float(request.args.get('initial_balance', _cfg.get('initial_balance', 10000))),
+            'num_simulations': int(request.args.get('num_simulations', _cfg.get('num_simulations', 1000))),
+            'num_trades': int(request.args.get('num_trades', _cfg.get('num_trades', 60))),
+            'option_commission': float(request.args.get('option_commission', _cfg.get('option_commission', 0.50))),
+            'position_sizing_display': request.args.get('position_sizing_mode', _cfg.get('position_sizing_mode', 'dynamic-percent')),
+            'simulation_mode': request.args.get('simulation_mode', _cfg.get('simulation_mode', 'iid')),
+            'block_size': int(request.args.get('block_size', _cfg.get('block_size', 5))),
+            'risk_calculation_method': request.args.get('risk_calculation_method', _cfg.get('risk_calculation_method', 'conservative_theoretical')),
+            'max_reward_method': request.args.get('max_reward_method', _cfg.get('max_reward_method', 'conservative_realized')),
+            'take_profit_method': request.args.get('take_profit_method', _cfg.get('take_profit_method', 'no_cap')),
+            'allow_exceed_target_risk': request.args.get('allow_exceed_target_risk') == 'true',
+            'monte_carlo_enabled': request.args.get('monte_carlo_enabled') == 'true',
         }
         # Handle file_uuid from URL
         file_uuid = request.args.get('file_uuid')
@@ -422,26 +430,31 @@ def results():
             'risk_calculation_method': request.form.get('risk_calculation_method', params.get('risk_calculation_method', 'conservative_theoretical')),
             'max_reward_method': request.form.get('max_reward_method', params.get('max_reward_method', 'conservative_realized')),
             'take_profit_method': request.form.get('take_profit_method', params.get('take_profit_method', 'no_cap')),
-            'allow_exceed_target_risk': 'allow_exceed_target_risk' in request.form  # Checkbox
+            'allow_exceed_target_risk': 'allow_exceed_target_risk' in request.form,  # Checkbox
+            'monte_carlo_enabled': 'monte_carlo_enabled' in request.form,  # Checkbox
         })
         session['params'] = params
         return redirect(url_for('results'))
 
     # GET: run simulation with current params
+    _cfg = config.simulation_defaults()
+    _psm = _cfg.get('position_sizing_mode', 'dynamic-percent')
+    _ps, _drs = parse_position_sizing_mode(_psm)
     default_params = {
-        'initial_balance': 10000,
-        'num_simulations': 1000,
-        'num_trades': 60,
-        'option_commission': 0.50,
-        'position_sizing': 'percent',
-        'dynamic_risk_sizing': True,
-        'simulation_mode': 'iid',
-        'block_size': 5,
-        'position_sizing_display': 'dynamic-percent',
-        'risk_calculation_method': 'conservative_theoretical',
-        'max_reward_method': 'conservative_realized',
-        'take_profit_method': 'no_cap',
-        'allow_exceed_target_risk': False  # Default: strict enforcement
+        'initial_balance': _cfg.get('initial_balance', 10000),
+        'num_simulations': _cfg.get('num_simulations', 1000),
+        'num_trades': _cfg.get('num_trades', 60),
+        'option_commission': _cfg.get('option_commission', 0.50),
+        'position_sizing': _ps,
+        'dynamic_risk_sizing': _drs,
+        'simulation_mode': _cfg.get('simulation_mode', 'iid'),
+        'block_size': _cfg.get('block_size', 5),
+        'position_sizing_display': _psm,
+        'risk_calculation_method': _cfg.get('risk_calculation_method', 'conservative_theoretical'),
+        'max_reward_method': _cfg.get('max_reward_method', 'conservative_realized'),
+        'take_profit_method': _cfg.get('take_profit_method', 'no_cap'),
+        'allow_exceed_target_risk': _cfg.get('allow_exceed_target_risk', False),
+        'monte_carlo_enabled': _cfg.get('monte_carlo_enabled', False),
     }
     params = session.get('params', default_params)
     params = {**default_params, **params}  # Ensure all defaults are present
@@ -459,26 +472,32 @@ def results():
 
     num_trades_per_simulation = max(params['num_trades'], trade_stats['num_trades'])
 
+    monte_carlo_enabled = params.get('monte_carlo_enabled', False)
+
     # Initialize replay_data and replay_details_data in case of error
     replay_data = []
     replay_details_data = []
-    
+
     try:
-        # Run Monte Carlo simulation
-        trade_reports = simulator.run_monte_carlo_simulation(
-            trade_stats, params['initial_balance'], params['num_simulations'],
-            position_sizing=params['position_sizing'],
-            dynamic_risk_sizing=params['dynamic_risk_sizing'],
-            simulation_mode=params['simulation_mode'],
-            block_size=params['block_size'],
-            commission_per_contract=params['option_commission'],
-            num_trades=params['num_trades'],
-            risk_calculation_method=params['risk_calculation_method'],
-            max_reward_method=params['max_reward_method'],
-            take_profit_method=params['take_profit_method'],
-            allow_exceed_target_risk=params['allow_exceed_target_risk']
-        )
-        
+        if monte_carlo_enabled:
+            # Run Monte Carlo simulation
+            trade_reports = simulator.run_monte_carlo_simulation(
+                trade_stats, params['initial_balance'], params['num_simulations'],
+                position_sizing=params['position_sizing'],
+                dynamic_risk_sizing=params['dynamic_risk_sizing'],
+                simulation_mode=params['simulation_mode'],
+                block_size=params['block_size'],
+                commission_per_contract=params['option_commission'],
+                num_trades=params['num_trades'],
+                risk_calculation_method=params['risk_calculation_method'],
+                max_reward_method=params['max_reward_method'],
+                take_profit_method=params['take_profit_method'],
+                allow_exceed_target_risk=params['allow_exceed_target_risk']
+            )
+        else:
+            # Monte Carlo disabled: build summary report from trade stats only
+            trade_reports = [simulator.build_summary_report(trade_stats)]
+
         # Run historical replay with same position sizing settings
         position_size_plan = simulator.build_position_size_plan(
             trade=trade_stats,
@@ -488,14 +507,14 @@ def results():
             allow_exceed_target_risk=params['allow_exceed_target_risk'],
             mode='replay'  # Replay requires first trade's actual risk to match details
         )
-        
+
         # Run all replay scenarios using helper function
         replay_data, replay_details_data = run_all_replay_scenarios(
             trade_stats=trade_stats,
             position_size_plan=position_size_plan,
             params=params
         )
-        
+
     except Exception as e:
         flash(f'Error running simulation: {str(e)}', 'error')
         # Render the results page with form but without results
@@ -520,9 +539,12 @@ def results():
         report['avg_loss_formatted'] = format_currency_whole(summary['avg_loss'])
         report['gross_gain_formatted'] = format_currency_whole(summary['gross_gain'])
         report['gross_loss_formatted'] = format_currency_whole(summary['gross_loss'])
-        
-        # Format table with tooltips using helper function
-        report['table_html'] = format_monte_carlo_table(report, params['position_sizing'], params.get('allow_exceed_target_risk', False))
+
+        # Format MC table only when simulation ran and produced rows
+        if monte_carlo_enabled and report.get('table_rows'):
+            report['table_html'] = format_monte_carlo_table(report, params['position_sizing'], params.get('allow_exceed_target_risk', False))
+        else:
+            report['table_html'] = ''
 
     # Prepare replay data table using helper function
     allow_exceed = params.get('allow_exceed_target_risk', False)

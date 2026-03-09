@@ -64,7 +64,8 @@ def test_end_to_end_insufficient_balance_error(client):
             'position_sizing_mode': 'dynamic-percent',
             'simulation_mode': 'iid',
             'block_size': '5',
-            'risk_calculation_method': 'conservative_theoretical'
+            'risk_calculation_method': 'conservative_theoretical',
+            'monte_carlo_enabled': 'on',  # Must be enabled for error path to trigger
         }
         response = client.post('/', data=data, content_type='multipart/form-data', follow_redirects=True)
         assert response.status_code == 200
@@ -103,16 +104,17 @@ def test_historical_replay_displayed(client):
             'position_sizing_mode': 'dynamic-percent',
             'simulation_mode': 'iid',
             'block_size': '5',
-            'risk_calculation_method': 'conservative_theoretical'
+            'risk_calculation_method': 'conservative_theoretical',
+            'monte_carlo_enabled': 'on',  # Must be enabled to show MC results table
         }
         response = client.post('/', data=data, content_type='multipart/form-data', follow_redirects=True)
         assert response.status_code == 200
-        
+
         html = response.data.decode('utf-8')
-        
+
         # Check that Monte Carlo results are displayed
         assert 'Monte Carlo Simulation Results' in html
-        
+
         # Check that Historical Replay results are displayed
         assert 'Historical Trade Replay' in html
         assert 'actual sequence' in html
@@ -146,7 +148,8 @@ def test_trajectory_data_integration(client):
             'position_sizing_mode': 'dynamic-percent',
             'simulation_mode': 'iid',
             'block_size': '5',
-            'risk_calculation_method': 'conservative_theoretical'
+            'risk_calculation_method': 'conservative_theoretical',
+            'monte_carlo_enabled': 'on',  # Must be enabled for trajectory data to be populated
         }
         response = client.post('/', data=data, content_type='multipart/form-data', follow_redirects=True)
         assert response.status_code == 200

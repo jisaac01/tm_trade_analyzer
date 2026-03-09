@@ -211,3 +211,6 @@ __marimo__/
 # Project specific stuff
 scripts/raw
 scripts/diffs
+
+# Local config override (generated from config.template.toml on first run)
+config.toml
