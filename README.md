@@ -46,67 +46,21 @@ A Monte Carlo simulation tool for analyzing TradeMachine backtested trades. This
    pip install -r requirements.txt
    ```
 
+5. **Run the application**
+   ```bash
+   tm_trade_analyzer_venv/bin/python app.py
+   ```
+   The application will start and be available at `http://127.0.0.1:5001/`
+
 ## Getting Trade Data from TradeMachine
 
 To use this analyzer, you need to export your backtested trade data from TradeMachine as a CSV file. Follow these steps:
 
-### Step 1: Open TradeMachine and Load Your Strategy
-
-Launch TradeMachine and open the strategy you want to analyze.
-
-### Step 2: Run Backtesting
-
-Execute your backtest to generate trade results.
-
-### Step 3: Export Trade Data
-
-1. Navigate to the trade results or performance report section
-2. Look for an "Export" or "Download" option
-3. Select CSV format for the trade data
-
+1. From the backtesting results, click on the main results summary to open a popup with showing trade details
 ![TradeMachine Export Options](Screenshot%202026-02-24%20at%2010.44.11 PM.png)
 
-### Step 4: Verify CSV Format
-
-Ensure your CSV file contains the required columns for proper analysis:
-- Date
-- Description (containing "Open" for opening legs)
-- Profit/Loss
-- Trade Price
-- Size
-- Strike
-- Expiration
-
+2. Click "Download" to get a CSV file. 
 ![Sample CSV Structure](Screenshot%202026-02-24%20at%2010.44.26 PM.png)
-
-## Running the Application
-
-### Method 1: Using Flask CLI (Recommended)
-
-1. **Set Flask environment variables** (optional but recommended):
-   ```bash
-   export FLASK_APP=app.py
-   export FLASK_ENV=development
-   ```
-
-2. **Run the application**:
-   ```bash
-   flask run
-   ```
-
-### Method 2: Direct Python execution
-
-```bash
-python app.py
-```
-
-### Method 3: Using the virtual environment Python
-
-```bash
-tm_trade_analyzer_venv/bin/python app.py
-```
-
-The application will start and be available at `http://127.0.0.1:5001/`
 
 ## Usage
 
