@@ -403,8 +403,8 @@ def test_index_get_with_url_parameters(client):
 
 def test_index_post_with_file_uuid_reuses_existing_file(client):
     """Test POST to index with file_uuid reuses existing file without requiring upload."""
-    # Create a temporary CSV file with known UUID
-    test_uuid = 'test-uuid-12345'
+    # Create a temporary CSV file with a valid UUID v4 (required by _validate_file_uuid)
+    test_uuid = 'a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d'
     uploads_dir = 'uploads'
     os.makedirs(uploads_dir, exist_ok=True)
     test_filepath = os.path.join(uploads_dir, f'{test_uuid}.csv')
@@ -461,6 +461,60 @@ def test_index_post_with_invalid_file_uuid_shows_error(client):
     assert '/' in response.headers['Location']
 
 
+def test_validate_file_uuid_rejects_path_traversal(client):
+    """Security test: path-traversal strings must be rejected by _validate_file_uuid.
+
+    A valid file_uuid MUST be a well-formed UUID v4 string. Any value that is
+    not a valid UUID (including path-traversal payloads) must be rejected before
+    it is ever combined with the upload folder path, preventing directory
+    traversal attacks.
+    """
+    from app import _validate_file_uuid
+
+    # --- Valid UUID v4 ---
+    assert _validate_file_uuid('a1b2c3d4-e5f6-4a1b-8c2d-3e4f5a6b7c8d') is True
+
+    # --- Path traversal attempts ---
+    assert _validate_file_uuid('../../etc/passwd') is False
+    assert _validate_file_uuid('../config') is False
+    assert _validate_file_uuid('uploads/../../etc/hosts') is False
+
+    # --- Malformed / non-UUID strings ---
+    assert _validate_file_uuid('test-uuid-12345') is False
+    assert _validate_file_uuid('nonexistent-uuid') is False
+    assert _validate_file_uuid('') is False
+    assert _validate_file_uuid(None) is False
+
+    # --- Wrong UUID version (v1, not v4) must be rejected ---
+    # UUID version is encoded in the 13th hex digit (must be '4' for v4)
+    assert _validate_file_uuid('550e8400-e29b-11d4-a716-446655440000') is False
+
+
+def test_file_uuid_path_traversal_via_route(client):
+    """Security test: path-traversal file_uuid submitted via form is rejected."""
+    # A POST with a path-traversal value in file_uuid must redirect back to index
+    # with no file read attempted, not try to open 'uploads/../../some_path.csv'.
+    for bad_uuid in ['../../etc/passwd', '../config.toml', 'foo/../bar']:
+        data = {
+            'file_uuid': bad_uuid,
+            'initial_balance': '10000',
+            'num_simulations': '10',
+            'num_trades': '10',
+            'option_commission': '0.50',
+            'position_sizing_mode': 'dynamic-percent',
+            'simulation_mode': 'iid',
+            'block_size': '5',
+            'risk_calculation_method': 'conservative_theoretical',
+            'max_reward_method': 'conservative_realized',
+            'take_profit_method': 'no_cap',
+        }
+        response = client.post('/', data=data, content_type='multipart/form-data')
+        assert response.status_code == 302, f"Expected 302 for bad uuid={bad_uuid!r}"
+        assert response.headers['Location'].rstrip('/') in ('/', ''), (
+            f"Expected redirect to / for bad uuid={bad_uuid!r}"
+        )
+
+
 def test_index_post_with_new_file_generates_uuid(client):
     """Test that uploading a new file generates and stores a UUID."""
     with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as f:
@@ -497,8 +551,8 @@ def test_index_post_with_new_file_generates_uuid(client):
 
 def test_index_get_with_file_uuid_marks_upload_optional(client):
     """Test that GET with file_uuid parameter marks file upload as optional."""
-    # Create a temporary CSV file with known UUID
-    test_uuid = 'test-uuid-optional'
+    # Create a temporary CSV file with a valid UUID v4 (required by _validate_file_uuid)
+    test_uuid = 'b2c3d4e5-f6a7-4b2c-9d3e-4f5a6b7c8d9e'
     uploads_dir = 'uploads'
     os.makedirs(uploads_dir, exist_ok=True)
     test_filepath = os.path.join(uploads_dir, f'{test_uuid}.csv')

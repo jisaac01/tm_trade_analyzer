@@ -385,6 +385,56 @@ With 1000 simulations, we expect to see the average/typical case, not just lucky
 - [ ] Any remaining bugs are identified and fixed
 - [ ] UI communicates uncertainty and ranges, not just point estimates
 
+---
+
+## Phase 14: Security Hardening (Remaining Items)
+**Goal:** Address the medium/low severity issues surfaced in the security audit. The Critical (hardcoded secret key) and High (path traversal via unvalidated `file_uuid`) items were fixed in the Phase 14 kickoff commit. The items below are the remaining open findings.
+
+### Fixed (do not re-implement)
+- ✅ **Secret key** — reads from `FLASK_SECRET_KEY` env var → `config.toml [flask] secret_key` → ephemeral random fallback (`app.py`)
+- ✅ **Path traversal** — `_validate_file_uuid()` helper rejects any non-UUID-v4 string before building upload filepath (`app.py`)
+
+### Remaining Medium Issues
+
+- [ ] **Step 14.1: Remove `escape=False` from pandas HTML tables (XSS)**
+  - `app.py` `format_monte_carlo_table()` and `format_replay_table()` both call `.to_html(escape=False)` then render with `|safe`
+  - A CSV with HTML in any field (trade name, dates, etc.) renders as raw HTML in the browser
+  - Fix: drop `escape=False` — pandas defaults to `escape=True`; the only unescaped content needed is the `<th title=...>` replacements, which are 100% app-controlled strings injected via `.replace()`
+  - Write test: upload a CSV with `<script>alert(1)</script>` in the trade name; verify output is HTML-escaped, not executed
+  - Reference: `app.py` lines 69 and 134
+
+- [ ] **Step 14.2: Whitelist-validate enum inputs from forms**
+  - `simulation_mode`, `risk_calculation_method`, `max_reward_method`, `take_profit_method`, `position_sizing_mode` are accepted from `request.form` with no whitelist check
+  - Unknown values pass silently to the simulator, potentially causing confusing errors whose messages may include the raw user input
+  - Fix: define `VALID_*` frozensets for each field and clamp/reject invalid values before storing in session or passing to simulator
+  - Write tests: submit out-of-range values; assert they're rejected or clamped to a safe default
+
+### Remaining Low Issues
+
+- [ ] **Step 14.3: Add security response headers**
+  - No `Content-Security-Policy`, `X-Content-Type-Options`, or `X-Frame-Options` headers are set
+  - Fix: add `@app.after_request` hook setting at minimum:
+    - `X-Content-Type-Options: nosniff`
+    - `X-Frame-Options: DENY`
+    - `Content-Security-Policy: default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'`
+  - Write test: verify headers present on `/` and `/results`
+
+- [ ] **Step 14.4: Remove filesystem paths from Flask session cookie**
+  - `session['csv_filepath']` stores a server filesystem path in the client-visible (base64) cookie
+  - Fix: store only `csv_file_uuid` in the session and reconstruct `filepath = os.path.join(UPLOAD_FOLDER, session['csv_file_uuid'] + '.csv')` on each request (UUID is already validated at upload time, so this is safe)
+  - Update all places that read `session['csv_filepath']` to derive it from the UUID instead
+  - Write tests: verify session no longer contains `csv_filepath` key after a successful upload
+
+- [ ] **Step 14.5: CSRF protection** (optional, localhost-only risk)
+  - Both POST routes have no CSRF token
+  - Fix: add `flask-wtf` and `CSRFProtect(app)`, or at minimum check `Origin`/`Referer` headers
+  - Only prioritise if the app is deployed on a shared network
+
+- [ ] **Step 14.6: Rate limiting on simulation endpoint** (optional, localhost-only risk)
+  - `/results` runs Monte Carlo simulations that are CPU-intensive; no rate limit exists
+  - Fix: add `flask-limiter` with a per-IP limit (e.g., 10 requests/minute)
+  - Only prioritise if the app is deployed on a shared network
+
 ## Future Enhancement Ideas (Optional, Not Scheduled)
 
 These ideas were identified during Phase 15 investigation but are NOT currently required:

@@ -6,15 +6,23 @@ import replay
 import trade_parser
 import config
 import os
+import secrets
 import uuid
 import json
 import math
 
 app = Flask(__name__)
-app.secret_key = 'supersecretkey'  # Change this to a random secret in production
 
 # Load local config (creates config.toml from config.template.toml if absent)
 config.load()
+
+# Secret key: env var > config.toml > ephemeral random (safe for localhost-only use)
+_secret_key = (
+    os.environ.get('FLASK_SECRET_KEY')
+    or config.get('flask.secret_key')
+    or secrets.token_hex(32)
+)
+app.secret_key = _secret_key
 
 
 def clean_for_json(value):
@@ -282,6 +290,22 @@ UPLOAD_FOLDER = 'uploads'
 if not os.path.exists(UPLOAD_FOLDER):
     os.makedirs(UPLOAD_FOLDER)
 
+
+def _validate_file_uuid(file_uuid: str) -> bool:
+    """Return True iff file_uuid is a valid UUID4 string.
+
+    Rejects any value that contains path separators or non-UUID characters,
+    preventing path traversal attacks when building upload filepaths.
+    """
+    if not file_uuid or not isinstance(file_uuid, str):
+        return False
+    try:
+        parsed = uuid.UUID(file_uuid, version=4)
+        return str(parsed) == file_uuid.lower()
+    except (ValueError, AttributeError):
+        return False
+
+
 def format_currency_whole(value):
     value_int = int(value)
     formatted = f"{abs(value_int):,}"
@@ -299,7 +323,7 @@ def index():
             if not csv_file.filename.endswith('.csv'):
                 flash('Please upload a valid CSV file.', 'error')
                 return redirect(url_for('index'))
-            # Save new file
+            # Save new file — UUID is generated server-side, never from user input
             file_uuid = str(uuid.uuid4())
             filename = file_uuid + '.csv'
             filepath = os.path.join(UPLOAD_FOLDER, filename)
@@ -308,7 +332,10 @@ def index():
             session['csv_file_uuid'] = file_uuid
             session['original_filename'] = csv_file.filename
         elif file_uuid:
-            # Reuse existing file
+            # Reuse existing file — validate UUID format before building path
+            if not _validate_file_uuid(file_uuid):
+                flash('Invalid file reference.', 'error')
+                return redirect(url_for('index'))
             filepath = os.path.join(UPLOAD_FOLDER, file_uuid + '.csv')
             if not os.path.exists(filepath):
                 flash('The specified file no longer exists. Please upload a new CSV file.', 'error')
@@ -375,14 +402,17 @@ def index():
             'allow_exceed_target_risk': request.args.get('allow_exceed_target_risk') == 'true',
             'monte_carlo_enabled': request.args.get('monte_carlo_enabled') == 'true',
         }
-        # Handle file_uuid from URL
+        # Handle file_uuid from URL — validate before building path
         file_uuid = request.args.get('file_uuid')
         if file_uuid:
-            filepath = os.path.join(UPLOAD_FOLDER, file_uuid + '.csv')
-            if os.path.exists(filepath):
-                # Store in session so form knows file is available
-                params['file_uuid'] = file_uuid
-                params['has_file'] = True
+            if not _validate_file_uuid(file_uuid):
+                file_uuid = None  # Ignore invalid UUID, proceed without pre-loaded file
+            else:
+                filepath = os.path.join(UPLOAD_FOLDER, file_uuid + '.csv')
+                if os.path.exists(filepath):
+                    # Store in session so form knows file is available
+                    params['file_uuid'] = file_uuid
+                    params['has_file'] = True
     else:
         params = session.get('params', {})
         if 'csv_file_uuid' in session:
@@ -405,6 +435,7 @@ def results():
             if not csv_file.filename.endswith('.csv'):
                 flash('Please upload a valid CSV file.', 'error')
                 return redirect(url_for('results'))
+            # UUID generated server-side — never derived from user input
             file_uuid = str(uuid.uuid4())
             filename = file_uuid + '.csv'
             filepath = os.path.join(UPLOAD_FOLDER, filename)
