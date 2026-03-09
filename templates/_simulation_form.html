@@ -34,8 +34,8 @@
             <div class="form-row">
                 <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
                     <input type="checkbox" id="monte_carlo_enabled" name="monte_carlo_enabled" {% if monte_carlo_enabled %}checked{% endif %} style="width: auto; margin: 0;" onchange="toggleMCControls(this.checked)">
-                    <label for="monte_carlo_enabled" style="margin: 0; cursor: pointer; font-weight: bold;" title="When checked: Runs a full Monte Carlo simulation across all position sizes, generating probability distributions and trajectory charts. This is computationally expensive (several seconds). When unchecked (default): Skips simulation and shows only the historical replay and backtest summary — much faster.">
-                        Enable Monte Carlo Simulation
+                    <label for="monte_carlo_enabled" style="margin: 0; cursor: pointer; font-weight: bold;" title="When checked: Runs a full Monte Carlo simulation across all position sizes, generating probability distributions and trajectory charts. This is computationally expensive (several seconds). WARNING: The Monte Carlo simulator has known bugs and results should not be taken seriously.">
+                        Enable Monte Carlo Simulation <span style="color: #f59e0b; font-weight: normal; font-size: 0.85em;">(buggy — results unreliable)</span>
                     </label>
                 </div>
             </div>

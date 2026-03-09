@@ -1,21 +1,23 @@
-# TM Trade Analyzer
+# TradeMachine Trade Analyzer
 
-A Monte Carlo simulation tool for analyzing TradeMachine backtested trades. This web application helps traders understand the risk and reward characteristics of their trading strategies by running thousands of simulated trading scenarios.
+A trade analysis tool for TradeMachine backtested strategies. Upload a CSV export and instantly see a trade-by-trade historical replay with position sizing applied — showing exactly how a strategy would have performed with compounding. Optionally run Monte Carlo simulations to project future outcomes, test different position sizes, and understand bankruptcy risk and drawdown characteristics. (**Warning:** Monte Carlo has known bugs, notably with false negative bankruptcy risk, and shouldn't be taken seriously.)
 
 ## Features
 
-- **Monte Carlo Simulation**: Run thousands of simulated trading scenarios to understand potential outcomes
-- **Position Sizing Analysis**: Test different position sizes and risk percentages
-- **Risk Metrics**: Analyze bankruptcy probability, maximum drawdown, and losing streaks
-- **Multiple Simulation Modes**: Choose between independent trades (IID) or bootstrap sampling that preserves historical patterns
-- **Dynamic Risk Sizing**: Option to adjust position sizes based on current account balance
+- **Trade Replay**: Replay your historical trades with position sizing and compounding applied, showing exactly how your account would have grown or declined trade by trade
+- **Trade-by-Trade Drilldown**: Hover over any trade in the replay table to see the actual opening/closing legs, P/L, and theoretical risk for that specific trade
+- **Overlapping Trade Detection**: Identifies and handles trades that were open simultaneously, correctly accounting for concurrent risk exposure
+- **Position Sizing Analysis**: Test different position sizes and risk percentages, with dynamic sizing that adjusts contract counts as your account balance changes
+- **Monte Carlo Simulation** *(optional)*: Run thousands of simulated trading scenarios to understand potential future outcomes, bankruptcy risk, and drawdown characteristics
+- **Multiple Simulation Modes**: Choose between independent trades (IID) or bootstrap sampling that preserves historical streak patterns
+- **Interactive Charts**: Visualize account balance trajectories with percentile bands, compare Monte Carlo projections to actual historical replay
 - **Web Interface**: Easy-to-use web application for uploading trade data and viewing results
 
 ## Installation
 
 ### Prerequisites
 
-- Python 3.8 or higher
+- Python 3.11.9 or higher
 - pip (Python package installer)
 
 ### Setup
@@ -48,89 +50,21 @@ A Monte Carlo simulation tool for analyzing TradeMachine backtested trades. This
 
 5. **Run the application**
    ```bash
-   tm_trade_analyzer_venv/bin/python app.py
+   python app.py
    ```
    The application will start and be available at `http://127.0.0.1:5001/`
 
 ## Getting Trade Data from TradeMachine
 
-To use this analyzer, you need to export your backtested trade data from TradeMachine as a CSV file. Follow these steps:
+To use this analyzer, you need to export your backtested trade data from TradeMachine as a CSV file. 
+**Important** This tool has only been tested on Long Call debit spreads. Any other trade type is likely to break it!!
+Follow these steps:
 
 1. From the backtesting results, click on the main results summary to open a popup with showing trade details
 ![TradeMachine Export Options](Screenshot%202026-02-24%20at%2010.44.11 PM.png)
 
 2. Click "Download" to get a CSV file. 
 ![Sample CSV Structure](Screenshot%202026-02-24%20at%2010.44.26 PM.png)
-
-## Usage
-
-1. **Open your browser** and navigate to `http://127.0.0.1:5001/`
-
-2. **Upload your CSV file** containing the TradeMachine backtest data
-
-3. **Configure simulation parameters**:
-   - **Initial Balance**: Starting account balance for simulations
-   - **Number of Simulations**: How many Monte Carlo runs to perform (1000+ recommended)
-   - **Option Commission**: Commission per contract
-   - **Position Sizing Mode**:
-     - **Dynamic Percent**: Adjusts contract count to maintain target risk percentage
-     - **Fixed Percent**: Uses fixed risk percentages with static contract counts
-     - **Fixed Contracts**: Uses predetermined contract counts
-   - **Risk Calculation Method**:
-       - **Variable: Conservative Theoretical Max**: Variable losses up to 95th percentile of theoretical losses (most conservative cap)
-       - **Variable: Theoretical Max**: Variable losses up to maximum theoretical loss
-       - **Fixed: Median Realized**: Fixed loss amount at median of actual historical losses
-       - **Fixed: Average Realized**: Fixed loss amount at average of actual historical losses
-       - **Fixed: Average Realized (Trimmed)**: Fixed loss amount at average excluding top 5% outliers
-       - **Fixed: Conservative Theoretical Max**: Fixed loss amount at conservative theoretical max
-       - **Fixed: Theoretical Max**: Fixed loss amount at theoretical max
-   - **Simulation Mode**:
-     - **IID (Independent Identical Distribution)**: Each trade is independent
-     - **Moving Block Bootstrap**: Preserves historical streak patterns
-   - **Block Size**: Size of trade blocks for bootstrap sampling
-
-4. **Run Simulation** and view the results table showing:
-   - Average final balance
-   - Bankruptcy probability
-   - Maximum drawdown statistics
-   - Losing streak analysis
-
-5. **Adjust parameters** and re-run simulations without re-uploading the CSV
-
-## Understanding the Results
-
-### Key Metrics
-
-- **Avg Final $**: Average account balance after all simulations
-- **Bankruptcy Prob**: Percentage of simulations where account reached zero
-- **Avg Max Drawdown**: Average of the worst drawdown in each simulation
-- **Max Drawdown**: Worst drawdown across all simulations
-- **Avg Max Losing Streak**: Average length of longest losing streak
-- **Max Losing Streak**: Longest losing streak in any simulation
-
-### Position Sizing Modes
-
-- **Percent Mode**: Tests different risk percentages of your account balance
-- **Contracts Mode**: Tests different fixed contract counts per trade
-
-### Simulation Modes
-
-- **IID**: Assumes each trade is independent with no streak patterns
-- **Bootstrap**: Uses historical trade sequences to maintain realistic patterns
-
-## Interactive Visualizations
-
-The results page includes three interactive charts showing how account balance evolves:
-
-1. **Comparison Chart**: Median trajectories for all risk thresholds. Click a line to see its full distribution.
-
-2. **Detail Chart**: Percentile bands (p5-p95, p25-p75, p50) for the selected threshold showing range of outcomes. Light bands show extremes, dark bands show typical range.
-
-3. **Replay Chart**: Actual historical performance. Compare this to Monte Carlo percentiles to see if your sequence was typical, lucky, or unlucky.
-
-**Key Insight**: If the table's "Avg Final $" differs significantly from the chart's median (p50), your distribution is skewed by outliers. The **median is more representative** than the mean in highly variable outcomes. Many simulations may bankrupt while a few lucky runs achieve massive growth, pulling the average up.
-
-**Interactions**: Click chart lines or table rows to select thresholds. Hover for exact values. Use "Hide Charts" to focus on tables.
 
 ## Development
 

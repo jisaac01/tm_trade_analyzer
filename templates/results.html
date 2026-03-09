@@ -286,8 +286,9 @@
 </section>
 
 <section class="trade-card">
-    <h3 class="section-label">Monte Carlo Simulation Results (generated)</h3>
+    <h3 class="section-label" title="Projected outcomes from running thousands of randomized trade sequences using your historical trade data. Each row represents a different position size threshold. Warning: be cautious when interpreting results.">Monte Carlo Simulation Results (generated) <span style="color: #9ca3af; font-size: 14px; cursor: help;">ⓘ</span></h3>
     <p class="meta">Each simulation runs {{ num_trades_per_simulation }} trades. <strong>Click a row to view detailed trajectory.</strong></p>
+    <p class="meta" style="margin-top: 8px;"><strong>Key Insight:</strong> If "Avg Final $" differs significantly from the chart's median (p50), the distribution is skewed by outliers. The <strong>median is more representative</strong> than the mean — many simulations may bankrupt while a few lucky runs achieve massive growth, pulling the average up.</p>
     {{ report.table_html|safe }}
 </section>
 
