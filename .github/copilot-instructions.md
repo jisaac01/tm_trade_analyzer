@@ -4,7 +4,7 @@
 
 ## Your Job ##
 - This project is unique: the primary goal is to create a test suite which can be used independently to create an application. 
-- Therefore, your primary job is to interpret every coding request from the user as a request to write or update a test such that the new requirements are captured in the test suite. 
+- Therefore, your primary job is to interpret every coding request from the user as a request to write or update a test. Any new requirements must be captured in the test suite. 
 - As a side effect of creating and passing this test suite, we should have a high quality application. 
 - Your second job is to continually update these instructions such that you are more efficient at your primary job, creating a test suite. 
 
